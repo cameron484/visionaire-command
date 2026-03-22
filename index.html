@@ -11,9 +11,10 @@
   <style> 
     body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, sans-serif; } 
     canvas { touch-action: none; }
+    .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
   </style>
 </head>
-<body class="bg-slate-100">
+<body class="bg-[#f1f5f9]">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -31,7 +32,7 @@
 
       const autoLoadContract = async (job) => {
         const token = localStorage.getItem('googleAccessToken');
-        if (!token || !apiKey) return alert("Settings incomplete.");
+        if (!token || !apiKey) return alert("Missing API Key or Google Link!");
         setLoading(true);
         try {
           const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
@@ -45,18 +46,23 @@
           reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             
-            // THE REPAIRED PROMPT: Explicitly hunts for the details found on pages 2-3 of the Saunders contract
+            // THE REPAIRED PROMPT: Specifically designed to parse the Saunders Door contract [cite: 25, 29, 31]
             const promptText = `
-              Analyze this Visionaire contract. Extract every Window and Door line item.
+              ACT AS: Visionaire Technical Data Specialist. 
+              TASK: Extract all line items from the provided door agreement.
               
-              STRICT EXTRACTION RULES:
-              1. LOCATION/HEADER: Create a descriptive name like 'Front Entry French Door w/ Storm Door'.
-              2. CONTRACT SIZE: Prioritize the 'Unit Size' (e.g., 60 1/16 x 81 11/16) over nominal size.
-              3. COLOR: Find specific colors like 'Mountain Berry Red' or 'Snow Mist White'.
-              4. HARDWARE/EXTRAS: Find technical specs like 'Peepsite at 58"', 'FrameSaver', 'ZAC Threshold', and 'BetterVue Mesh'.
+              BRANDS: Simonton, Pella, NBP, Precision, Tuscany.
               
-              Return JSON ONLY:
-              [{"line":"1","itemType":"Window/Door","location":"Descriptive Header","style":"","contractSize":"","color":"","glass":"","hardware":"","extras":"","qty":"1"}]
+              SPECIFIC DATA TO CAPTURE FOR SAUNDERS CONTRACT:
+              - Location: Combine Room + Unit (e.g., 'Front Entry Legacy Door w/ Sidelites').
+              - Size: Capture the 'Unit Size' (e.g., 60 1/16 x 81 11/16).
+              - Color: Look for 'Mountain Berry Red' and 'Snow Mist White'.
+              - Glass: Look for 'Gluechip Privacy Glass' and 'DLA-UV'.
+              - Hardware: Peepsite at 58", Zinc hinges, ZAC Threshold.
+              - Extras: FrameSaver, BetterVue Mesh, Storm Door details.
+
+              Return JSON ONLY: 
+              [{"line":"1","itemType":"Window/Door","location":"","style":"","contractSize":"","color":"","glass":"","hardware":"","extras":"","qty":"1"}]
             `;
 
             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
@@ -72,7 +78,7 @@
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items.map(i => ({ ...i, fmWidth: '', fmHeight: '' })) } : j));
             setLoading(false);
           };
-        } catch (e) { setLoading(false); }
+        } catch (e) { setLoading(false); alert("Error parsing PDF."); }
       };
 
       const handleKeyPress = (val) => {
@@ -93,7 +99,7 @@
       const activeJob = jobs.find(j => j.id === activeJobId);
 
       return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-slate-100 flex flex-col">
+        <div className="max-w-2xl mx-auto min-h-screen bg-slate-100 flex flex-col industrial-shadow">
           <header className="p-5 flex justify-between items-center sticky top-0 z-[60]" style={{ backgroundColor: theme.navy, borderBottom: `2px solid ${theme.gold}` }}>
             <div onClick={() => setActiveJobId(null)} className="cursor-pointer">
                 <span className="text-[#f59e0b] font-black italic text-2xl uppercase tracking-tighter leading-none">Visionaire</span>
@@ -104,9 +110,9 @@
           <div className="p-4 flex-1">
             {!activeJobId ? (
               <div className="space-y-4">
-                  <h2 className="text-slate-800 font-black text-xl uppercase px-1">Dispatch</h2>
+                  <h2 className="text-slate-800 font-black text-xl uppercase px-1">Dispatch Board</h2>
                   {jobs.map(job => (
-                    <div key={job.id} onClick={() => { setActiveJobId(job.id); if(!job.data.length) autoLoadContract(job); }} className="bg-white p-6 rounded-[2rem] shadow-sm border-l-[12px] border-[#1a3a5c] flex justify-between items-center cursor-pointer">
+                    <div key={job.id} onClick={() => { setActiveJobId(job.id); if(!job.data.length) autoLoadContract(job); }} className="bg-white p-6 rounded-[2rem] shadow-sm border-l-[12px] border-[#1a3a5c] flex justify-between items-center cursor-pointer active:scale-95 transition-all">
                         <h3 className="font-black text-slate-800 text-lg leading-tight">{job.customer}</h3>
                         <span className="text-slate-300">➔</span>
                     </div>
@@ -114,21 +120,21 @@
               </div>
             ) : (
               <div className="space-y-4 pb-28">
-                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black uppercase text-slate-400 mb-4">◀ Back</button>
+                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black uppercase text-slate-400 mb-4">◀ Back to Dispatch</button>
                 
-                {loading ? <div className="p-20 text-center font-black text-slate-400">Loading Build Specs...</div> : 
+                {loading ? <div className="p-20 text-center font-black text-slate-400">Extracting All Door Specs...</div> : 
                   activeJob.data.map((item, index) => (
                     <div key={index} className="bg-white rounded-[2.2rem] border-l-[12px] overflow-hidden mb-4 shadow-sm" style={{ borderColor: item.fmWidth ? '#22c55e' : (item.itemType || '').includes('Door') ? '#f59e0b' : '#1a3a5c' }}>
-                      <div className="p-5 flex justify-between items-center cursor-pointer" onClick={() => {setActiveItemIndex(activeItemIndex === index ? null : index); setActiveField('fmWidth');}}>
+                      <div className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50" onClick={() => {setActiveItemIndex(activeItemIndex === index ? null : index); setActiveField('fmWidth');}}>
                         <div className="min-w-0 pr-4">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[8px] px-2 py-0.5 rounded-md font-black uppercase bg-slate-100 text-slate-500">{item.itemType}</span>
+                            <span className={`text-[8px] px-2 py-0.5 rounded-md font-black uppercase ${item.itemType.includes('Door') ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{item.itemType}</span>
                           </div>
                           <h4 className="font-black text-slate-800 text-sm uppercase leading-tight truncate max-w-[240px]">
                             {item.location}
                           </h4>
-                          <div className="mt-2 inline-flex bg-blue-50 border border-blue-100 px-2 py-1 rounded-md">
-                              <span className="text-[9px] font-black text-blue-800 uppercase">Unit: {item.contractSize}</span>
+                          <div className="mt-2 inline-flex bg-blue-50 border border-blue-200 px-2 py-1 rounded-md">
+                              <span className="text-[9px] font-black text-blue-800 uppercase leading-none">Unit: {item.contractSize}</span>
                           </div>
                         </div>
                         <div className={`w-5 h-5 rounded-full border-2 ${item.fmWidth ? 'bg-green-500 border-green-600' : 'border-slate-200'}`}></div>
@@ -136,22 +142,22 @@
 
                       {activeItemIndex === index && (
                         <div className="p-6 bg-white border-t border-slate-100 relative z-20">
-                            {/* THE SPEC BOX: This area now explicitly shows the details you were missing */}
+                            {/* THE SPEC BOX: Re-organized to ensure extracted data has a place to live */}
                             <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] space-y-2">
-                                <h5 className="font-black text-[#1a3a5c] uppercase border-b border-slate-200 pb-1 mb-2">Build Specifications</h5>
-                                <p><span className="text-slate-400 font-bold uppercase">Color:</span> <span className="font-black text-slate-700">{item.color}</span></p>
-                                <p><span className="text-slate-400 font-bold uppercase">Glass/Screen:</span> <span className="font-black text-slate-700">{item.glass}</span></p>
-                                <p><span className="text-slate-400 font-bold uppercase">Hardware:</span> <span className="font-black text-slate-700">{item.hardware}</span></p>
-                                <p className="pt-2 border-t mt-2 text-blue-600 italic font-bold">{item.extras}</p>
+                                <h5 className="font-black text-[#1a3a5c] uppercase border-b border-slate-200 pb-1 mb-2">Build Details from Contract </h5>
+                                <p><span className="text-slate-400 font-bold uppercase">Color (In/Out):</span> <span className="font-black text-slate-700">{item.color || 'Pending Scan'}</span></p>
+                                <p><span className="text-slate-400 font-bold uppercase">Glass/Privacy:</span> <span className="font-black text-slate-700">{item.glass || 'Standard'}</span></p>
+                                <p><span className="text-slate-400 font-bold uppercase">Hardware:</span> <span className="font-black text-slate-700">{item.hardware || 'Owner Provided'}</span></p>
+                                <p className="pt-2 border-t mt-2 text-blue-600 italic font-bold tracking-tight">{item.extras}</p>
                             </div>
 
                             <div className="flex gap-3 mb-5">
                                 <div className={`flex-1 p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-100 border-transparent'}`} onClick={() => setActiveField('fmWidth')}>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Width</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Final Width</span>
                                     <span className="text-3xl font-black">{item.fmWidth || '-'}</span>
                                 </div>
                                 <div className={`flex-1 p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-100 border-transparent'}`} onClick={() => setActiveField('fmHeight')}>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Height</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Final Height</span>
                                     <span className="text-3xl font-black">{item.fmHeight || '-'}</span>
                                 </div>
                             </div>
@@ -164,14 +170,14 @@
                                 </div>
                                 <div className="grid grid-cols-3 gap-2">
                                     {[1,2,3,4,5,6,7,8,9].map(n => (
-                                        <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-4 rounded-2xl font-black text-2xl shadow-sm text-slate-700 active:scale-95 transition-all">{n}</button>
+                                        <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-4 rounded-2xl font-black text-2xl shadow-sm text-slate-700 active:bg-slate-50 active:scale-95 transition-all">{n}</button>
                                     ))}
                                     <button onClick={() => handleKeyPress('CLR')} className="bg-white p-4 rounded-2xl font-black text-[10px] text-red-500 uppercase">Clear</button>
                                     <button onClick={() => handleKeyPress('0')} className="bg-white p-4 rounded-2xl font-black text-2xl text-slate-700">0</button>
                                     <button onClick={() => handleKeyPress('DEL')} className="bg-white p-4 rounded-2xl font-black text-xl text-orange-500">⌫</button>
                                 </div>
                             </div>
-                            <button onClick={() => setActiveItemIndex(index < activeJob.data.length - 1 ? index + 1 : null)} className="w-full p-5 bg-[#1a3a5c] text-white rounded-[2.2rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all">Save & Next Window ➔</button>
+                            <button onClick={() => setActiveItemIndex(index < activeJob.data.length - 1 ? index + 1 : null)} className="w-full p-5 bg-[#1a3a5c] text-white rounded-[2.2rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all">Save & Next ➔</button>
                         </div>
                       )}
                     </div>
