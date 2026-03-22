@@ -15,6 +15,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   
   <style> 
     body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; } 
@@ -56,7 +57,6 @@
       return (
         <div className="fixed inset-0 bg-slate-900/80 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden border-4 border-[#1a3a5c] flex flex-col md:flex-row">
-            
             <div className="bg-slate-50 p-6 md:w-1/3 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col justify-center">
                 <h3 className="font-black uppercase text-slate-800 text-lg mb-2">Next Steps</h3>
                 <ul className="text-[10px] text-slate-500 font-bold uppercase space-y-3">
@@ -65,7 +65,6 @@
                     <li className="flex gap-2"><span>3.</span> The Visionaire office will contact you to schedule installation.</li>
                 </ul>
             </div>
-
             <div className="p-6 md:w-2/3 bg-white">
                 <h3 className="font-black uppercase tracking-widest text-slate-800 mb-4 text-center">Customer Sign-Off</h3>
                 <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 overflow-hidden shadow-inner relative mb-4">
@@ -100,16 +99,14 @@
       const [isSyncing, setIsSyncing] = useState(false);
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
-
-      useEffect(() => {
-        if (isLinked) pullCalendarMeasures();
-      }, [isLinked]);
+      useEffect(() => { if (isLinked) pullCalendarMeasures(); }, [isLinked]);
 
       const connectGoogle = () => {
+        if (!clientId) return alert("Enter Client ID in Settings!");
         const client = google.accounts.oauth2.initTokenClient({
           client_id: clientId.trim(),
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar.readonly',
-          callback: (res) => { if(res.access_token) { localStorage.setItem('googleAccessToken', res.access_token); setIsLinked(true); setShowSettings(false); } }
+          callback: (res) => { if(res.access_token) { localStorage.setItem('googleAccessToken', res.access_token); setIsLinked(true); setShowSettings(false); pullCalendarMeasures(); } }
         });
         client.requestAccessToken({ prompt: 'select_account consent' });
       };
@@ -120,9 +117,16 @@
         setIsSyncing(true);
         try {
           const calListRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', { headers: { Authorization: `Bearer ${token}` } });
-          if (calListRes.status === 401) { setIsLinked(false); localStorage.removeItem('googleAccessToken'); setIsSyncing(false); return; }
-          const calListData = await calListRes.json();
           
+          if (calListRes.status === 401 || calListRes.status === 403) { 
+              setIsLinked(false); 
+              localStorage.removeItem('googleAccessToken'); 
+              setIsSyncing(false); 
+              alert("Google blocked calendar access! Please go to Settings ⚙️ -> 'Refresh Google Link' and make sure to CHECK the permission boxes.");
+              return; 
+          }
+          
+          const calListData = await calListRes.json();
           const now = new Date(); now.setHours(0,0,0,0);
           const timeMin = now.toISOString();
           const future = new Date(); future.setDate(now.getDate() + 14); 
@@ -138,14 +142,22 @@
                       if (data.items) {
                           const matched = data.items.filter(e => {
                               const title = (e.summary || '').toLowerCase();
-                              return title.includes('final') || title.includes('measure') || title.includes('fm -') || title.includes('fm:');
+                              return title.includes('final') || title.includes('measure') || title.includes('fm -') || title.includes('fm:') || title.includes('fm ');
                           });
 
                           matched.forEach(e => {
-                              const title = e.summary;
-                              const parts = title.split(/[-:]/);
-                              const name = parts.length > 1 ? parts[parts.length - 1].trim() : title.trim();
+                              const title = e.summary || '';
+                              let name = title;
                               
+                              // NEW: Parses names like "Final Meas 10am, 2703 Main St"
+                              if (title.includes(',')) {
+                                  name = title.split(',').slice(1).join(',').trim(); 
+                              } else if (title.includes('-')) {
+                                  name = title.split('-').pop().trim();
+                              } else if (title.includes(':')) {
+                                  name = title.split(':').pop().trim();
+                              }
+
                               let startTime = 'TBD'; let dateRaw = Date.now();
                               if (e.start.dateTime) {
                                   const d = new Date(e.start.dateTime);
@@ -173,25 +185,25 @@
               const trulyNew = allFoundJobs.filter(j => !existingNames.includes(j.customer.toLowerCase()));
               return [...prev, ...trulyNew].sort((a, b) => a.rawDate - b.rawDate);
           });
-        } catch (e) { console.error("Sync error", e); }
+        } catch (e) { 
+            console.error("Sync error", e); 
+        }
         setIsSyncing(false);
       };
 
       const autoLoadContract = async (job) => {
         const token = localStorage.getItem('googleAccessToken');
-        if (!token || !apiKey) {
-            alert("Ensure your Google Account is linked and Gemini Key is in settings!");
-            setActiveJobId(null);
-            return;
-        }
+        if (!token || !apiKey) return alert("Ensure your Google Account is linked and Gemini Key is in settings!");
         setLoading(true);
         try {
+          // If the office puts the address in the title, we search Drive using that!
           const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
           const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
 
           if (!driveData.files || driveData.files.length === 0) {
-            alert(`No contract PDF found in Drive for ${job.customer}.`); setLoading(false); setActiveJobId(null); return;
+            alert(`No contract PDF found in Drive containing: "${job.customer}". Try manual entry or check Drive.`); 
+            setLoading(false); setActiveJobId(null); return;
           }
 
           const fileId = driveData.files[0].id;
@@ -330,7 +342,7 @@
                 <label className="text-[10px] font-black text-slate-400 block mb-1 uppercase">Google Client ID</label>
                 <input type="text" value={clientId} onChange={e => setClientId(e.target.value)} className="w-full p-3 bg-slate-100 rounded mb-6 text-xs font-mono" />
                 <button onClick={connectGoogle} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black text-xs uppercase shadow-md mb-2">
-                    {isLinked ? 'Refresh Google Link' : 'Link Google Account'}
+                    {isLinked ? '🔄 Refresh Google Link' : 'Link Google Account'}
                 </button>
                 <button onClick={() => setShowSettings(false)} className="w-full bg-slate-200 text-slate-700 p-4 rounded-xl font-black text-xs uppercase">Close Settings</button>
             </div>
@@ -376,7 +388,7 @@
                                   ) : isComplete ? (
                                       <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">Completed</span>
                                   ) : job.data.length > 0 ? (
-                                      <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">In Progress ({job.data.length} Units)</span>
+                                      <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">In Progress</span>
                                   ) : (
                                       <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">Ready for Scan</span>
                                   )}
@@ -409,6 +421,14 @@
                     <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[2rem] shadow-sm border-2 border-slate-100">
                         <div className="w-16 h-16 rounded-full border-4 border-slate-200 border-t-[#f59e0b] animate-spin mb-4"></div>
                         <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm">Working...</h3>
+                    </div>
+                )}
+
+                {!loading && activeJob.data.length === 0 && (
+                    <div className="bg-white p-10 rounded-[2rem] text-center border-4 border-dashed border-slate-300">
+                        <h3 className="font-black text-slate-500 uppercase">Awaiting Contract</h3>
+                        <p className="text-xs text-slate-400 font-bold mt-2">Could not automatically load PDF.</p>
+                        <button onClick={() => autoLoadContract(activeJob)} className="mt-4 bg-[#1a3a5c] text-white px-6 py-3 rounded-xl font-black text-xs uppercase shadow-md">Retry Drive Search</button>
                     </div>
                 )}
 
