@@ -13,17 +13,106 @@
     body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; background-color: #f1f5f9; } 
     .num-btn { @apply bg-white p-5 rounded-2xl font-black text-3xl shadow-sm active:bg-slate-200 active:scale-95 transition-all border-b-4 border-slate-300 flex items-center justify-center text-slate-700; }
     .frac-btn { @apply bg-[#1a3a5c] text-white p-4 rounded-xl font-black text-xl active:scale-95 transition-all shadow-md flex items-center justify-center border-b-4 border-blue-900; }
-    .pulse-ring { animation: pulsate 2s ease-out infinite; }
-    @keyframes pulsate { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+    .action-btn { @apply flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all border; }
+    /* Prevents the iPad from scrolling when the customer is signing */
+    canvas { touch-action: none; } 
   </style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
     const theme = { navy: '#1a3a5c', gold: '#f59e0b' };
 
+    // --- SIGNATURE PAD COMPONENT ---
+    function SignaturePad({ onSave, onCancel }) {
+      const canvasRef = useRef(null);
+      const [isDrawing, setIsDrawing] = useState(false);
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#1e293b'; // Slate-800
+      }, []);
+
+      const getCoordinates = (e) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches && e.touches.length > 0) {
+          return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+        }
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      };
+
+      const startDrawing = (e) => {
+        setIsDrawing(true);
+        const { x, y } = getCoordinates(e);
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      };
+
+      const draw = (e) => {
+        if (!isDrawing) return;
+        e.preventDefault(); // Stop scrolling
+        const { x, y } = getCoordinates(e);
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      };
+
+      const stopDrawing = () => {
+        setIsDrawing(false);
+      };
+
+      const clearPad = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      };
+
+      const savePad = () => {
+        const dataUrl = canvasRef.current.toDataURL('image/png');
+        onSave(dataUrl);
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-900/50 flex flex-col items-center justify-center z-[100] p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border-4 border-[#1a3a5c]">
+            <div className="p-6 bg-[#1a3a5c] text-white text-center">
+                <h3 className="font-black uppercase tracking-widest text-lg">Customer Sign-Off</h3>
+                <p className="text-[10px] uppercase font-bold text-slate-300 mt-1">Please sign to approve final measurements</p>
+            </div>
+            
+            <div className="p-6 bg-slate-50">
+                <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 overflow-hidden shadow-inner relative">
+                    <canvas 
+                        ref={canvasRef}
+                        width={400} 
+                        height={250}
+                        className="w-full h-[250px] bg-white cursor-crosshair"
+                        onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
+                        onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
+                    />
+                    <div className="absolute bottom-2 left-4 text-slate-300 font-black text-2xl select-none pointer-events-none opacity-50">X</div>
+                    <div className="absolute bottom-2 left-10 right-4 border-b-2 border-slate-200 pointer-events-none"></div>
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                    <button onClick={clearPad} className="flex-1 py-4 bg-slate-200 text-slate-600 rounded-xl font-black text-xs uppercase active:scale-95">Clear</button>
+                    <button onClick={onCancel} className="flex-1 py-4 bg-red-100 text-red-600 rounded-xl font-black text-xs uppercase active:scale-95">Cancel</button>
+                    <button onClick={savePad} className="flex-[2] py-4 bg-green-500 text-white rounded-xl font-black text-xs uppercase shadow-lg active:scale-95">Approve & Sign</button>
+                </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- MAIN APP ---
     function VisionaireApp() {
       const [apiKey, setApiKey] = useState(localStorage.getItem('geminiApiKey') || '');
       const [clientId, setClientId] = useState(localStorage.getItem('googleClientId') || '');
@@ -35,16 +124,12 @@
       const [activeItemIndex, setActiveItemIndex] = useState(null);
       const [activeField, setActiveField] = useState('fmWidth');
       const [showSettings, setShowSettings] = useState(false);
+      const [signingJobId, setSigningJobId] = useState(null); // Triggers Signature Pad
 
-      // Save jobs to device memory whenever they change
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      // --- THE AUTO-BOOT SYNC ---
-      // This runs automatically the second you open the app, IF you are linked.
       useEffect(() => {
-        if (isLinked) {
-          pullCalendarMeasures();
-        }
+        if (isLinked) pullCalendarMeasures();
       }, [isLinked]);
 
       const connectGoogle = () => {
@@ -66,77 +151,77 @@
       const pullCalendarMeasures = async () => {
         const token = localStorage.getItem('googleAccessToken');
         if (!token) return;
-        
         setIsSyncing(true);
         try {
-          const now = new Date().toISOString();
-          // Fetch events from now forward, ordered by time
-          const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&q=Final Measure&singleEvents=true&orderBy=startTime`, {
-              headers: { Authorization: `Bearer ${token}` }
-          });
+          const calListRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', { headers: { Authorization: `Bearer ${token}` } });
+          if (calListRes.status === 401) { setIsLinked(false); localStorage.removeItem('googleAccessToken'); setIsSyncing(false); return; }
+          const calListData = await calListRes.json();
           
-          if (res.status === 401) {
-             // Token expired, needs re-link
-             setIsLinked(false);
-             localStorage.removeItem('googleAccessToken');
-             setIsSyncing(false);
-             return;
-          }
+          const now = new Date(); now.setHours(0,0,0,0);
+          const timeMin = now.toISOString();
+          const future = new Date(); future.setDate(now.getDate() + 14); 
+          const timeMax = future.toISOString();
 
-          const data = await res.json();
-          if (data.items) {
-             const newJobs = data.items.map(e => {
-                const name = e.summary.split(/[:\-]/).pop().trim();
-                const startTime = new Date(e.start.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                const dateRaw = new Date(e.start.dateTime);
-                
-                // Don't add if already exists
-                if (jobs.some(j => j.customer === name)) return null;
+          let allFoundJobs = [];
 
-                return {
-                    id: Date.now() + Math.random(),
-                    customer: name,
-                    location: e.location || 'No Address Provided',
-                    time: startTime,
-                    rawDate: dateRaw.getTime(),
-                    data: []
-                };
-             }).filter(j => j !== null);
-             
-             if (newJobs.length > 0) {
-                 // Add new jobs and sort them chronologically
-                 setJobs(prev => [...prev, ...newJobs].sort((a, b) => a.rawDate - b.rawDate));
-             }
+          if (calListData.items) {
+              for (const calendar of calListData.items) {
+                  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`, { headers: { Authorization: `Bearer ${token}` } });
+                  if (res.ok) {
+                      const data = await res.json();
+                      if (data.items) {
+                          const matched = data.items.filter(e => {
+                              const title = (e.summary || '').toLowerCase();
+                              return title.includes('final') || title.includes('measure') || title.includes('fm -') || title.includes('fm:');
+                          });
+
+                          matched.forEach(e => {
+                              const title = e.summary;
+                              const parts = title.split(/[-:]/);
+                              const name = parts.length > 1 ? parts[parts.length - 1].trim() : title.trim();
+                              
+                              let startTime = 'TBD'; let dateRaw = Date.now();
+                              if (e.start.dateTime) {
+                                  const d = new Date(e.start.dateTime);
+                                  startTime = `${d.getMonth()+1}/${d.getDate()} @ ${d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                                  dateRaw = d.getTime();
+                              }
+
+                              let phoneNum = '';
+                              if (e.description) {
+                                  const phoneMatch = e.description.match(/(\+?1[-.\s]?)?(\()?\d{3}(\))?[-.\s]?\d{3}[-.\s]?\d{4}/);
+                                  if (phoneMatch) phoneNum = phoneMatch[0].replace(/[^\d]/g, ''); 
+                              }
+
+                              allFoundJobs.push({
+                                  id: Date.now() + Math.random(),
+                                  customer: name, location: e.location || '', phone: phoneNum, time: startTime, rawDate: dateRaw, data: [], signature: null
+                              });
+                          });
+                      }
+                  }
+              }
           }
-        } catch (e) {
-          console.error("Sync error", e);
-        }
+          setJobs(prev => {
+              const existingNames = prev.map(j => j.customer.toLowerCase());
+              const trulyNew = allFoundJobs.filter(j => !existingNames.includes(j.customer.toLowerCase()));
+              return [...prev, ...trulyNew].sort((a, b) => a.rawDate - b.rawDate);
+          });
+        } catch (e) { console.error("Sync error", e); }
         setIsSyncing(false);
       };
 
       const autoLoadContract = async (job) => {
         const token = localStorage.getItem('googleAccessToken');
-        if (!token || !apiKey) {
-            alert("Ensure your Google Account is linked and Gemini Key is in settings!");
-            setActiveJobId(null);
-            return;
-        }
-        
+        if (!token || !apiKey) return;
         setLoading(true);
         try {
-          // Search for PDF with "Signed" and Customer Name
           const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
-          const driveRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
 
           if (!driveData.files || driveData.files.length === 0) {
-            alert(`No contract PDF found in Drive for ${job.customer}.`);
-            setLoading(false);
-            setActiveJobId(null);
-            return;
+            alert(`No contract PDF found in Drive for ${job.customer}.`); setLoading(false); setActiveJobId(null); return;
           }
 
           const fileId = driveData.files[0].id;
@@ -147,29 +232,17 @@
           reader.readAsDataURL(blob);
           reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
-            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [
-                    { text: "Extract Window Lines from this contract. Return JSON ONLY in this format: [{'line': '1', 'location': '...', 'qty': '1'}]. If no windows found, return []." },
-                    { inlineData: { mimeType: "application/pdf", data: base64 } }
-                ]}]
-              })
+            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [ { text: "Extract Window Lines from this contract. Return JSON ONLY in this format: [{'line': '1', 'location': '...', 'qty': '1'}]. If no windows found, return []." }, { inlineData: { mimeType: "application/pdf", data: base64 } } ]}] })
             });
-            
             const result = await geminiRes.json();
             const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
             const items = JSON.parse(text);
-
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items.map(i => ({ ...i, fmWidth: '', fmHeight: '' })) } : j));
             setLoading(false);
           };
-        } catch (e) {
-          alert("Error analyzing contract: " + e.message);
-          setLoading(false);
-          setActiveJobId(null);
-        }
+        } catch (e) { alert("Error analyzing contract: " + e.message); setLoading(false); setActiveJobId(null); }
       };
 
       const handleKeyPress = (val) => {
@@ -182,22 +255,50 @@
                   else if(val === 'CLR') cur = '';
                   else cur += val;
                   items[activeItemIndex][activeField] = cur;
-                  
-                  // Auto-advance to Height if they click a fraction while in Width
-                  if (val.includes('/') && activeField === 'fmWidth') {
-                      setActiveField('fmHeight');
-                  }
+                  if (val.includes('/') && activeField === 'fmWidth') setActiveField('fmHeight');
                   return { ...job, data: items };
               }
               return job;
           }));
       };
 
+      const saveSignature = (base64Img) => {
+          setJobs(prev => prev.map(j => j.id === signingJobId ? { ...j, signature: base64Img } : j));
+          setSigningJobId(null);
+          alert("Signature Saved Successfully!");
+      };
+
+      // --- CUSTOMER AUTO-SEND ---
+      const sendToCustomer = async (job) => {
+          // Creates a summary text
+          let summary = `Visionaire Windows - Final Measure Confirmation\n\nCustomer: ${job.customer}\nTotal Units: ${job.data.length}\n\n`;
+          job.data.forEach(item => {
+             summary += `Line ${item.line}: ${item.location} (Qty: ${item.qty})\n`; 
+          });
+          summary += `\nThank you for choosing Visionaire Windows!`;
+
+          // Use the native iPad Share Sheet if available
+          if (navigator.share) {
+              try {
+                  await navigator.share({
+                      title: 'Visionaire Measurement Confirmation',
+                      text: summary,
+                  });
+              } catch (err) {
+                  console.log("Share cancelled or failed", err);
+              }
+          } else {
+              // Fallback to Email if Share API isn't supported
+              window.location.href = `mailto:?subject=Visionaire Final Measure - ${job.customer}&body=${encodeURIComponent(summary)}`;
+          }
+      };
+
       const activeJob = jobs.find(j => j.id === activeJobId);
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen flex flex-col relative shadow-2xl">
-          {/* HEADER */}
+          {signingJobId && <SignaturePad onSave={saveSignature} onCancel={() => setSigningJobId(null)} />}
+
           <header className="p-4 flex justify-between items-center sticky top-0 z-50 shadow-md border-b-2" style={{ backgroundColor: theme.navy, borderColor: theme.gold }}>
             <div className="flex flex-col cursor-pointer" onClick={() => {setActiveJobId(null); setActiveItemIndex(null);}}>
                 <span className="text-[#f59e0b] font-black italic text-2xl uppercase leading-none tracking-tighter">Visionaire</span>
@@ -209,7 +310,6 @@
             </div>
           </header>
 
-          {/* SETTINGS PANEL */}
           {showSettings && (
             <div className="absolute top-[70px] left-0 right-0 z-40 bg-white p-6 shadow-2xl border-b-8 border-[#f59e0b]">
                 <label className="text-[10px] font-black text-slate-400 block mb-1 uppercase">Gemini API Key</label>
@@ -223,160 +323,50 @@
             </div>
           )}
 
-          {/* MAIN CONTENT AREA */}
           <div className="p-4 flex-1">
-            
-            {/* DISPATCH BOARD (NO JOB SELECTED) */}
             {!activeJobId && (
               <div className="space-y-4">
                 <div className="flex justify-between items-end mb-2 px-1">
                     <h2 className="text-slate-800 font-black text-xl tracking-tighter uppercase">Dispatch Board</h2>
-                    {!isLinked ? (
-                        <span className="text-red-500 font-bold text-xs flex items-center gap-1"><div className="w-2 h-2 bg-red-500 rounded-full"></div>Offline</span>
-                    ) : (
-                        <span className="text-green-600 font-bold text-xs flex items-center gap-1"><div className="w-2 h-2 bg-green-500 rounded-full"></div>Live</span>
-                    )}
+                    {!isLinked ? <span className="text-red-500 font-bold text-xs flex items-center gap-1"><div className="w-2 h-2 bg-red-500 rounded-full"></div>Offline</span> : <span className="text-green-600 font-bold text-xs flex items-center gap-1"><div className="w-2 h-2 bg-green-500 rounded-full"></div>Live</span>}
                 </div>
 
                 {jobs.length === 0 && !isSyncing && (
                     <div className="bg-white p-10 rounded-[2rem] border-4 border-dashed border-slate-200 text-center shadow-sm">
                         <div className="text-4xl mb-3">📅</div>
                         <h3 className="font-black text-slate-700 uppercase">Schedule Clear</h3>
-                        <p className="text-xs text-slate-400 font-bold mt-1">No Final Measures found on calendar.</p>
+                        <p className="text-xs text-slate-400 font-bold mt-1">No appointments found.</p>
                         <button onClick={pullCalendarMeasures} className="mt-6 px-6 py-3 bg-[#1a3a5c] text-white rounded-xl font-black text-xs uppercase shadow-lg active:scale-95">Force Sync</button>
                     </div>
                 )}
 
                 {jobs.map((job, index) => {
-                  const isNext = index === 0; // The very first item on the list
+                  const isNext = index === 0; 
                   const isComplete = job.data.length > 0 && job.data.every(i => i.fmWidth && i.fmHeight);
+                  const textMessage = encodeURIComponent(`Hi ${job.customer}, this is Cameron with Visionaire Windows. I am heading your way for the final measure. My ETA is about [   ] minutes.`);
                   
                   return (
-                  <div key={job.id} 
-                       onClick={() => { setActiveJobId(job.id); if(job.data.length === 0) autoLoadContract(job); }} 
-                       className={`relative bg-white p-5 shadow-md rounded-[2rem] border-l-[12px] flex justify-between items-center active:scale-95 transition-transform cursor-pointer ${isNext && !isComplete ? 'border-[#f59e0b] ring-4 ring-[#f59e0b]/20' : isComplete ? 'border-green-500 opacity-70' : 'border-[#1a3a5c]'}`}
-                  >
-                    {isNext && !isComplete && (
-                        <div className="absolute -top-3 left-4 bg-[#f59e0b] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
-                            Next Up
-                        </div>
-                    )}
-                    <div className="flex items-center gap-4 w-full">
-                        <div className="flex flex-col items-center justify-center bg-slate-50 rounded-2xl w-20 h-20 border border-slate-100 flex-shrink-0">
-                            <span className="text-slate-400 text-[9px] font-black uppercase tracking-widest">Time</span>
-                            <span className="text-slate-800 font-black text-sm">{job.time || 'TBD'}</span>
+                  <div key={job.id} className={`relative bg-white shadow-md rounded-[2rem] border-l-[12px] flex flex-col transition-transform ${isNext && !isComplete ? 'border-[#f59e0b] ring-4 ring-[#f59e0b]/20' : isComplete ? 'border-green-500 opacity-80' : 'border-[#1a3a5c]'}`}>
+                    {isNext && !isComplete && <div className="absolute -top-3 left-4 bg-[#f59e0b] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md z-10">Next Up</div>}
+                    
+                    <div onClick={() => { setActiveJobId(job.id); if(job.data.length === 0) autoLoadContract(job); }} className="p-5 flex items-center gap-4 w-full cursor-pointer active:bg-slate-50 rounded-[2rem]">
+                        <div className="flex flex-col items-center justify-center bg-slate-50 rounded-xl px-3 py-4 border border-slate-100 flex-shrink-0 min-w-[70px]">
+                            <span className="text-slate-800 font-black text-xs text-center leading-tight">{job.time}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="font-black text-slate-800 text-xl truncate leading-none mb-1">{job.customer}</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{job.location}</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{job.location || 'No Address'}</p>
                             
-                            {/* Status Indicator */}
                             <div className="mt-2 flex items-center gap-2">
-                                {isComplete ? (
+                                {job.signature ? (
+                                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1">✍️ Signed</span>
+                                ) : isComplete ? (
                                     <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">Completed</span>
                                 ) : job.data.length > 0 ? (
-                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">In Progress ({job.data.length} Units)</span>
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">In Progress</span>
                                 ) : (
                                     <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">Ready for Scan</span>
                                 )}
                             </div>
                         </div>
-                        <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-slate-50 rounded-full border-2 border-slate-200">
-                            <span className="text-slate-400 font-black">➔</span>
-                        </div>
-                    </div>
-                  </div>
-                )})}
-              </div>
-            )}
-
-            {/* MEASUREMENT SHEET VIEW */}
-            {activeJobId && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="flex justify-between items-center mb-4 px-2">
-                    <button onClick={() => {setActiveJobId(null); setActiveItemIndex(null);}} className="text-[11px] font-black uppercase text-slate-500 flex items-center gap-1 bg-white px-4 py-2 rounded-full shadow-sm">
-                        ◀ Back to Dispatch
-                    </button>
-                    <span className="text-xs font-black text-slate-800 uppercase truncate max-w-[150px]">{activeJob.customer}</span>
-                </div>
-
-                {loading && (
-                    <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[2rem] shadow-sm border-2 border-slate-100">
-                        <div className="w-16 h-16 rounded-full border-4 border-slate-200 border-t-[#f59e0b] animate-spin mb-4"></div>
-                        <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm">Searching Drive</h3>
-                        <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">Locating contract for {activeJob.customer}</p>
-                    </div>
-                )}
-
-                {!loading && activeJob.data.length === 0 && (
-                    <div className="bg-white p-10 rounded-[2rem] text-center border-4 border-dashed border-red-200">
-                        <h3 className="font-black text-red-500 uppercase">Scan Failed</h3>
-                        <p className="text-xs text-slate-500 font-bold mt-2">Could not automatically load the PDF from Drive.</p>
-                        <button onClick={() => autoLoadContract(activeJob)} className="mt-4 bg-slate-800 text-white px-6 py-3 rounded-xl font-black text-xs uppercase shadow-md">Retry Drive Search</button>
-                    </div>
-                )}
-
-                {/* THE KEYPAD & WINDOW LIST */}
-                {!loading && activeJob.data.map((item, index) => (
-                  <div key={index} className="bg-white shadow-sm rounded-3xl border-l-[12px] overflow-hidden transition-all" style={{ borderColor: item.fmWidth && item.fmHeight ? '#22c55e' : '#f59e0b' }}>
-                    
-                    <div className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50" onClick={() => {setActiveItemIndex(activeItemIndex === index ? null : index); setActiveField('fmWidth');}}>
-                      <div className="flex gap-4 items-center">
-                          <div className="bg-slate-100 w-12 h-12 rounded-xl flex items-center justify-center border border-slate-200">
-                              <span className="font-black text-slate-400 text-lg">{item.line}</span>
-                          </div>
-                          <div>
-                            <h4 className="font-black text-slate-800 text-lg uppercase tracking-tighter leading-none">{item.location}</h4>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">QTY: {item.qty || 1}</p>
-                          </div>
-                      </div>
-                      <div className={`w-4 h-4 rounded-full border-2 ${item.fmWidth && item.fmHeight ? 'bg-green-500 border-green-600' : 'bg-transparent border-amber-400'}`}></div>
-                    </div>
-
-                    {/* EXPANDED KEYPAD ENTRY */}
-                    {activeItemIndex === index && (
-                       <div className="p-5 bg-slate-50 border-t border-slate-200 shadow-inner">
-                          <div className="flex gap-3 mb-5">
-                            <div className={`flex-1 p-4 rounded-2xl border-4 transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-lg scale-[1.02]' : 'border-slate-200/50 bg-slate-100 opacity-60'}`} onClick={() => setActiveField('fmWidth')}>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">Width</p>
-                                <div className="text-3xl font-black text-slate-800 text-center h-10 flex items-center justify-center">{item.fmWidth || '-'}</div>
-                            </div>
-                            <div className={`flex-1 p-4 rounded-2xl border-4 transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-lg scale-[1.02]' : 'border-slate-200/50 bg-slate-100 opacity-60'}`} onClick={() => setActiveField('fmHeight')}>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">Height</p>
-                                <div className="text-3xl font-black text-slate-800 text-center h-10 flex items-center justify-center">{item.fmHeight || '-'}</div>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-slate-300 p-3 rounded-[2.5rem] shadow-inner mb-4">
-                            <div className="grid grid-cols-7 gap-1.5 mb-3">
-                                {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(' '+f)} className="frac-btn text-sm">{f}</button>)}
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[1,2,3,4,5,6,7,8,9].map(n => <button key={n} onClick={() => handleKeyPress(n.toString())} className="num-btn">{n}</button>)}
-                                <button onClick={() => handleKeyPress('CLR')} className="num-btn text-red-500 text-sm">CLR</button>
-                                <button onClick={() => handleKeyPress('0')} className="num-btn">0</button>
-                                <button onClick={() => handleKeyPress('DEL')} className="num-btn text-orange-500 text-lg">⌫</button>
-                            </div>
-                          </div>
-
-                          <button onClick={() => {
-                              if(activeItemIndex < activeJob.data.length - 1) { setActiveItemIndex(activeItemIndex + 1); setActiveField('fmWidth'); }
-                              else { setActiveItemIndex(null); }
-                          }} className="w-full p-5 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg active:scale-95 transition-all flex justify-center items-center gap-2" style={{ backgroundColor: theme.navy }}>
-                              {activeItemIndex < activeJob.data.length - 1 ? 'Save & Next Window ➔' : 'Close Line Item'}
-                          </button>
-                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<VisionaireApp />);
-  </script>
-</body>
-</html>
+                        <div className="flex-shrink-0 flex items-center justify-center w-10 h
