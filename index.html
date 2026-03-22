@@ -11,8 +11,9 @@
   <script src="https://accounts.google.com/gsi/client"></script>
   <style> 
     body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; background-color: #f8fafc; } 
-    .num-btn { @apply bg-white p-5 rounded-2xl font-black text-3xl shadow-sm active:bg-slate-200 active:scale-90 transition-all border-b-4 border-slate-300 flex items-center justify-center; }
-    .frac-btn { @apply bg-[#1a3a5c] text-white p-4 rounded-xl font-black text-xl active:scale-90 transition-all shadow-md flex items-center justify-center border-b-4 border-blue-900; }
+    .sync-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    .num-btn { @apply bg-white p-5 rounded-2xl font-black text-3xl shadow-sm active:bg-slate-200 active:scale-90 transition-all border-b-4 border-slate-300 flex items-center justify-center text-slate-700; }
   </style>
 </head>
 <body>
@@ -20,119 +21,110 @@
 
   <script type="text/babel">
     const { useState, useEffect } = React;
-    const theme = { navy: '#1a3a5c', gold: '#f59e0b' };
 
     function VisionaireApp() {
-      const [apiKey, setApiKey] = useState(localStorage.getItem('geminiApiKey') || '');
-      const [clientId, setClientId] = useState(localStorage.getItem('googleClientId') || '');
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
-      const [showSettings, setShowSettings] = useState(false);
-      const [loading, setLoading] = useState(false);
+      const [isSyncing, setIsSyncing] = useState(false);
       const [isLinked, setIsLinked] = useState(!!localStorage.getItem('googleAccessToken'));
+      const [clientId] = useState(localStorage.getItem('googleClientId') || '');
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      const connectGoogle = () => {
-        const client = google.accounts.oauth2.initTokenClient({
-          client_id: clientId.trim(),
-          scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar.readonly',
-          callback: (res) => {
-            if (res.access_token) {
-              localStorage.setItem('googleAccessToken', res.access_token);
-              setIsLinked(true);
-              setShowSettings(false);
-            }
-          },
-        });
-        client.requestAccessToken({ prompt: 'select_account' });
-      };
-
-      // --- AUTOMATIC CALENDAR & DRIVE SYNC ---
-      const syncDailySchedule = async () => {
+      const pullCalendarMeasures = async () => {
         const token = localStorage.getItem('googleAccessToken');
         if (!token) return alert("Please Link Account in Settings first.");
         
-        setLoading(true);
+        setIsSyncing(true);
         try {
+          // Fetch events from now into the future
           const now = new Date().toISOString();
-          // 1. Search Calendar for "Final Measure" events
-          const calRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&q=Final Measure`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const calData = await calRes.json();
+          const response = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&q=Final Measure&singleEvents=true&orderBy=startTime`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
           
-          if (!calData.items || calData.items.length === 0) {
-            alert("No 'Final Measure' appointments found on your calendar for today.");
-            setLoading(false);
-            return;
-          }
-
-          // 2. For the first found event, try to find a matching PDF on Drive
-          const customerName = calData.items[0].summary.replace('Final Measure - ', '').trim();
-          const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains '${customerName}' and mimeType='application/pdf'`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const driveData = await driveRes.json();
-
-          if (driveData.files && driveData.files.length > 0) {
-            alert(`Found contract for ${customerName}. AI is reading it now...`);
-            // Here we would fetch the file and send to Gemini (Requires file:get)
-            // For now, use the manual "Scan" button if the PDF is on your device
+          const data = await response.json();
+          
+          if (!data.items || data.items.length === 0) {
+            alert("No 'Final Measure' events found on your calendar.");
           } else {
-            alert(`Found appointment for ${customerName}, but couldn't find a PDF with that name in your Drive.`);
+            const newJobsFromCal = data.items.map(event => {
+              // Extract name from "Final Measure: Name" or "Final Measure - Name"
+              const name = event.summary.split(/[:\-]/).pop().trim();
+              
+              // Check if we already have this job loaded
+              if (jobs.some(j => j.customer === name)) return null;
+
+              return {
+                id: Date.now() + Math.random(),
+                customer: name,
+                location: event.location || 'No Address Listed',
+                dateAdded: new Date(event.start.dateTime).toLocaleDateString(),
+                status: 'Scheduled',
+                data: [] // Ready for PDF scan or manual entry
+              };
+            }).filter(j => j !== null);
+
+            if (newJobsFromCal.length > 0) {
+              setJobs(prev => [...newJobsFromCal, ...prev]);
+              alert(`Imported ${newJobsFromCal.length} new appointments from your calendar.`);
+            } else {
+              alert("All calendar measures are already in your list.");
+            }
           }
         } catch (e) {
           alert("Sync Error: " + e.message);
         }
-        setLoading(false);
+        setIsSyncing(false);
       };
 
       return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-white shadow-2xl pb-10">
-          <header className="p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg border-b-2 border-[#f59e0b]" style={{ backgroundColor: theme.navy }}>
-            <div className="flex flex-col cursor-pointer" onClick={() => setShowSettings(false)}>
-                <span className="text-[#f59e0b] font-black italic text-xl uppercase leading-none">Visionaire</span>
+        <div className="max-w-2xl mx-auto min-h-screen bg-slate-50 pb-10">
+          <header className="p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg bg-[#1a3a5c] border-b-2 border-[#f59e0b]">
+            <div className="flex flex-col">
+                <span className="text-[#f59e0b] font-black italic text-xl uppercase">Visionaire</span>
                 <span className="text-white font-bold text-[8px] tracking-[0.4em] ml-1 uppercase">Field Command</span>
             </div>
-            <button onClick={() => setShowSettings(!showSettings)} className="text-2xl p-2 bg-white/10 rounded-full">⚙️</button>
+            <div className={`h-3 w-3 rounded-full ${isLinked ? 'bg-green-500' : 'bg-red-500'}`}></div>
           </header>
 
           <div className="p-4">
-            {isLinked && (
-              <button 
-                onClick={syncDailySchedule}
-                className="w-full mb-6 p-6 bg-blue-600 text-white rounded-[2rem] font-black text-sm uppercase shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
-              >
-                <span className="text-xl">🔄</span> Sync Today's Schedule
-              </button>
-            )}
+            {/* THE SYNC ACTION */}
+            <button 
+              onClick={pullCalendarMeasures}
+              disabled={isSyncing}
+              className={`w-full mb-6 p-6 rounded-[2rem] font-black text-sm uppercase shadow-xl transition-all flex items-center justify-center gap-3 ${
+                isSyncing ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 text-white active:scale-95'
+              }`}
+            >
+              <span className={isSyncing ? 'sync-pulse' : ''}>{isSyncing ? '⌛' : '📅'}</span>
+              {isSyncing ? 'Scanning Calendar...' : 'Pull Calendar Measures'}
+            </button>
 
-            {showSettings && (
-              <div className="p-6 bg-white border-b-8 border-[#f59e0b] mb-4">
-                <label className="text-[10px] font-black text-slate-400 block mb-1 uppercase">Google Client ID</label>
-                <input type="text" value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full p-3 bg-slate-100 rounded mb-6 text-xs font-mono" />
-                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black text-xs uppercase shadow-md mb-2">Link Work Account</button>
-                <button onClick={() => setShowSettings(false)} className="w-full bg-slate-200 text-slate-600 p-4 rounded-xl font-black text-xs uppercase">Close</button>
-              </div>
-            )}
-
-            <div className="bg-white p-12 rounded-[2.5rem] shadow-sm border-4 border-dashed border-slate-200 mb-10 text-center relative">
-                <h2 className="font-black text-slate-800 text-xl uppercase">Manual PDF Scan</h2>
-                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
-                <button className="mt-4 bg-[#f59e0b] text-navy px-10 py-4 rounded-2xl font-black text-xs uppercase shadow-xl pointer-events-none">Select Contract</button>
-            </div>
-
-            {jobs.length === 0 && (
-                <div className="text-center p-10 opacity-30 uppercase font-black text-xs tracking-widest text-slate-400">
-                    No Jobs Loaded
+            <div className="space-y-4">
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 italic underline">Active Appointments</h2>
+              
+              {jobs.length === 0 && (
+                <div className="text-center py-20 bg-white rounded-[2rem] border-4 border-dashed border-slate-200">
+                   <p className="text-slate-400 font-bold uppercase text-xs tracking-tighter">Tap the button above to load your schedule</p>
                 </div>
-            )}
+              )}
 
-            {jobs.map(job => (
-              <div key={job.id} className="bg-white mb-4 p-6 shadow-sm rounded-[2rem] border-l-[16px] border-[#1a3a5c] flex justify-between items-center">
-                <div><h3 className="font-black text-slate-700 text-xl">{job.customer}</h3><p className="text-[10px] text-slate-400 font-black uppercase mt-1">{job.data.length} Windows</p></div>
-              </div>
-            ))}
+              {jobs.map(job => (
+                <div key={job.id} className="bg-white p-6 shadow-sm rounded-[2rem] border-l-[16px] border-[#1a3a5c] flex justify-between items-center">
+                  <div className="flex-1">
+                    <h3 className="font-black text-slate-700 text-xl leading-none">{job.customer}</h3>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-2 truncate w-48">{job.location}</p>
+                    <div className="mt-3 inline-block px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[8px] font-black uppercase tracking-tighter">
+                      {job.dateAdded}
+                    </div>
+                  </div>
+                  <button className="bg-slate-100 p-4 rounded-2xl font-black text-xs uppercase text-slate-400 active:bg-blue-600 active:text-white transition-colors">
+                    Open
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       );
