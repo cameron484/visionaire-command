@@ -9,12 +9,17 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
+  <style> 
+    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; background-color: #f8fafc; } 
+    .num-btn { @apply bg-white p-5 rounded-2xl font-black text-3xl shadow-sm active:bg-slate-200 active:scale-90 transition-all border-b-4 border-slate-300 flex items-center justify-center; }
+    .frac-btn { @apply bg-[#1a3a5c] text-white p-4 rounded-xl font-black text-xl active:scale-90 transition-all shadow-md flex items-center justify-center border-b-4 border-blue-900; }
+  </style>
 </head>
-<body class="bg-[#f8fafc]">
+<body>
   <div id="root"></div>
-
   <script type="text/babel">
     const { useState, useEffect } = React;
+    const theme = { navy: '#1a3a5c', gold: '#f59e0b' };
 
     function VisionaireApp() {
       const [apiKey, setApiKey] = useState(localStorage.getItem('geminiApiKey') || '');
@@ -26,56 +31,52 @@
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
       const connectGoogle = () => {
-        if (!clientId) return alert("Please enter your Client ID in Settings.");
+        if (!clientId) return alert("Enter Client ID in Settings!");
         
-        // This logic ensures the login works on your specific GitHub Pages link
         const client = google.accounts.oauth2.initTokenClient({
           client_id: clientId.trim(),
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.readonly',
-          callback: (tokenResponse) => {
-            if (tokenResponse.access_token) {
-              localStorage.setItem('googleAccessToken', tokenResponse.access_token);
+          callback: (res) => {
+            if (res.access_token) {
+              localStorage.setItem('googleAccessToken', res.access_token);
               setIsLinked(true);
+              alert("Linked to WORK Account!");
               setShowSettings(false);
-              alert("Linked to Visionaire Workspace!");
             }
           },
         });
-        // 'prompt: consent' is the magic key for Workspace accounts
-        client.requestAccessToken({ prompt: 'consent' });
+        
+        // CRITICAL CHANGE: This 'select_account' forces the choice screen
+        client.requestAccessToken({ prompt: 'select_account' });
       };
 
+      // (Rest of the Measuring/Scanning Logic remains the same)
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-white shadow-2xl">
-          <header className="p-4 flex justify-between items-center bg-[#1a3a5c] border-b-2 border-[#f59e0b]">
-            <div className="flex flex-col">
-              <span className="text-[#f59e0b] font-black italic text-xl">VISIONAIRE</span>
-              <span className="text-white font-bold text-[8px] tracking-[0.3em] ml-1 uppercase">Field Command</span>
+          <header className="p-4 flex justify-between items-center sticky top-0 z-50 shadow-lg border-b-2 border-[#f59e0b]" style={{ backgroundColor: theme.navy }}>
+            <div className="flex flex-col cursor-pointer" onClick={() => setShowSettings(false)}>
+                <span className="text-[#f59e0b] font-black italic text-xl">VISIONAIRE</span>
+                <span className="text-white font-bold text-[8px] tracking-[0.4em] ml-1 uppercase">Field Command</span>
             </div>
             <button onClick={() => setShowSettings(!showSettings)} className="text-2xl p-2 bg-white/10 rounded-full">⚙️</button>
           </header>
 
           <div className="p-4">
-            {showSettings && (
-              <div className="p-6 bg-slate-50 border-2 border-[#f59e0b] rounded-3xl mb-6">
-                <label className="text-[10px] font-black text-slate-400 block mb-1">GEMINI AI KEY</label>
-                <input type="password" value={apiKey} onChange={(e) => {setApiKey(e.target.value); localStorage.setItem('geminiApiKey', e.target.value)}} 
-                       className="w-full p-3 bg-white border rounded mb-4 text-xs font-mono" />
-
+            {showSettings ? (
+              <div className="p-6 bg-white border-b-8 border-[#f59e0b]">
                 <label className="text-[10px] font-black text-slate-400 block mb-1">GOOGLE CLIENT ID</label>
-                <input type="text" value={clientId} onChange={(e) => {setClientId(e.target.value); localStorage.setItem('googleClientId', e.target.value)}} 
-                       className="w-full p-3 bg-white border rounded mb-6 text-xs font-mono" />
-                
-                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black text-xs uppercase shadow-lg">Link Account</button>
+                <input type="text" value={clientId} onChange={(e) => {setClientId(e.target.value); localStorage.setItem('googleClientId', e.target.value)}} className="w-full p-3 bg-slate-100 rounded mb-6 text-xs font-mono" />
+                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black text-xs uppercase shadow-md mb-2">Choose Work Account</button>
               </div>
-            )}
-
-            {!showSettings && (
+            ) : (
               <div className="p-10 text-center">
-                <div className={`w-4 h-4 rounded-full mx-auto mb-4 ${isLinked ? 'bg-green-500 shadow-[0_0_15px_#22c55e]' : 'bg-red-500'}`}></div>
-                <h2 className="text-slate-700 font-black uppercase text-sm tracking-widest">
-                    {isLinked ? 'System Online' : 'Connect Account'}
+                <div className={`w-4 h-4 rounded-full mx-auto mb-4 ${isLinked ? 'bg-green-500 shadow-[0_0_15px_#22c55e]' : 'bg-red-500 animate-pulse'}`}></div>
+                <h2 className="text-slate-700 font-black uppercase text-sm tracking-widest leading-none mb-1">
+                    {isLinked ? 'System Online' : 'Account Link Required'}
                 </h2>
+                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter italic">
+                    {isLinked ? 'Visionaire Workspace Sync Active' : 'Go to Settings to choose your work email'}
+                </p>
               </div>
             )}
           </div>
