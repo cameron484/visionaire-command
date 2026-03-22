@@ -11,7 +11,6 @@
   <script src="https://accounts.google.com/gsi/client"></script>
   <style> 
     body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, sans-serif; } 
-    canvas { touch-action: none; }
     .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
   </style>
 </head>
@@ -19,7 +18,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef, Fragment } = React;
+    const { useState, useEffect, Fragment } = React;
     const theme = { navy: '#1a3a5c', gold: '#f59e0b' };
 
     function VisionaireApp() {
@@ -28,78 +27,65 @@
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
       const [activeJobId, setActiveJobId] = useState(null);
       const [isLinked, setIsLinked] = useState(!!localStorage.getItem('googleAccessToken'));
-      const [activeItemIndex, setActiveItemIndex] = useState(null);
-      const [activeField, setActiveField] = useState('fmWidth');
       const [loading, setLoading] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
-      useEffect(() => { localStorage.setItem('googleClientId', clientId); }, [clientId]);
-      useEffect(() => { localStorage.setItem('geminiApiKey', apiKey); }, [apiKey]);
+
+      // AUTO-PULL CALENDAR ON LOAD
+      useEffect(() => { if (isLinked) pullCalendar(); }, [isLinked]);
 
       const connectGoogle = () => {
-        if (!clientId) return alert("Enter Client ID in Settings!");
+        if (!clientId) return alert("Enter Client ID!");
         const client = google.accounts.oauth2.initTokenClient({
           client_id: clientId.trim(),
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar.readonly',
-          callback: (res) => { if(res.access_token) { localStorage.setItem('googleAccessToken', res.access_token); setIsLinked(true); setShowSettings(false); location.reload(); } }
+          callback: (res) => { if(res.access_token) { localStorage.setItem('googleAccessToken', res.access_token); setIsLinked(true); setShowSettings(false); pullCalendar(); } }
         });
         client.requestAccessToken({ prompt: 'select_account' });
       };
 
-      const addManualJob = () => {
-        const name = prompt("Enter Customer Name (Last Name works best for PDF search):");
-        if (name) {
-          const newJob = { id: Date.now(), customer: name, time: "Manual Entry", data: [], signature: null };
-          setJobs([newJob, ...jobs]);
-        }
-      };
-
-      const autoLoadContract = async (job) => {
+      const pullCalendar = async () => {
         const token = localStorage.getItem('googleAccessToken');
-        if (!token || !apiKey) return alert("Link Google & Set Gemini Key!");
+        if (!token) return;
         setLoading(true);
         try {
-          const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
-          const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`, { headers: { Authorization: `Bearer ${token}` } });
-          const driveData = await driveRes.json();
-          if (!driveData.files?.length) { alert("No PDF found for this name."); setLoading(false); return; }
+          const now = new Date();
+          const timeMin = now.toISOString();
+          const future = new Date(); future.setDate(now.getDate() + 14);
+          const timeMax = future.toISOString();
 
-          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
-          const blob = await fileRes.blob();
-          const reader = new FileReader();
-          reader.readAsDataURL(blob);
-          reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            const promptText = `Extract Visionaire contract items. Header: Descriptive (e.g. Front Entry Door w/ Storm Door). Specs: Color, Glass, Hardware, Unit Size. Return JSON ONLY: [{"line":"1","itemType":"Window/Door","location":"","style":"","contractSize":"","color":"","glass":"","hardware":"","extras":"","qty":"1"}]`;
+          const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (data.items) {
+            const filtered = data.items.filter(e => {
+              const t = (e.summary || '').toLowerCase();
+              return t.includes('fm') || t.includes('measure') || t.includes('final') || t.includes('agreement') || t.includes('saunders');
+            }).map(e => ({
+              id: e.id,
+              customer: e.summary.replace(/fm|measure|final|agreement/gi, '').replace(/[:-]/g, '').trim(),
+              time: new Date(e.start.dateTime || e.start.date).toLocaleDateString() + ' @ ' + new Date(e.start.dateTime || e.start.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+              data: []
+            }));
             
-            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
+            setJobs(prev => {
+                const existing = prev.map(j => j.customer.toLowerCase());
+                const news = filtered.filter(f => !existing.includes(f.customer.toLowerCase()));
+                return [...news, ...prev];
             });
-            const result = await geminiRes.json();
-            const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            let items = JSON.parse(text);
-            items.sort((a, b) => ((a.itemType || '').includes('Door') ? 1 : -1));
-            setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items.map(i => ({ ...i, fmWidth: '', fmHeight: '' })) } : j));
-            setLoading(false);
-          };
-        } catch (e) { setLoading(false); alert("Error scanning PDF."); }
+          }
+        } catch (e) { console.error(e); }
+        setLoading(false);
       };
 
-      const handleKeyPress = (val) => {
-          setJobs(prev => prev.map(job => {
-              if(job.id === activeJobId) {
-                  const items = [...job.data];
-                  let cur = items[activeItemIndex][activeField] || '';
-                  if(val === 'DEL') cur = cur.slice(0, -1);
-                  else if(val === 'CLR') cur = '';
-                  else cur += val;
-                  items[activeItemIndex][activeField] = cur;
-                  return { ...job, data: items };
-              }
-              return job;
-          }));
+      const addManualJob = () => {
+        const name = prompt("Enter Customer Name:");
+        if (name) {
+          const newJob = { id: Date.now(), customer: name, time: "Manual Entry", data: [] };
+          setJobs([newJob, ...jobs]);
+        }
       };
 
       const activeJob = jobs.find(j => j.id === activeJobId);
@@ -107,21 +93,21 @@
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-slate-100 flex flex-col industrial-shadow">
           <header className="p-5 flex justify-between items-center sticky top-0 z-[60] shadow-lg border-b-2" style={{ backgroundColor: theme.navy, borderColor: theme.gold }}>
-            <div onClick={() => setActiveJobId(null)}>
+            <div>
                 <span className="text-[#f59e0b] font-black italic text-2xl uppercase tracking-tighter leading-none">Visionaire</span>
-                <p className="text-white font-bold text-[9px] tracking-[0.4em] uppercase leading-none mt-1">
+                <p className="text-white font-bold text-[9px] tracking-[0.4em] uppercase leading-none">
                     {isLinked ? '● CONNECTED' : '○ OFFLINE'}
                 </p>
             </div>
-            <button onClick={() => setShowSettings(!showSettings)} className="text-xl p-2 bg-white/10 rounded-full transition-transform active:rotate-90">⚙️</button>
+            <button onClick={() => setShowSettings(!showSettings)} className="text-xl p-2 bg-white/10 rounded-full">⚙️</button>
           </header>
 
           {showSettings && (
             <div className="absolute top-[75px] left-0 right-0 z-[100] bg-white p-6 shadow-2xl border-b-8 border-[#f59e0b]">
                 <input type="password" placeholder="Gemini Key" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full p-4 bg-slate-100 rounded-2xl mb-4 text-xs font-mono" />
                 <input type="text" placeholder="Google Client ID" value={clientId} onChange={e => setClientId(e.target.value)} className="w-full p-4 bg-slate-100 rounded-2xl mb-6 text-xs font-mono" />
-                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase shadow-lg mb-3">📧 LINK GOOGLE</button>
-                <button onClick={() => { localStorage.clear(); location.reload(); }} className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-black text-[10px] uppercase">Wipe App Cache</button>
+                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase shadow-lg mb-3 tracking-widest">Link Account</button>
+                <button onClick={() => { localStorage.clear(); location.reload(); }} className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-black text-[10px] uppercase">Wipe Cache</button>
             </div>
           )}
 
@@ -130,68 +116,37 @@
               <div className="space-y-4">
                   <div className="flex justify-between items-center mb-2 px-1">
                     <h2 className="text-slate-800 font-black text-xl uppercase tracking-tighter">Appointments</h2>
-                    <button onClick={addManualJob} className="bg-[#1a3a5c] text-[#f59e0b] px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all">+ Add Job</button>
+                    <div className="flex gap-2">
+                        <button onClick={pullCalendar} className="bg-slate-200 text-slate-600 p-2 rounded-xl text-lg">🔄</button>
+                        <button onClick={addManualJob} className="bg-[#1a3a5c] text-[#f59e0b] px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-md">+ Add Job</button>
+                    </div>
                   </div>
-                  {jobs.length === 0 && <div className="p-20 text-center text-slate-300 font-black uppercase text-xs border-4 border-dashed border-slate-200 rounded-[2.5rem]">No Jobs Found</div>}
+                  
+                  {loading && <div className="p-10 text-center font-black text-slate-300 animate-pulse uppercase text-xs">Syncing Calendar...</div>}
+                  
+                  {jobs.length === 0 && !loading && (
+                    <div className="p-16 text-center border-4 border-dashed border-slate-200 rounded-[2.5rem]">
+                      <p className="text-slate-300 font-black uppercase text-xs tracking-[0.2em]">Searching for FM Keywords...</p>
+                    </div>
+                  )}
+
                   {jobs.map(job => (
-                    <div key={job.id} onClick={() => { setActiveJobId(job.id); if(!job.data.length && isLinked) autoLoadContract(job); }} className="bg-white p-6 rounded-[2.2rem] shadow-sm border-l-[12px] border-[#1a3a5c] flex justify-between items-center cursor-pointer active:scale-[0.98] transition-all">
+                    <div key={job.id} onClick={() => setActiveJobId(job.id)} className="bg-white p-6 rounded-[2.2rem] shadow-sm border-l-[12px] border-[#1a3a5c] flex justify-between items-center cursor-pointer active:scale-95 transition-all">
                         <div className="min-w-0 pr-4">
-                            <h3 className="font-black text-slate-800 text-xl leading-none truncate">{job.customer}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wide">{job.time}</p>
+                            <h3 className="font-black text-slate-800 text-xl truncate leading-none uppercase">{job.customer}</h3>
+                            <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">{job.time}</p>
                         </div>
-                        <div className="bg-slate-50 p-3 rounded-full text-slate-300 shrink-0">➔</div>
+                        <span className="text-slate-300">➔</span>
                     </div>
                   ))}
               </div>
             ) : (
-              <div className="space-y-4 pb-28">
-                <button onClick={() => {setActiveJobId(null); setActiveItemIndex(null);}} className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest flex items-center gap-1">◀ Return to Dispatch</button>
-                {loading ? <div className="p-24 text-center font-black text-slate-400 animate-pulse uppercase tracking-[0.2em]">Searching Drive for Contract...</div> : 
-                  activeJob.data.length === 0 ? (
-                    <div className="p-20 text-center bg-white rounded-[2.5rem] border-4 border-dashed border-slate-200">
-                        <p className="text-slate-400 font-black uppercase text-xs mb-4">No Contract Data</p>
-                        <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg">Retry Scan</button>
-                    </div>
-                  ) : activeJob.data.map((item, index) => (
-                    <div key={index} className="bg-white rounded-[2.2rem] border-l-[12px] overflow-hidden mb-4 shadow-sm relative" style={{ borderColor: item.fmWidth && item.fmHeight ? '#22c55e' : item.itemType.includes('Door') ? '#f59e0b' : '#1a3a5c' }}>
-                      <div className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50" onClick={() => {setActiveItemIndex(index); setActiveField('fmWidth');}}>
-                        <div className="min-w-0 pr-4">
-                          <span className="text-[8px] px-2 py-0.5 rounded-md font-black uppercase bg-slate-100 text-slate-500">{item.itemType}</span>
-                          <h4 className="font-black text-slate-800 text-sm uppercase leading-tight truncate mt-1">{item.location}</h4>
-                          <div className="mt-2 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md inline-block">
-                              <span className="text-[9px] font-black text-blue-800 uppercase leading-none">Order: {item.contractSize}</span>
-                          </div>
-                        </div>
-                        <div className={`w-5 h-5 rounded-full border-2 ${item.fmWidth && item.fmHeight ? 'bg-green-500 border-green-600' : 'border-slate-200'}`}></div>
-                      </div>
-                      {activeItemIndex === index && (
-                        <div className="p-6 bg-white border-t relative z-20">
-                            <div className="mb-4 p-4 bg-slate-50 border rounded-2xl text-[10px] space-y-2">
-                                <p><span className="text-slate-400 font-bold uppercase">Color:</span> <span className="font-black text-slate-700">{item.color || '-'}</span></p>
-                                <p><span className="text-slate-400 font-bold uppercase">Hardware:</span> <span className="font-black text-slate-700">{item.hardware || '-'}</span></p>
-                                <p className="pt-2 border-t mt-2 text-blue-600 italic font-bold leading-tight">{item.extras || '-'}</p>
-                            </div>
-                            <div className="flex gap-3 mb-5">
-                                <div className={`flex-1 p-4 rounded-2xl border-4 text-center ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white' : 'bg-slate-100 border-transparent'}`} onClick={() => setActiveField('fmWidth')}>
-                                    <span className="text-3xl font-black">{item.fmWidth || '-'}</span>
-                                </div>
-                                <div className={`flex-1 p-4 rounded-2xl border-4 text-center ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white' : 'bg-slate-100 border-transparent'}`} onClick={() => setActiveField('fmHeight')}>
-                                    <span className="text-3xl font-black">{item.fmHeight || '-'}</span>
-                                </div>
-                            </div>
-                            <div className="bg-slate-200 p-3 rounded-[2.8rem] mb-5">
-                                <div className="grid grid-cols-7 gap-1.5 mb-3">
-                                    {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(' '+f)} className="bg-[#1a3a5c] text-white py-3 rounded-xl font-black text-[10px]">{f}</button>)}
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[1,2,3,4,5,6,7,8,9, 'CLR', 0, 'DEL'].map(n => <button key={n} onClick={() => typeof n === 'number' ? handleKeyPress(n.toString()) : handleKeyPress(n)} className="bg-white p-4 rounded-2xl font-black text-2xl shadow-sm text-slate-700">{n}</button>)}
-                                </div>
-                            </div>
-                            <button onClick={() => setActiveItemIndex(index < activeJob.data.length - 1 ? index + 1 : null)} className="w-full p-5 bg-[#1a3a5c] text-white rounded-[2.2rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all">Save & Next ➔</button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              <div className="space-y-4">
+                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest">◀ Back to Dispatch</button>
+                <h3 className="font-black text-2xl uppercase text-slate-800 border-b-4 border-[#f59e0b] inline-block">{activeJob.customer}</h3>
+                <div className="mt-10 p-20 border-4 border-dashed border-slate-200 rounded-[3rem] text-center">
+                    <p className="text-slate-300 font-black uppercase text-xs italic">Tap manual add if contract scan fails</p>
+                </div>
               </div>
             )}
           </div>
