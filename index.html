@@ -3,18 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire Field Command v3.8</title>
+  <title>Visionaire Field Command v3.9</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: 'Courier New', monospace; background: #f1f5f9; }
+    body { 
+      overscroll-behavior-y: contain; 
+      -webkit-tap-highlight-color: transparent; 
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f1f5f9; 
+    }
     .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
-    .field-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; display: block; }
-    .spec-pill { font-size: 10px; font-weight: 700; padding: 6px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569; transition: all 0.2s; }
-    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; box-shadow: 0 4px 12px rgba(26,58,92,0.2); }
+    .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; display: block; }
+    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; box-shadow: 0 4px 12px rgba(26,58,92,0.25); }
+    .active-pill-door { background: #064e3b; color: white; border-color: #064e3b; box-shadow: 0 4px 12px rgba(6,78,59,0.25); }
     .door-accent { border-left: 12px solid #064e3b !important; }
+    .window-accent { border-left: 12px solid #1a3a5c !important; }
   </style>
 </head>
 <body>
@@ -57,64 +64,72 @@
             <h1 className="font-black italic text-xl tracking-tighter uppercase">Visionaire <span className="text-[10px] not-italic tracking-[0.3em] ml-2 opacity-70">Field Command</span></h1>
           </header>
 
-          <main className="p-4 flex-1 pb-32">
+          <main className="p-4 flex-1 pb-32 bg-slate-100">
             {!activeJobId ? (
               <div className="space-y-4">
                 {jobs.map(job => (
-                  <div key={job.id} onClick={() => setActiveJobId(job.id)} className="p-6 border-l-[12px] border-[#1a3a5c] bg-slate-50 rounded-2xl cursor-pointer shadow-sm">
+                  <div key={job.id} onClick={() => setActiveJobId(job.id)} className="p-6 border-l-[12px] border-[#1a3a5c] bg-white rounded-2xl cursor-pointer shadow-sm">
                     <h3 className="font-black text-slate-800 uppercase">{job.customer}</h3>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-6">
-                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black text-slate-400">◀ DISPATCH</button>
+              <div className="space-y-5">
+                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black text-slate-400 tracking-widest">◀ DISPATCH</button>
                 
-                <div className={`bg-slate-50 border-2 border-slate-200 rounded-[2rem] overflow-hidden ${isDoor ? 'door-accent' : 'border-l-[12px] border-l-[#1a3a5c]'}`}>
+                <div className={`bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm ${isDoor ? 'door-accent' : 'window-accent'}`}>
                   <div className={`${isDoor ? 'bg-[#064e3b]' : 'bg-[#1a3a5c]'} p-4 flex justify-between items-center`}>
-                    <span className="text-white font-black text-xs uppercase italic">Line {activeItemIndex + 1}</span>
-                    <span className="bg-[#f59e0b] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">{currentItem.itemType}</span>
+                    <span className="text-white font-bold text-xs uppercase tracking-widest">Line {activeItemIndex + 1}</span>
+                    <span className="bg-[#f59e0b] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{currentItem.itemType}</span>
                   </div>
 
-                  <div className="p-5 space-y-5">
+                  <div className="p-5 space-y-6">
                     <div>
                       <span className="field-label">Location on House</span>
-                      <h2 className="text-xl font-black text-slate-800 uppercase leading-tight mb-2">{currentItem.location}</h2>
+                      <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location}</h2>
+                      {currentItem.contractSize && (
+                        <div className="inline-block mt-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg">
+                          <span className="text-[10px] font-bold text-blue-800 uppercase">Contract Size: {currentItem.contractSize}</span>
+                        </div>
+                      )}
                     </div>
 
-                    [span_3](start_span){/* DOOR SPECIFIC FIELDS: OSJ, OSBM, SWING[span_3](end_span) */}
+                    {/* DOOR SPECIFIC FIELDS */}
                     {isDoor && (
-                      <div className="grid grid-cols-2 gap-4 bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                        <div>
-                          <span className="field-label text-emerald-700">Frame Prep</span>
-                          <div className="flex gap-2">
-                            <button onClick={() => updateItem('osj', !currentItem.osj)} className={`spec-pill ${currentItem.osj ? 'active-pill bg-emerald-700' : ''}`}>OSJ</button>
-                            <button onClick={() => updateItem('osbm', !currentItem.osbm)} className={`spec-pill ${currentItem.osbm ? 'active-pill bg-emerald-700' : ''}`}>OSBM</button>
+                      <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="field-label text-emerald-700">Frame Prep</span>
+                            <div className="flex gap-2">
+                              <button onClick={() => updateItem('osj', !currentItem.osj)} className={`spec-pill ${currentItem.osj ? 'active-pill-door' : ''}`}>OSJ</button>
+                              <button onClick={() => updateItem('osbm', !currentItem.osbm)} className={`spec-pill ${currentItem.osbm ? 'active-pill-door' : ''}`}>OSBM</button>
+                            </div>
                           </div>
-                        </div>
-                        <div>
-                          [span_4](start_span)<span className="field-label text-emerald-700">Swing[span_4](end_span)</span>
-                          <div className="flex gap-1 flex-wrap">
-                            {['L/IN', 'R/IN', 'L/OUT', 'R/OUT'].map(s => (
-                              <button key={s} onClick={() => updateItem('swing', s)} className={`spec-pill ${currentItem.swing === s ? 'active-pill bg-emerald-700' : ''}`}>{s}</button>
-                            ))}
+                          <div>
+                            <span className="field-label text-emerald-700">Swing</span>
+                            <div className="flex flex-wrap gap-2">
+                              {['L/IN', 'R/IN', 'L/OUT', 'R/OUT'].map(s => (
+                                <button key={s} onClick={() => updateItem('swing', s)} className={`spec-pill ${currentItem.swing === s ? 'active-pill-door' : ''}`}>{s}</button>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
                     )}
 
+                    {/* GRIDS AND GLASS */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        [span_5](start_span)[span_6](start_span)<span className="field-label">Grid Style[span_5](end_span)[span_6](end_span)</span>
-                        <div className="flex flex-wrap gap-1">
+                        <span className="field-label">Grid Style</span>
+                        <div className="flex flex-wrap gap-2">
                           {['Contour', 'Flat', 'SDL'].map(g => (
                             <button key={g} onClick={() => updateItem('grids', g)} className={`spec-pill ${currentItem.grids === g ? 'active-pill' : ''}`}>{g}</button>
                           ))}
                         </div>
                       </div>
                       <div>
-                        [span_7](start_span)[span_8](start_span)<span className="field-label">Glass Type[span_7](end_span)[span_8](end_span)</span>
-                        <div className="flex flex-wrap gap-1">
+                        <span className="field-label">Glass Type</span>
+                        <div className="flex flex-wrap gap-2">
                           {['Temp', 'Obscure'].map(gl => (
                             <button key={gl} onClick={() => updateItem('glass', gl)} className={`spec-pill ${currentItem.glass === gl ? 'active-pill' : ''}`}>{gl}</button>
                           ))}
@@ -122,10 +137,11 @@
                       </div>
                     </div>
 
+                    {/* NOTES SECTION */}
                     <div>
-                      [span_9](start_span)<span className="field-label">Trim & Hardware Notes[span_9](end_span)</span>
+                      <span className="field-label">Trim & Hardware Notes</span>
                       <textarea 
-                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-600 italic"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#1a3a5c] focus:ring-1 focus:ring-[#1a3a5c] outline-none transition-all"
                         rows="3"
                         value={currentItem.extras || ''}
                         onChange={(e) => updateItem('extras', e.target.value)}
@@ -133,36 +149,40 @@
                       />
                     </div>
 
+                    {/* MEASUREMENTS */}
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-lg' : 'bg-slate-100 border-transparent'}`}>
+                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
                         <span className="field-label">Final Width</span>
-                        <span className="text-3xl font-black">{currentItem.fmWidth || '-'}</span>
+                        <span className="text-3xl font-black text-slate-800">{currentItem.fmWidth || '-'}</span>
                       </div>
-                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-lg' : 'bg-slate-100 border-transparent'}`}>
+                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
                         <span className="field-label">Final Height</span>
-                        <span className="text-3xl font-black">{currentItem.fmHeight || '-'}</span>
+                        <span className="text-3xl font-black text-slate-800">{currentItem.fmHeight || '-'}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* NUMBER PAD */}
                 <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
                   <div className="grid grid-cols-7 gap-1.5 mb-3">
                     {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => (
-                      <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-all">{f}</button>
+                      <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-sm">{f}</button>
                     ))}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {[1,2,3,4,5,6,7,8,9].map(n => (
-                      <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:scale-95 shadow-sm transition-all">{n}</button>
+                      <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">{n}</button>
                     ))}
-                    <button onClick={() => handleKeyPress('CLR')} className="bg-white p-5 rounded-2xl font-black text-xs text-red-500 uppercase">CLR</button>
-                    <button onClick={() => handleKeyPress('0')} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700">0</button>
-                    <button onClick={() => handleKeyPress('DEL')} className="bg-white p-5 rounded-2xl font-black text-xs text-orange-500 uppercase">DEL</button>
+                    <button onClick={() => handleKeyPress('CLR')} className="bg-white p-5 rounded-2xl font-black text-sm text-red-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">CLR</button>
+                    <button onClick={() => handleKeyPress('0')} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">0</button>
+                    <button onClick={() => handleKeyPress('DEL')} className="bg-white p-5 rounded-2xl font-black text-sm text-orange-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">DEL</button>
                   </div>
                 </div>
 
-                <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-6 rounded-[2.2rem] font-black uppercase tracking-widest active:scale-95 shadow-2xl">Save & Next Unit ➔</button>
+                <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] shadow-xl transition-all mb-8">
+                  Save & Next Unit ➔
+                </button>
               </div>
             )}
           </main>
