@@ -3,194 +3,319 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire Field Command v3.9</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <title>Visionaire Field Command</title>
   <style>
-    body { 
-      overscroll-behavior-y: contain; 
-      -webkit-tap-highlight-color: transparent; 
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #f1f5f9; 
+    :root {
+      --navy: #1a3a5c;
+      --navy-dark: #122840;
+      --navy-light: #e8f0f8;
+      --navy-mid: #2d5a8e;
+      --emerald: #064e3b;
+      --emerald-dark: #043327;
+      --emerald-light: #ecfdf5;
+      --amber: #f59e0b;
+      --amber-dark: #d97706;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-300: #cbd5e1;
+      --slate-400: #94a3b8;
+      --slate-500: #64748b;
+      --slate-600: #475569;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --red: #dc2626;
+      --green: #16a34a;
+      --border: #e2e8f0;
     }
-    .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
-    .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; display: block; }
-    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; box-shadow: 0 4px 12px rgba(26,58,92,0.25); }
-    .active-pill-door { background: #064e3b; color: white; border-color: #064e3b; box-shadow: 0 4px 12px rgba(6,78,59,0.25); }
-    .door-accent { border-left: 12px solid #064e3b !important; }
-    .window-accent { border-left: 12px solid #1a3a5c !important; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--slate-100);
+      overscroll-behavior-y: contain;
+    }
+    .app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: white; position: relative; }
+
+    /* HEADER */
+    .header {
+      background: var(--navy);
+      padding: 14px 16px 12px;
+      border-bottom: 4px solid var(--amber);
+      position: sticky; top: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-logo { display: flex; flex-direction: column; }
+    .header-title { font-size: 1.3rem; font-weight: 900; font-style: italic; letter-spacing: -0.03em; color: white; text-transform: uppercase; line-height: 1; }
+    .header-sub { font-size: 0.5rem; font-weight: 800; letter-spacing: 0.35em; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-top: 3px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .hdr-btn { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 8px; padding: 6px 10px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; }
+    .hdr-btn:active { background: rgba(255,255,255,0.22); }
+    .hdr-btn.amber { background: var(--amber); border-color: var(--amber-dark); }
+
+    /* JOB TABS */
+    .job-tabs { background: var(--navy-dark); display: flex; overflow-x: auto; padding: 0 8px; gap: 4px; scrollbar-width: none; }
+    .job-tabs::-webkit-scrollbar { display: none; }
+    .job-tab { flex-shrink: 0; padding: 10px 14px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.45); border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; white-space: nowrap; }
+    .job-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+    .job-tab-add { flex-shrink: 0; padding: 10px 12px; font-size: 1.1rem; color: rgba(255,255,255,0.3); border: none; background: transparent; cursor: pointer; }
+
+    /* PAGE TABS */
+    .page-tabs { background: var(--navy); display: flex; border-top: 1px solid rgba(255,255,255,0.08); position: sticky; top: 96px; z-index: 100; }
+    .page-tab { flex: 1; padding: 11px 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; color: rgba(255,255,255,0.45); border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; }
+    .page-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+
+    /* MAIN CONTENT */
+    .main { padding: 12px 12px 120px; }
+
+    /* FIELD LABEL */
+    .lbl { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-500); display: block; margin-bottom: 5px; }
+
+    /* HEADER CARD */
+    .hcard { background: white; border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.06); margin-bottom: 12px; }
+    .hcard-head { background: var(--navy); color: white; padding: 10px 14px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .hcard-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .hcard-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .hcard-row.three { grid-template-columns: 1fr 1fr 1fr; }
+
+    /* INPUTS */
+    .inp { width: 100%; border: 1.5px solid var(--slate-200); border-radius: 8px; padding: 9px 10px; font-size: 0.82rem; font-family: inherit; color: var(--slate-800); outline: none; background: var(--slate-50); transition: border-color 0.15s; }
+    .inp:focus { border-color: var(--navy); background: white; }
+    .inp-door:focus { border-color: var(--emerald); }
+
+    /* SECTION LABEL */
+    .sec-lbl { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; padding: 8px 0 6px; color: var(--slate-400); display: flex; align-items: center; gap: 8px; }
+    .sec-lbl::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* LINE CARDS */
+    .line-card { background: white; border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .line-card.win { border-left: 8px solid var(--navy); }
+    .line-card.door { border-left: 8px solid var(--emerald); }
+    .line-card-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 10px 10px; cursor: pointer; }
+    .line-card-head.win-head { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); }
+    .line-card-head.door-head { background: linear-gradient(135deg, var(--emerald) 0%, #065f46 100%); }
+    .line-num { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em; color: rgba(255,255,255,0.6); text-transform: uppercase; }
+    .line-loc { font-size: 0.95rem; font-weight: 800; color: white; text-transform: uppercase; letter-spacing: -0.01em; }
+    .line-type-badge { background: var(--amber); color: white; font-size: 0.6rem; font-weight: 900; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .line-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* CONTRACT BADGE */
+    .ct-badge { background: var(--navy-light); border: 1px solid #bfdbfe; border-radius: 8px; padding: 7px 10px; }
+    .ct-badge.door-ct { background: var(--emerald-light); border-color: #a7f3d0; }
+    .ct-badge-title { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--navy); margin-bottom: 2px; }
+    .ct-badge-title.door { color: var(--emerald); }
+    .ct-badge-val { font-size: 0.88rem; font-weight: 700; color: var(--slate-700); }
+
+    /* MISMATCH */
+    .mismatch-row { background: #fef9c3; border: 1.5px solid #fde047; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .mismatch-row.verified { background: #dcfce7; border-color: #86efac; }
+    .mismatch-txt { font-size: 0.72rem; font-weight: 700; color: #854d0e; }
+    .mismatch-row.verified .mismatch-txt { color: #166534; }
+    .verify-chk { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
+
+    /* PILL BUTTONS */
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill { font-size: 0.68rem; font-weight: 700; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--slate-300); background: white; color: var(--slate-600); cursor: pointer; transition: all 0.12s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .pill:active { transform: scale(0.95); }
+    .pill.on-win { background: var(--navy); color: white; border-color: var(--navy); box-shadow: 0 3px 10px rgba(26,58,92,0.25); }
+    .pill.on-door { background: var(--emerald); color: white; border-color: var(--emerald); box-shadow: 0 3px 10px rgba(6,78,59,0.25); }
+
+    /* SIZE FIELDS */
+    .size-grid { display: grid; grid-template-columns: 1fr 20px 1fr 56px; gap: 6px; align-items: end; }
+    .size-inp { width: 100%; border: 1.5px solid var(--slate-200); border-radius: 8px; padding: 10px; font-size: 1.1rem; font-weight: 800; color: var(--slate-800); text-align: center; outline: none; background: var(--slate-50); transition: all 0.15s; }
+    .size-inp:focus { border-color: var(--navy); background: white; box-shadow: 0 0 0 3px rgba(26,58,92,0.1); }
+    .size-inp.door-inp:focus { border-color: var(--emerald); box-shadow: 0 0 0 3px rgba(6,78,59,0.1); }
+    .size-inp.mm { border-color: #fca5a5; background: #fef2f2; }
+    .size-x { text-align: center; font-size: 1.1rem; color: var(--slate-400); padding-bottom: 8px; }
+    .qty-inp { width: 100%; border: 1.5px solid var(--slate-200); border-radius: 8px; padding: 10px 6px; font-size: 1rem; font-weight: 800; color: var(--slate-800); text-align: center; outline: none; background: var(--slate-50); }
+
+    /* DOOR EXTRAS */
+    .door-extras { background: var(--emerald-light); border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* NOTES */
+    .notes-inp { width: 100%; border: 1.5px solid var(--slate-200); border-radius: 8px; padding: 9px 10px; font-size: 0.82rem; font-family: inherit; color: var(--slate-700); outline: none; background: var(--slate-50); resize: vertical; min-height: 64px; transition: border-color 0.15s; line-height: 1.5; }
+    .notes-inp:focus { border-color: var(--navy); background: white; }
+
+    /* SITE NOTES CARD */
+    .notes-card { background: white; border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; margin-top: 8px; }
+    .notes-card-head { background: var(--navy); color: white; padding: 10px 14px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    /* FRACTION KEYBOARD */
+    .kbd-overlay { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; }
+    .kbd-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 999; }
+    .kbd-panel { background: var(--slate-200); border-radius: 24px 24px 0 0; padding: 12px 12px 28px; width: 100%; max-width: 480px; box-shadow: 0 -8px 40px rgba(0,0,0,0.2); position: relative; z-index: 1001; }
+    .kbd-display { background: white; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .kbd-display-val { font-size: 1.4rem; font-weight: 900; color: var(--slate-800); }
+    .kbd-display-lbl { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-400); }
+    .kbd-fracs { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 8px; }
+    .kbd-frac { background: var(--navy); color: white; border: none; border-radius: 10px; padding: 10px 0; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.12s; }
+    .kbd-frac.door-frac { background: var(--emerald); }
+    .kbd-frac:active { transform: scale(0.93); }
+    .kbd-nums { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .kbd-num { background: white; border: none; border-radius: 14px; padding: 16px; font-size: 1.3rem; font-weight: 900; color: var(--slate-700); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.1s; }
+    .kbd-num:active { background: var(--slate-100); transform: scale(0.95); }
+    .kbd-num.clr { font-size: 0.75rem; color: var(--red); text-transform: uppercase; }
+    .kbd-num.del { font-size: 0.75rem; color: #ea580c; text-transform: uppercase; }
+    .kbd-num.done { background: var(--navy); color: white; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .kbd-num.done.door-done { background: var(--emerald); }
+
+    /* SIGN-OFF */
+    .so-section { background: white; border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .so-section-head { background: var(--navy); color: white; padding: 10px 14px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+    .so-section-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .so-item { display: flex; align-items: flex-start; gap: 10px; }
+    .so-chk { width: 20px; height: 20px; accent-color: var(--navy); cursor: pointer; flex-shrink: 0; margin-top: 1px; }
+    .so-chk-door { accent-color: var(--emerald); }
+    .so-item-txt { font-size: 0.82rem; color: var(--slate-700); line-height: 1.4; font-weight: 500; }
+    .so-progress { height: 4px; background: var(--slate-200); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+    .so-progress-bar { height: 100%; background: var(--navy); border-radius: 99px; transition: width 0.3s; }
+    .sig-block { background: white; border-radius: 14px; border: 1.5px solid var(--border); padding: 14px; margin-bottom: 10px; }
+    .sig-area { border: 1.5px dashed var(--slate-300); border-radius: 10px; height: 80px; display: flex; align-items: center; justify-content: center; margin-top: 8px; background: var(--slate-50); }
+    .sig-area-txt { font-size: 0.7rem; color: var(--slate-400); font-weight: 600; }
+
+    /* PDF IMPORT PANEL */
+    .import-panel { background: white; border-radius: 14px; border: 1.5px solid var(--border); overflow: hidden; margin-bottom: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+    .import-head { background: var(--navy); color: white; padding: 10px 14px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+    .import-body { padding: 14px; }
+    .import-drop { border: 2px dashed var(--slate-300); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--slate-50); }
+    .import-drop:hover { border-color: var(--navy); background: var(--navy-light); }
+    .import-drop input { display: none; }
+    .import-drop-icon { font-size: 2rem; margin-bottom: 6px; }
+    .import-drop-txt { font-size: 0.8rem; font-weight: 700; color: var(--slate-600); }
+    .import-drop-sub { font-size: 0.68rem; color: var(--slate-400); margin-top: 3px; }
+    .import-status { margin-top: 10px; padding: 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; }
+    .import-status.loading { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .import-status.success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .import-status.error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+    .gemini-badge { background: linear-gradient(135deg, #4285f4, #34a853); color: white; font-size: 0.6rem; font-weight: 800; padding: 3px 8px; border-radius: 99px; letter-spacing: 0.05em; }
+
+    /* DRIVE BUTTONS */
+    .drive-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .drive-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border); background: white; font-size: 0.7rem; font-weight: 700; color: var(--slate-600); cursor: pointer; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-transform: uppercase; letter-spacing: 0.06em; }
+    .drive-btn:active { transform: scale(0.97); background: var(--slate-50); }
+    .drive-btn .drive-icon { font-size: 1rem; }
+
+    /* MISC */
+    .divider-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--navy-light); border: 1px solid #bfdbfe; border-radius: 6px; padding: 4px 8px; font-size: 0.65rem; font-weight: 700; color: var(--navy); }
+    .stat-badge.door-stat { background: var(--emerald-light); border-color: #a7f3d0; color: var(--emerald); }
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+<div class="app" id="app"></div>
 
-    function VisionaireApp() {
-      const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
-      const [activeJobId, setActiveJobId] = useState(null);
-      const [activeItemIndex, setActiveItemIndex] = useState(0);
-      const [activeField, setActiveField] = useState('fmWidth');
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+var MAX_JOBS = 5;
+var MAX_WINS = 40;
+var MAX_DOORS = 8;
+var STORAGE_KEY = 'vfc_v1';
+var GEMINI_KEY = '';  // Set via Settings
+var DRIVE_TOKEN = ''; // Set via Google Auth
 
-      const activeJob = jobs.find(j => j.id === activeJobId);
-      const currentItem = activeJob?.data?.[activeItemIndex] || {};
-      const isDoor = (currentItem.itemType || '').toLowerCase().includes('door');
+// ─── STATE ───────────────────────────────────────────────────────────────────
+var state = loadState();
+var activeJobIdx = 0;
+var activeTab = 'sheet'; // 'sheet' | 'signoff' | 'import'
+var kbdTarget = null; // { section:'win'|'door', idx:0, field:'width'|'height' }
+var kbdIsDoor = false;
+var importStatus = null; // null | { type:'loading'|'success'|'error', msg:'' }
+var geminiApiKey = localStorage.getItem('vfc_gemini_key') || '';
+var driveConnected = false;
+render();
 
-      const updateItem = (key, value) => {
-        setJobs(prev => prev.map(job => {
-          if (job.id === activeJobId) {
-            const newData = [...job.data];
-            newData[activeItemIndex] = { ...newData[activeItemIndex], [key]: value };
-            return { ...job, data: newData };
-          }
-          return job;
-        }));
-      };
+// ─── STATE HELPERS ───────────────────────────────────────────────────────────
+function mkWin() {
+  return { location:'', type:'', qty:1, width:'', height:'', grids:'', glass:'', notes:'', ctOpenW:'', ctOpenH:'', ctUnitW:'', ctUnitH:'', verified:false };
+}
+function mkDoor() {
+  return { location:'', type:'', qty:1, width:'', height:'', swing:'', osj:false, osbm:false, glass:'', grids:'', notes:'', ctNomW:'', ctNomH:'', ctUnitW:'', ctUnitH:'', verified:false };
+}
+function mkJob() {
+  var wins = [];
+  var doors = [];
+  for (var i=0; i<MAX_WINS; i++) wins.push(mkWin());
+  for (var i=0; i<MAX_DOORS; i++) doors.push(mkDoor());
+  return {
+    customer:'', consultant:'', address:'', measureDate:'', installCrew:'', winBrand:'', doorBrand:'',
+    glassType:'', existingType:'', custNotes:'',
+    windows: wins,
+    doors: doors,
+    signoff: {},
+    tab: 'sheet'
+  };
+}
+function loadState() {
+  try {
+    var s = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (s && s.jobs && s.jobs.length) return s;
+  } catch(e){}
+  return { jobs: [mkJob()] };
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+}
+function job() { return state.jobs[activeJobIdx]; }
+function setJob(j) {
+  state.jobs[activeJobIdx] = j;
+  saveState();
+  render();
+}
+function jobLabel(j, i) {
+  if (j.customer && j.customer.trim()) return j.customer.split(' ')[0];
+  return 'Job ' + (i+1);
+}
 
-      const handleKeyPress = (val) => {
-        let cur = currentItem[activeField] || '';
-        if (val === 'DEL') cur = cur.slice(0, -1);
-        else if (val === 'CLR') cur = '';
-        else cur += (cur.length > 0 && val.includes('/') ? ' ' : '') + val;
-        updateItem(activeField, cur);
-      };
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+function openKbd(section, idx, field) {
+  kbdTarget = { section:section, idx:idx, field:field };
+  kbdIsDoor = section === 'door';
+  render();
+}
+function closeKbd() { kbdTarget = null; render(); }
+function kbdVal() {
+  if (!kbdTarget) return '';
+  var j = job();
+  var arr = kbdTarget.section === 'door' ? j.doors : j.windows;
+  return arr[kbdTarget.idx][kbdTarget.field] || '';
+}
+function kbdPress(v) {
+  if (!kbdTarget) return;
+  var j = job();
+  var arr = kbdTarget.section === 'door' ? j.doors : j.windows;
+  var cur = arr[kbdTarget.idx][kbdTarget.field] || '';
+  if (v === 'DEL') cur = cur.slice(0,-1).trim();
+  else if (v === 'CLR') cur = '';
+  else if (v.indexOf('/') >= 0) {
+    // fraction — replace existing fraction or append
+    cur = cur.replace(/\s+\d+\/\d+$/, '').trim();
+    if (cur === '') cur = v;
+    else cur = cur + ' ' + v;
+  } else {
+    // digit
+    cur = cur + v;
+  }
+  arr[kbdTarget.idx][kbdTarget.field] = cur;
+  saveState();
+  render();
+}
 
-      return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col industrial-shadow">
-          <header className="bg-[#1a3a5c] text-white p-5 border-b-4 border-[#f59e0b] sticky top-0 z-50">
-            <h1 className="font-black italic text-xl tracking-tighter uppercase">Visionaire <span className="text-[10px] not-italic tracking-[0.3em] ml-2 opacity-70">Field Command</span></h1>
-          </header>
+// ─── GEMINI PDF SCAN ─────────────────────────────────────────────────────────
+function handlePdfUpload(file) {
+  if (!file) return;
+  if (!geminiApiKey) {
+    importStatus = { type:'error', msg:'⚠ Set your Gemini API key in Settings first.' };
+    render(); return;
+  }
+  importStatus = { type:'loading', msg:'🤖 Gemini is reading the contract…' };
+  render();
 
-          <main className="p-4 flex-1 pb-32 bg-slate-100">
-            {!activeJobId ? (
-              <div className="space-y-4">
-                {jobs.map(job => (
-                  <div key={job.id} onClick={() => setActiveJobId(job.id)} className="p-6 border-l-[12px] border-[#1a3a5c] bg-white rounded-2xl cursor-pointer shadow-sm">
-                    <h3 className="font-black text-slate-800 uppercase">{job.customer}</h3>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black text-slate-400 tracking-widest">◀ DISPATCH</button>
-                
-                <div className={`bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm ${isDoor ? 'door-accent' : 'window-accent'}`}>
-                  <div className={`${isDoor ? 'bg-[#064e3b]' : 'bg-[#1a3a5c]'} p-4 flex justify-between items-center`}>
-                    <span className="text-white font-bold text-xs uppercase tracking-widest">Line {activeItemIndex + 1}</span>
-                    <span className="bg-[#f59e0b] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{currentItem.itemType}</span>
-                  </div>
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var base64 = e.target.result.split(',')[1];
+    callGemini(base64, file.name);
+  };
+  reader.readAsDataURL(file);
+}
 
-                  <div className="p-5 space-y-6">
-                    <div>
-                      <span className="field-label">Location on House</span>
-                      <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location}</h2>
-                      {currentItem.contractSize && (
-                        <div className="inline-block mt-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg">
-                          <span className="text-[10px] font-bold text-blue-800 uppercase">Contract Size: {currentItem.contractSize}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* DOOR SPECIFIC FIELDS */}
-                    {isDoor && (
-                      <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="field-label text-emerald-700">Frame Prep</span>
-                            <div className="flex gap-2">
-                              <button onClick={() => updateItem('osj', !currentItem.osj)} className={`spec-pill ${currentItem.osj ? 'active-pill-door' : ''}`}>OSJ</button>
-                              <button onClick={() => updateItem('osbm', !currentItem.osbm)} className={`spec-pill ${currentItem.osbm ? 'active-pill-door' : ''}`}>OSBM</button>
-                            </div>
-                          </div>
-                          <div>
-                            <span className="field-label text-emerald-700">Swing</span>
-                            <div className="flex flex-wrap gap-2">
-                              {['L/IN', 'R/IN', 'L/OUT', 'R/OUT'].map(s => (
-                                <button key={s} onClick={() => updateItem('swing', s)} className={`spec-pill ${currentItem.swing === s ? 'active-pill-door' : ''}`}>{s}</button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* GRIDS AND GLASS */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="field-label">Grid Style</span>
-                        <div className="flex flex-wrap gap-2">
-                          {['Contour', 'Flat', 'SDL'].map(g => (
-                            <button key={g} onClick={() => updateItem('grids', g)} className={`spec-pill ${currentItem.grids === g ? 'active-pill' : ''}`}>{g}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="field-label">Glass Type</span>
-                        <div className="flex flex-wrap gap-2">
-                          {['Temp', 'Obscure'].map(gl => (
-                            <button key={gl} onClick={() => updateItem('glass', gl)} className={`spec-pill ${currentItem.glass === gl ? 'active-pill' : ''}`}>{gl}</button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* NOTES SECTION */}
-                    <div>
-                      <span className="field-label">Trim & Hardware Notes</span>
-                      <textarea 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#1a3a5c] focus:ring-1 focus:ring-[#1a3a5c] outline-none transition-all"
-                        rows="3"
-                        value={currentItem.extras || ''}
-                        onChange={(e) => updateItem('extras', e.target.value)}
-                        placeholder="Hardware specs, casing, threshold details..."
-                      />
-                    </div>
-
-                    {/* MEASUREMENTS */}
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
-                        <span className="field-label">Final Width</span>
-                        <span className="text-3xl font-black text-slate-800">{currentItem.fmWidth || '-'}</span>
-                      </div>
-                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
-                        <span className="field-label">Final Height</span>
-                        <span className="text-3xl font-black text-slate-800">{currentItem.fmHeight || '-'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* NUMBER PAD */}
-                <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                  <div className="grid grid-cols-7 gap-1.5 mb-3">
-                    {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => (
-                      <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-sm">{f}</button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[1,2,3,4,5,6,7,8,9].map(n => (
-                      <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">{n}</button>
-                    ))}
-                    <button onClick={() => handleKeyPress('CLR')} className="bg-white p-5 rounded-2xl font-black text-sm text-red-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">CLR</button>
-                    <button onClick={() => handleKeyPress('0')} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">0</button>
-                    <button onClick={() => handleKeyPress('DEL')} className="bg-white p-5 rounded-2xl font-black text-sm text-orange-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">DEL</button>
-                  </div>
-                </div>
-
-                <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] shadow-xl transition-all mb-8">
-                  Save & Next Unit ➔
-                </button>
-              </div>
-            )}
-          </main>
-        </div>
-      );
-    }
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<VisionaireApp />);
-  </script>
-</body>
-</html>
+function callGemini(base64data, filename) {
+  var prompt = 'You are parsing a window and 
