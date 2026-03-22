@@ -4,13 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Visionaire Field Command v3.0</title>
-  
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://accounts.google.com/gsi/client"></script>
-  
   <style> 
     body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, sans-serif; } 
     canvas { touch-action: none; }
@@ -36,26 +34,36 @@
       const [showSettings, setShowSettings] = useState(false);
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
+      useEffect(() => { localStorage.setItem('googleClientId', clientId); }, [clientId]);
+      useEffect(() => { localStorage.setItem('geminiApiKey', apiKey); }, [apiKey]);
 
       const connectGoogle = () => {
         if (!clientId) return alert("Enter Client ID in Settings!");
         const client = google.accounts.oauth2.initTokenClient({
           client_id: clientId.trim(),
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar.readonly',
-          callback: (res) => { if(res.access_token) { localStorage.setItem('googleAccessToken', res.access_token); setIsLinked(true); setShowSettings(false); } }
+          callback: (res) => { if(res.access_token) { localStorage.setItem('googleAccessToken', res.access_token); setIsLinked(true); setShowSettings(false); location.reload(); } }
         });
-        client.requestAccessToken({ prompt: 'select_account consent' });
+        client.requestAccessToken({ prompt: 'select_account' });
+      };
+
+      const addManualJob = () => {
+        const name = prompt("Enter Customer Name (Last Name works best for PDF search):");
+        if (name) {
+          const newJob = { id: Date.now(), customer: name, time: "Manual Entry", data: [], signature: null };
+          setJobs([newJob, ...jobs]);
+        }
       };
 
       const autoLoadContract = async (job) => {
         const token = localStorage.getItem('googleAccessToken');
-        if (!token || !apiKey) return alert("Settings incomplete.");
+        if (!token || !apiKey) return alert("Link Google & Set Gemini Key!");
         setLoading(true);
         try {
           const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
           const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
-          if (!driveData.files?.length) { alert("Contract not found."); setLoading(false); return; }
+          if (!driveData.files?.length) { alert("No PDF found for this name."); setLoading(false); return; }
 
           const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fileRes.blob();
@@ -63,10 +71,7 @@
           reader.readAsDataURL(blob);
           reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
-            const promptText = `Extract Window/Door items. Logic: Simonton, Pella, NBP, Precision, Tuscany. 
-              HEADER: Location + Unit (e.g., 'Entry French Door w/ Storm Door'). 
-              SPECS: Find colors (e.g., Mountain Berry Red), hardware (e.g., Peepsite at 58"), glass (e.g., Gluechip), and Unit Size (e.g., 60 1/16). 
-              Return JSON ONLY: [{"line":"1","itemType":"Window/Door","location":"","style":"","contractSize":"","color":"","glass":"","hardware":"","extras":"","qty":"1"}]`;
+            const promptText = `Extract Visionaire contract items. Header: Descriptive (e.g. Front Entry Door w/ Storm Door). Specs: Color, Glass, Hardware, Unit Size. Return JSON ONLY: [{"line":"1","itemType":"Window/Door","location":"","style":"","contractSize":"","color":"","glass":"","hardware":"","extras":"","qty":"1"}]`;
             
             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -76,15 +81,13 @@
             const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
             let items = JSON.parse(text);
             items.sort((a, b) => ((a.itemType || '').includes('Door') ? 1 : -1));
-
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items.map(i => ({ ...i, fmWidth: '', fmHeight: '' })) } : j));
             setLoading(false);
           };
-        } catch (e) { setLoading(false); alert("Extraction failed."); }
+        } catch (e) { setLoading(false); alert("Error scanning PDF."); }
       };
 
       const handleKeyPress = (val) => {
-          if(activeItemIndex === null) return;
           setJobs(prev => prev.map(job => {
               if(job.id === activeJobId) {
                   const items = [...job.data];
@@ -104,31 +107,37 @@
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-slate-100 flex flex-col industrial-shadow">
           <header className="p-5 flex justify-between items-center sticky top-0 z-[60] shadow-lg border-b-2" style={{ backgroundColor: theme.navy, borderColor: theme.gold }}>
-            <div className="flex flex-col cursor-pointer" onClick={() => setActiveJobId(null)}>
+            <div onClick={() => setActiveJobId(null)}>
                 <span className="text-[#f59e0b] font-black italic text-2xl uppercase tracking-tighter leading-none">Visionaire</span>
-                <span className="text-white font-bold text-[9px] tracking-[0.4em] ml-1 uppercase leading-none mt-1">Field Command</span>
+                <p className="text-white font-bold text-[9px] tracking-[0.4em] uppercase leading-none mt-1">
+                    {isLinked ? '● CONNECTED' : '○ OFFLINE'}
+                </p>
             </div>
             <button onClick={() => setShowSettings(!showSettings)} className="text-xl p-2 bg-white/10 rounded-full transition-transform active:rotate-90">⚙️</button>
           </header>
 
           {showSettings && (
-            <div className="absolute top-[75px] left-0 right-0 z-[100] bg-white p-6 shadow-2xl border-b-8 border-[#f59e0b] animate-in slide-in-from-top duration-300">
+            <div className="absolute top-[75px] left-0 right-0 z-[100] bg-white p-6 shadow-2xl border-b-8 border-[#f59e0b]">
                 <input type="password" placeholder="Gemini Key" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full p-4 bg-slate-100 rounded-2xl mb-4 text-xs font-mono" />
                 <input type="text" placeholder="Google Client ID" value={clientId} onChange={e => setClientId(e.target.value)} className="w-full p-4 bg-slate-100 rounded-2xl mb-6 text-xs font-mono" />
-                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase shadow-lg mb-3 flex items-center justify-center gap-3">📧 {isLinked ? 'Refresh Google' : 'Link Gmail'}</button>
-                <button onClick={() => setShowSettings(false)} className="w-full bg-slate-200 text-slate-700 p-4 rounded-xl font-black text-xs uppercase shadow-md">Close</button>
+                <button onClick={connectGoogle} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase shadow-lg mb-3">📧 LINK GOOGLE</button>
+                <button onClick={() => { localStorage.clear(); location.reload(); }} className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-black text-[10px] uppercase">Wipe App Cache</button>
             </div>
           )}
 
           <div className="p-4 flex-1">
             {!activeJobId ? (
               <div className="space-y-4">
-                  <h2 className="text-slate-800 font-black text-xl uppercase px-1">Appointments</h2>
+                  <div className="flex justify-between items-center mb-2 px-1">
+                    <h2 className="text-slate-800 font-black text-xl uppercase tracking-tighter">Appointments</h2>
+                    <button onClick={addManualJob} className="bg-[#1a3a5c] text-[#f59e0b] px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all">+ Add Job</button>
+                  </div>
+                  {jobs.length === 0 && <div className="p-20 text-center text-slate-300 font-black uppercase text-xs border-4 border-dashed border-slate-200 rounded-[2.5rem]">No Jobs Found</div>}
                   {jobs.map(job => (
-                    <div key={job.id} onClick={() => { setActiveJobId(job.id); if(!job.data.length) autoLoadContract(job); }} className="bg-white p-6 rounded-[2.2rem] shadow-sm border-l-[12px] border-[#1a3a5c] flex justify-between items-center cursor-pointer active:scale-[0.98] transition-all">
+                    <div key={job.id} onClick={() => { setActiveJobId(job.id); if(!job.data.length && isLinked) autoLoadContract(job); }} className="bg-white p-6 rounded-[2.2rem] shadow-sm border-l-[12px] border-[#1a3a5c] flex justify-between items-center cursor-pointer active:scale-[0.98] transition-all">
                         <div className="min-w-0 pr-4">
                             <h3 className="font-black text-slate-800 text-xl leading-none truncate">{job.customer}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-wide truncate">{job.time}</p>
+                            <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wide">{job.time}</p>
                         </div>
                         <div className="bg-slate-50 p-3 rounded-full text-slate-300 shrink-0">➔</div>
                     </div>
@@ -136,69 +145,53 @@
               </div>
             ) : (
               <div className="space-y-4 pb-28">
-                <button onClick={() => setActiveJobId(null)} className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest flex items-center gap-1">◀ Dispatch</button>
-
-                {loading ? <div className="p-24 text-center bg-white rounded-[2.5rem] font-black uppercase text-slate-400 animate-pulse">Extracting Data...</div> : 
-                  activeJob.data.map((item, index) => (
-                    <div key={index} className="bg-white rounded-[2.2rem] border-l-[12px] overflow-hidden mb-4 shadow-sm" style={{ borderColor: item.fmWidth && item.fmHeight ? '#22c55e' : (item.itemType || '').includes('Door') ? '#f59e0b' : '#1a3a5c' }}>
-                      <div className="p-5 flex justify-between items-center cursor-pointer" onClick={() => {setActiveItemIndex(activeItemIndex === index ? null : index); setActiveField('fmWidth');}}>
-                        <div className="flex gap-4 items-center min-w-0 pr-4">
-                            <div className="bg-slate-100 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-slate-400 shrink-0">{item.line}</div>
-                            <div className="min-w-0 pr-2">
-                              <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[8px] px-2 py-0.5 rounded-md font-black uppercase bg-slate-100 text-slate-500">{item.itemType}</span>
-                                  <span className="text-[10px] font-black text-slate-300 uppercase">Qty: {item.qty}</span>
-                              </div>
-                              <h4 className="font-black text-slate-800 text-sm uppercase leading-none truncate max-w-[240px]">{item.location}</h4>
-                              <div className="mt-2 inline-flex bg-blue-50 border border-blue-100 px-2 py-1 rounded-md">
-                                  <span className="text-[9px] font-black text-blue-800 uppercase leading-none tracking-tighter">Order Size: {item.contractSize}</span>
-                              </div>
-                            </div>
+                <button onClick={() => {setActiveJobId(null); setActiveItemIndex(null);}} className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest flex items-center gap-1">◀ Return to Dispatch</button>
+                {loading ? <div className="p-24 text-center font-black text-slate-400 animate-pulse uppercase tracking-[0.2em]">Searching Drive for Contract...</div> : 
+                  activeJob.data.length === 0 ? (
+                    <div className="p-20 text-center bg-white rounded-[2.5rem] border-4 border-dashed border-slate-200">
+                        <p className="text-slate-400 font-black uppercase text-xs mb-4">No Contract Data</p>
+                        <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg">Retry Scan</button>
+                    </div>
+                  ) : activeJob.data.map((item, index) => (
+                    <div key={index} className="bg-white rounded-[2.2rem] border-l-[12px] overflow-hidden mb-4 shadow-sm relative" style={{ borderColor: item.fmWidth && item.fmHeight ? '#22c55e' : item.itemType.includes('Door') ? '#f59e0b' : '#1a3a5c' }}>
+                      <div className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50" onClick={() => {setActiveItemIndex(index); setActiveField('fmWidth');}}>
+                        <div className="min-w-0 pr-4">
+                          <span className="text-[8px] px-2 py-0.5 rounded-md font-black uppercase bg-slate-100 text-slate-500">{item.itemType}</span>
+                          <h4 className="font-black text-slate-800 text-sm uppercase leading-tight truncate mt-1">{item.location}</h4>
+                          <div className="mt-2 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md inline-block">
+                              <span className="text-[9px] font-black text-blue-800 uppercase leading-none">Order: {item.contractSize}</span>
+                          </div>
                         </div>
-                        <div className={`w-5 h-5 rounded-full shrink-0 border-2 ${item.fmWidth && item.fmHeight ? 'bg-green-500 border-green-600 shadow-md' : 'bg-transparent border-slate-200'}`}></div>
+                        <div className={`w-5 h-5 rounded-full border-2 ${item.fmWidth && item.fmHeight ? 'bg-green-500 border-green-600' : 'border-slate-200'}`}></div>
                       </div>
-
                       {activeItemIndex === index && (
-                        <div className="p-6 bg-white border-t border-slate-100 relative z-20">
-                            <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] space-y-2">
-                                <h5 className="font-black text-[#1a3a5c] uppercase border-b border-slate-200 pb-1 mb-2 tracking-widest">Build Specifications</h5>
+                        <div className="p-6 bg-white border-t relative z-20">
+                            <div className="mb-4 p-4 bg-slate-50 border rounded-2xl text-[10px] space-y-2">
                                 <p><span className="text-slate-400 font-bold uppercase">Color:</span> <span className="font-black text-slate-700">{item.color || '-'}</span></p>
-                                <p><span className="text-slate-400 font-bold uppercase">Glass/Screen:</span> <span className="font-black text-slate-700">{item.glass || '-'}</span></p>
                                 <p><span className="text-slate-400 font-bold uppercase">Hardware:</span> <span className="font-black text-slate-700">{item.hardware || '-'}</span></p>
-                                <p className="pt-2 border-t mt-2 text-blue-600 italic font-bold tracking-tight leading-relaxed">{item.extras || '-'}</p>
+                                <p className="pt-2 border-t mt-2 text-blue-600 italic font-bold leading-tight">{item.extras || '-'}</p>
                             </div>
-
                             <div className="flex gap-3 mb-5">
-                                <div className={`flex-1 p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-md' : 'border-transparent bg-slate-100'}`} onClick={() => setActiveField('fmWidth')}>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Final Width</span>
+                                <div className={`flex-1 p-4 rounded-2xl border-4 text-center ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white' : 'bg-slate-100 border-transparent'}`} onClick={() => setActiveField('fmWidth')}>
                                     <span className="text-3xl font-black">{item.fmWidth || '-'}</span>
                                 </div>
-                                <div className={`flex-1 p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-md' : 'border-transparent bg-slate-100'}`} onClick={() => setActiveField('fmHeight')}>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Final Height</span>
+                                <div className={`flex-1 p-4 rounded-2xl border-4 text-center ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white' : 'bg-slate-100 border-transparent'}`} onClick={() => setActiveField('fmHeight')}>
                                     <span className="text-3xl font-black">{item.fmHeight || '-'}</span>
                                 </div>
                             </div>
-
-                            <div className="bg-slate-200 p-3 rounded-[2.8rem] mb-5 shadow-inner relative z-30">
+                            <div className="bg-slate-200 p-3 rounded-[2.8rem] mb-5">
                                 <div className="grid grid-cols-7 gap-1.5 mb-3">
-                                    {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => (
-                                        <button key={f} onClick={() => handleKeyPress(' '+f)} className="bg-[#1a3a5c] text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-all">{f}</button>
-                                    ))}
+                                    {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(' '+f)} className="bg-[#1a3a5c] text-white py-3 rounded-xl font-black text-[10px]">{f}</button>)}
                                 </div>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {[1,2,3,4,5,6,7,8,9].map(n => (
-                                        <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-4 rounded-2xl font-black text-2xl shadow-sm text-slate-700 active:scale-95 transition-all">{n}</button>
-                                    ))}
-                                    <button onClick={() => handleKeyPress('CLR')} className="bg-white p-4 rounded-2xl font-black text-[10px] text-red-500 uppercase">Clear</button>
-                                    <button onClick={() => handleKeyPress('0')} className="bg-white p-4 rounded-2xl font-black text-2xl text-slate-700">0</button>
-                                    <button onClick={() => handleKeyPress('DEL')} className="bg-white p-4 rounded-2xl font-black text-xl text-orange-500">⌫</button>
+                                    {[1,2,3,4,5,6,7,8,9, 'CLR', 0, 'DEL'].map(n => <button key={n} onClick={() => typeof n === 'number' ? handleKeyPress(n.toString()) : handleKeyPress(n)} className="bg-white p-4 rounded-2xl font-black text-2xl shadow-sm text-slate-700">{n}</button>)}
                                 </div>
                             </div>
-                            <button onClick={() => setActiveItemIndex(index < activeJob.data.length - 1 ? index + 1 : null)} className="w-full p-5 bg-[#1a3a5c] text-white rounded-[2.2rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all shadow-xl">Save & Continue ➔</button>
+                            <button onClick={() => setActiveItemIndex(index < activeJob.data.length - 1 ? index + 1 : null)} className="w-full p-5 bg-[#1a3a5c] text-white rounded-[2.2rem] font-black text-sm uppercase tracking-widest active:scale-95 transition-all">Save & Next ➔</button>
                         </div>
                       )}
                     </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
