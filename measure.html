@@ -23,14 +23,13 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect } = React;
+    const TARGET_FOLDER_ID = '0B69WGNfZx9kuYmFJRFhfcGxWY0k';
 
     function VisionaireApp() {
       const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
       const apiKey = prefs.geminiKey || '';
-      
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
       const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
-      
       const [activeItemIndex, setActiveItemIndex] = useState(0);
       const [activeField, setActiveField] = useState('fmWidth');
       const [loading, setLoading] = useState(false);
@@ -41,22 +40,9 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      const goBackToHub = () => {
-        localStorage.removeItem('activeJobId'); 
-        window.location.href = 'index.html'; 
-      };
+      const goBackToHub = () => { localStorage.removeItem('activeJobId'); window.location.href = 'index.html'; };
 
-      if (!activeJobId || !activeJob) {
-         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-6 text-center">
-               <div className="bg-white p-8 rounded-[2rem] shadow-xl max-w-sm w-full border-t-8 border-red-500">
-                 <h2 className="text-2xl font-black text-slate-800 mb-2 uppercase">Data Cleared</h2>
-                 <p className="font-bold text-slate-500 mb-8 text-sm">Please return to the Hub to select a customer.</p>
-                 <button onClick={goBackToHub} className="w-full bg-[#1a3a5c] text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">◀ Return to Hub</button>
-               </div>
-            </div>
-         );
-      }
+      if (!activeJobId || !activeJob) return <div className="p-10 text-center font-bold">Return to Hub to select customer.</div>;
 
       const updateItem = (key, value) => {
         setJobs(prev => prev.map(job => {
@@ -79,81 +65,38 @@
 
       const autoLoadContract = async (job) => {
         const token = prefs.accessToken;
-        
-        if (!token || !apiKey) return alert("System not fully configured in the Hub. Check Setup settings.");
+        if (!token || !apiKey) return alert("Setup Hub first.");
         setLoading(true);
         try {
           let searchName = job.customer.trim();
-          if (searchName.includes(' ')) {
-            searchName = searchName.split(' ').pop(); 
-          }
+          if (searchName.includes(' ')) { searchName = searchName.split(' ').pop(); }
 
-          // FIX: Search Shared Drives + Team Folders
-          const query = `fullText contains '${searchName}' and mimeType='application/pdf'`;
+          // Connection Strategy: Prioritize "(SOLD)" keyword
+          const query = "(fullText contains 'SOLD' or fullText contains 'Signed' or fullText contains 'Agreement') and fullText contains '" + searchName.replace(/'/g, "\\'") + "' and mimeType='application/pdf' and '" + TARGET_FOLDER_ID + "' in parents";
           const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives`;
           
           const driveRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
           
-          if (!driveData.files?.length) { 
-            setLoading(false); 
-            alert(`No PDF Found in Drive containing "${searchName}". Make sure the contract is uploaded to Google Drive.`); 
-            return; 
-          }
+          if (!driveData.files?.length) { setLoading(false); alert(`No SOLD contract found for "${searchName}".`); return; }
 
-          // FIX: Add supportsAllDrives=true to the file download URL
-          const fileUrl = `https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media&supportsAllDrives=true`;
-          const fileRes = await fetch(fileUrl, { headers: { Authorization: `Bearer ${token}` } });
+          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fileRes.blob();
-          const reader = new FileReader();
-          reader.readAsDataURL(blob);
-          reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            const promptText = `Extract all window and door items from this contract. Header: Location. Specs: Color, Hardware, Size. JSON EXACT FORMAT: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
-            
-            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
-            });
+          const base64 = await new Promise(r => { const reader = new FileReader(); reader.onloadend = () => r(reader.result.split(',')[1]); reader.readAsDataURL(blob); });
 
-            if (!geminiRes.ok) {
-              setLoading(false);
-              if (geminiRes.status === 429) {
-                return alert("API Speed Limit Reached! Please wait 60 seconds and try scanning again.");
-              }
-              return alert(`Gemini AI Error: ${geminiRes.status}`);
-            }
+          const promptText = `Extract unit units. JSON format: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
+          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
+          });
 
-            const result = await geminiRes.json();
-            
-            if (!result.candidates || result.candidates.length === 0) {
-              setLoading(false);
-              return alert("Gemini failed to extract data from this PDF. Please try again.");
-            }
-
-            const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '' }));
-            
-            setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
-            setLoading(false);
-          };
-        } catch (e) { 
-          setLoading(false); 
-          console.error(e); 
-          alert("Extraction Error: " + e.message); 
-        }
-      };
-
-      const startManualSheet = () => {
-        setJobs(prev => prev.map(job => {
-          if (job.id === activeJobId) {
-            return { 
-              ...job, 
-              data: [{ line: 1, itemType: 'Window', location: 'Unit 1', fmWidth: '', fmHeight: '', grids: '', glass: '', extras: '' }] 
-            };
-          }
-          return job;
-        }));
+          if (!geminiRes.ok) { setLoading(false); return alert("AI Limit hit. Wait 60s."); }
+          const result = await geminiRes.json();
+          const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '' }));
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
+          setLoading(false);
+        } catch (e) { setLoading(false); console.error(e); }
       };
 
       return (
@@ -162,154 +105,45 @@
             <h1 className="font-black italic text-xl tracking-tighter uppercase">Visionaire <span className="text-[10px] not-italic tracking-[0.3em] ml-2 opacity-70">Field Command</span></h1>
             <button onClick={goBackToHub} className="text-[#f59e0b] font-black text-[10px] uppercase">Close Job</button>
           </header>
-
           <main className="p-4 flex-1 pb-32 bg-slate-100">
             <div className="space-y-6">
-              <button onClick={goBackToHub} className="text-[10px] font-black text-slate-400">◀ BACK TO HUB</button>
-              
               <div className="border-b-4 border-slate-200 pb-2 flex justify-between items-end">
                   <h3 className="font-black text-2xl uppercase text-slate-800">{activeJob.customer}</h3>
-                  {activeJob.data.length > 0 && (
-                    <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-md active:scale-95">Rescan PDF 📄</button>
-                  )}
+                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-md">Scan PDF Contract 📄</button>
               </div>
-
-              {loading ? (
-                <div className="p-20 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-white shadow-sm">
-                  <p className="text-slate-400 font-black uppercase text-xs animate-pulse">Scanning PDF & Analyzing Build Data...</p>
-                </div>
-              ) : activeJob.data && activeJob.data.length === 0 ? (
-                <div className="p-10 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-slate-50">
-                  <p className="text-slate-500 font-bold uppercase text-xs mb-6">Contract Data Empty</p>
-                  
-                  <div className="flex flex-col gap-3 items-center">
-                      <button onClick={() => autoLoadContract(activeJob)} className="w-full bg-blue-600 text-white px-6 py-4 rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">📄 Scan PDF Contract</button>
-                      
-                      <p className="text-xs text-slate-400 font-bold my-2">OR</p>
-                      
-                      <button onClick={startManualSheet} className="w-full bg-[#1a3a5c] text-white px-6 py-4 rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">Start Manual Sheet</button>
+              {loading ? <div className="p-20 text-center animate-pulse uppercase font-black text-xs">Connecting SOLD Contract...</div> : 
+               !activeJob.data.length ? <div className="p-10 text-center border-4 border-dashed rounded-[2rem] bg-white"><button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-4 rounded-xl font-black text-xs uppercase">Scan SOLD Contract</button></div> :
+               <div className={`bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm`}>
+                  <div className="bg-[#1a3a5c] p-4 flex justify-between items-center text-white font-bold text-xs uppercase tracking-widest">
+                    <span>Line {activeItemIndex + 1} of {activeJob.data.length}</span>
+                    <span className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full">{currentItem.itemType}</span>
                   </div>
-                </div>
-              ) : (
-                <div className={`bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm ${isDoor ? 'door-accent' : 'window-accent'}`}>
-                  <div className={`${isDoor ? 'bg-[#064e3b]' : 'bg-[#1a3a5c]'} p-4 flex justify-between items-center`}>
-                    <span className="text-white font-bold text-xs uppercase tracking-widest">Line {activeItemIndex + 1} of {activeJob.data.length}</span>
-                    <span className="bg-[#f59e0b] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{currentItem.itemType}</span>
-                  </div>
-
                   <div className="p-5 space-y-6">
-                    <div>
-                      <span className="field-label">Location on House</span>
-                      <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location}</h2>
-                      {currentItem.contractSize && (
-                        <div className="inline-block mt-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg">
-                          <span className="text-[10px] font-bold text-blue-800 uppercase">Contract Size: {currentItem.contractSize}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {isDoor && (
-                      <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="field-label text-emerald-700">Frame Prep</span>
-                            <div className="flex gap-2">
-                              <button onClick={() => updateItem('osj', !currentItem.osj)} className={`spec-pill ${currentItem.osj ? 'active-pill-door' : ''}`}>OSJ</button>
-                              <button onClick={() => updateItem('osbm', !currentItem.osbm)} className={`spec-pill ${currentItem.osbm ? 'active-pill-door' : ''}`}>OSBM</button>
-                            </div>
-                          </div>
-                          <div>
-                            <span className="field-label text-emerald-700">Swing</span>
-                            <div className="flex flex-wrap gap-2">
-                              {['L/IN', 'R/IN', 'L/OUT', 'R/OUT'].map(s => (
-                                <button key={s} onClick={() => updateItem('swing', s)} className={`spec-pill ${currentItem.swing === s ? 'active-pill-door' : ''}`}>{s}</button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
+                    <div><span className="field-label">Location</span><h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location}</h2>{currentItem.contractSize && <span className="text-[10px] bg-blue-50 px-2 py-1 rounded">Size: {currentItem.contractSize}</span>}</div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="field-label">Grid Style</span>
-                        <div className="flex flex-wrap gap-2">
-                          {['Contour', 'Flat', 'SDL'].map(g => (
-                            <button key={g} onClick={() => updateItem('grids', g)} className={`spec-pill ${currentItem.grids === g ? 'active-pill' : ''}`}>{g}</button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="field-label">Glass Type</span>
-                        <div className="flex flex-wrap gap-2">
-                          {['Temp', 'Obscure'].map(gl => (
-                            <button key={gl} onClick={() => updateItem('glass', gl)} className={`spec-pill ${currentItem.glass === gl ? 'active-pill' : ''}`}>{gl}</button>
-                          ))}
-                        </div>
-                      </div>
+                      {['Grids', 'Glass'].map(type => (
+                        <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
+                      ))}
                     </div>
-
-                    <div>
-                      <span className="field-label">Trim & Hardware Notes</span>
-                      <textarea 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#1a3a5c] focus:ring-1 focus:ring-[#1a3a5c] outline-none transition-all"
-                        rows="3"
-                        value={currentItem.extras || ''}
-                        onChange={(e) => updateItem('extras', e.target.value)}
-                        placeholder="Hardware specs, casing, threshold details..."
-                      />
-                    </div>
-
+                    <div><span className="field-label">Notes</span><textarea className="w-full bg-slate-50 border rounded-xl p-3 text-sm" rows="3" value={currentItem.extras||''} onChange={e=>updateItem('extras',e.target.value)} /></div>
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
-                        <span className="field-label">Final Width</span>
-                        <span className="text-3xl font-black text-slate-800">{currentItem.fmWidth || '-'}</span>
-                      </div>
-                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
-                        <span className="field-label">Final Height</span>
-                        <span className="text-3xl font-black text-slate-800">{currentItem.fmHeight || '-'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* NUMBER PAD */}
-              {!loading && activeJob.data && activeJob.data.length > 0 && (
-                <>
-                  <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                    <div className="grid grid-cols-7 gap-1.5 mb-3">
-                      {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => (
-                        <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-sm">{f}</button>
+                      {['fmWidth', 'fmHeight'].map(f => (
+                        <div key={f} onClick={() => setActiveField(f)} className={`p-4 rounded-2xl border-4 text-center ${activeField===f?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">{f==='fmWidth'?'Final Width':'Final Height'}</span><span className="text-3xl font-black">{currentItem[f]||'-'}</span></div>
                       ))}
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[1,2,3,4,5,6,7,8,9].map(n => (
-                        <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">{n}</button>
-                      ))}
-                      <button onClick={() => handleKeyPress('CLR')} className="bg-white p-5 rounded-2xl font-black text-sm text-red-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">CLR</button>
-                      <button onClick={() => handleKeyPress('0')} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">0</button>
-                      <button onClick={() => handleKeyPress('DEL')} className="bg-white p-5 rounded-2xl font-black text-sm text-orange-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">DEL</button>
-                    </div>
                   </div>
-
-                  <div className="flex gap-2 mb-8">
-                      <button onClick={() => setActiveItemIndex(p => Math.max(p - 1, 0))} className="w-1/4 bg-slate-300 text-slate-600 py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] transition-all">
-                        ◀
-                      </button>
-                      <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-3/4 bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] shadow-xl transition-all">
-                        Save & Next ➔
-                      </button>
-                  </div>
-                </>
-              )}
+               </div>}
+              {!loading && activeJob.data.length > 0 && <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
+                <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs">{f}</button>)}</div>
+                <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black ${n==='CLR'?'text-red-500 text-xs':n==='DEL'?'text-orange-500 text-xs':'text-2xl text-slate-700'}`}>{n}</button>)}</div>
+                <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase mt-4">Save & Next ➔</button>
+              </div>}
             </div>
           </main>
         </div>
       );
     }
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<VisionaireApp />);
+    const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<VisionaireApp />);
   </script>
 </body>
 </html>
