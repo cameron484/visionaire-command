@@ -61,7 +61,6 @@
     .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
     .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1;}
     .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;}
-    .cc-addr{font-size:0.8rem;color:var(--navy-mid);margin-bottom:8px;display: block; text-decoration: underline; font-weight: 600;}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
     .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
     .ca:not(:last-child){border-right:1px solid var(--border)}
@@ -168,7 +167,7 @@ function geminiInsight(ev){
   if(insights[ev.id]){render();return;}
   insights[ev.id]='...';render();
   var rawText = (ev.notesHtml || '').replace(/<[^>]+>/g,' ');
-  var prompt='You are a field measure prep assistant for Visionaire Windows. Write a single practical 1-2 sentence prep note for the measurer heading to this appointment. Be specific.\n\nCustomer: '+ev.customer+'\nAddress: '+ev.address+'\nNotes: '+rawText+'\n\nRespond with 1-2 sentences only.';
+  var prompt='You are a field measure prep assistant for Visionaire Windows. Write a single practical 1-2 sentence prep note for the measurer heading to this appointment. Be specific. Notes: '+rawText;
   
   fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+geminiKey,{
     method:'POST',
@@ -181,7 +180,6 @@ function geminiInsight(ev){
   }).catch(function(){insights[ev.id]='Could not load insight.';render();});
 }
 
-// 💥 UPDATED SMART NOTE CLEANER
 function cleanNotes(html) {
   if (!html) return "";
   let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
@@ -194,26 +192,13 @@ function cleanNotes(html) {
     
     if (label) {
       let content = part.substring(label.length).trim();
-      
-      // If this is the "Contact:" block, strip name/address and keep ONLY phone numbers
       if (label.toLowerCase() === 'contact:') {
           let phones = content.match(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g);
-          if (phones) {
-              content = phones.map(p => `<a href="tel:${p}" class="tel-link">${p}</a>`).join(' &nbsp;|&nbsp; ');
-          } else {
-              content = "No phone number listed";
-          }
-          label = "CONTACT PHONE:"; // Rename the label to match
-      } 
-      // If this is the "Edit event" block, make it a clean button
-      else if (label.toLowerCase() === 'edit event at:') {
+          content = phones ? phones.map(p => `<a href="tel:${p}" class="tel-link">${p}</a>`).join(' | ') : "No phone listed";
+          label = "CONTACT PHONE:";
+      } else if (label.toLowerCase() === 'edit event at:') {
           return `<span class="note-line"><span class="note-label">CRM LINK:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700; text-decoration:underline;">Open in MarketSharp</a></span>`;
-      } 
-      // For all other blocks, just linkify phone numbers normally
-      else {
-          content = content.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
       }
-      
       return `<span class="note-line"><span class="note-label">${label}</span>${content}</span>`;
     }
     return `<span class="note-line">${part}</span>`;
@@ -222,13 +207,8 @@ function cleanNotes(html) {
 
 function parseEv(ev){
   var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
-  
-  let rawName = ev.summary.replace(/final\s*measure/ig, '')
-                          .replace(/\bmeasure\b/ig, '')
-                          .replace(/\bfm\b/ig, '')
-                          .trim();
+  let rawName = ev.summary.replace(/final\s*measure/ig, '').replace(/\bmeasure\b/ig, '').replace(/\bfm\b/ig, '').trim();
   rawName = rawName.replace(/^[^a-zA-Z0-9]+/, '').trim();
-  
   return {
     id: ev.id, customer: rawName || 'Unnamed',
     address: ev.location || '', startDate: start.slice(0,10),
@@ -256,14 +236,13 @@ function rHeader(){
   badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
   badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Not signed in')}));
   top.appendChild(badge); h.appendChild(top);
-  
   var tabs=el('div',{C:'vtabs'});
   [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(t => {
     tabs.appendChild(el('button',{
       C:'vtab'+(view===t[0]?' on':''), t:t[1],
       click:()=>{
         if(t[0]==='manual'){
-          var n=prompt("Enter Customer Name for Manual Entry:");
+          var n=prompt("Enter Customer Name:");
           if(n){
             var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
             var id=Date.now(); j.unshift({id:id, customer:n, time:'Manual', data:[]});
@@ -283,27 +262,16 @@ function rSetup(main){
   body.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
   var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
   body.appendChild(ci);
-  
-  if(accessToken&&userEmail){
-    body.appendChild(el('button',{C:'g-btn conn',t:'\u2713 Signed In (' + (userEmail || 'Account') + ')', click: signOut}));
-  } else {
-    body.appendChild(el('button',{C:'g-btn',t:'Sign in with Google', click: signIn}));
-  }
-  
+  if(accessToken&&userEmail){ body.appendChild(el('button',{C:'g-btn conn',t:'✓ Signed In (' + (userEmail || 'Account') + ')', click: signOut})); }
+  else { body.appendChild(el('button',{C:'g-btn',t:'Sign in with Google', click: signIn})); }
   body.appendChild(el('span',{C:'lbl',t:'Gemini Key'}));
   var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
   body.appendChild(gk);
-  
   body.appendChild(el('span',{C:'lbl',t:'Calendar Search Term'}));
   var st=el('input',{C:'inp',value:searchTerm}); st.addEventListener('input',e=>{searchTerm=e.target.value;save();});
   body.appendChild(st);
-
   body.appendChild(el('button',{C:'btn-p',t:'Save Config & Sync',click:()=>{save();syncCalendar();}}));
-  
-  if(accessToken){
-    body.appendChild(el('button',{C:'btn-disc',t:'Force Sign Out / Disconnect',click:signOut}));
-  }
-  
+  if(accessToken){ body.appendChild(el('button',{C:'btn-disc',t:'Force Sign Out / Disconnect',click:signOut})); }
   var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'System Config'})); sc.appendChild(body);
   main.appendChild(sc);
 }
@@ -316,14 +284,11 @@ function rSched(main){
   main.appendChild(sb);
   if(loading){main.appendChild(el('div',{C:'lrow',t:'Pulling Calendar...'})); return;}
   rDateStrip(main);
-  
   var dayEvs = calEvents.filter(e=>e.startDate===selDate);
   if(dayEvs.length === 0) {
      let niceDate = new Date(selDate+'T12:00:00').toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
      main.appendChild(el('div', {C: 'empty-state', t: 'No measurements scheduled for ' + niceDate + '.'}));
-  } else {
-     dayEvs.forEach(ev=>main.appendChild(rCard(ev)));
-  }
+  } else { dayEvs.forEach(ev=>main.appendChild(rCard(ev))); }
 }
 
 function rDateStrip(main){
@@ -331,7 +296,6 @@ function rDateStrip(main){
   for(let i=-1; i<=14; i++){
     let d=new Date(); d.setDate(d.getDate()+i); 
     let iso=d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    
     let chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''), click:()=>{selDate=iso; render();} });
     chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
     chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
@@ -346,36 +310,30 @@ function rCard(ev){
   var head=el('div',{C:'cc-head'});
   head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
   var body=el('div',{C:'cc-body'});
-  
   var top=el('div',{C:'cc-top'}); 
   top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
   top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); 
   body.appendChild(top);
-  
   head.appendChild(body); card.appendChild(head);
   if(isExp){
     var det=el('div',{C:'cc-det'});
-    
     if(geminiKey){
       var gi=el('div',{C:'gi'});
       var gih=el('div',{C:'gi-head'});
-      gih.appendChild(el('span',{C:'gi-badge',t:'\u2736 Gemini'}));
+      gih.appendChild(el('span',{C:'gi-badge',t:'✦ Gemini'}));
       gih.appendChild(el('span',{style:'font-size:0.68rem;font-weight:700;color:var(--s600)',t:'AI Prep Note'}));
       gi.appendChild(gih);
       var ins=insights[ev.id];
-      if(!ins){var tap=el('button',{C:'gi-tap',t:'Tap to generate prep note\u2026',click:function(e){return function(){geminiInsight(e);};}(ev)});gi.appendChild(tap);}
-      else if(ins==='...'){var sr2=el('div',{C:'lrow',style:'padding:6px 0;justify-content:flex-start'});sr2.appendChild(el('div',{C:'spin'}));sr2.appendChild(el('span',{C:'ltxt',t:'Thinking\u2026'}));gi.appendChild(sr2);}
+      if(!ins){var tap=el('button',{C:'gi-tap',t:'Tap to generate prep note...',click:function(e){return function(){geminiInsight(e);};}(ev)});gi.appendChild(tap);}
+      else if(ins==='...'){var sr2=el('div',{C:'lrow',style:'padding:6px 0;justify-content:flex-start'});sr2.appendChild(el('div',{C:'spin'}));sr2.appendChild(el('span',{C:'ltxt',t:'Thinking...'}));gi.appendChild(sr2);}
       else{gi.appendChild(el('div',{C:'gi-txt',t:ins}));}
       det.appendChild(gi);
     }
-
     var n = el('div',{C:'dnotes'}); 
     let notesHtml = "";
     if(ev.address) {
-        var addrText = ev.address.replace(/</g, "<").replace(/>/g, ">");
-        notesHtml += '<span class="note-line"><span class="note-label">ADDRESS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:700;">' + addrText + '</a></span>';
+        notesHtml += '<span class="note-line"><span class="note-label">ADDRESS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:700;">' + ev.address + '</a></span>';
     }
-    
     notesHtml += cleanNotes(ev.notesHtml);
     n.innerHTML = notesHtml || "No job notes.";
     det.appendChild(n); card.appendChild(det);
@@ -391,7 +349,6 @@ function rCard(ev){
   acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
   card.appendChild(acts); return card;
 }
-
 function el(tag,props){
   var e=document.createElement(tag);
   for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else e[k]=props[k]; }
