@@ -9,7 +9,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, sans-serif; background: #f1f5f9; }
+    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; }
     .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
     .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; display: block; }
     .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
@@ -25,7 +25,6 @@
     const { useState, useEffect } = React;
 
     function VisionaireApp() {
-      // 1. LOOK IN THE CORRECT FOLDER FOR THE KEYS!
       const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
       const apiKey = prefs.geminiKey || '';
       
@@ -79,16 +78,28 @@
       };
 
       const autoLoadContract = async (job) => {
-        // 2. GET THE TOKEN FROM THE CORRECT LOCATION!
         const token = prefs.accessToken;
         
-        if (!token || !apiKey) return alert("System not fully configured in the Hub.");
+        if (!token || !apiKey) return alert("System not fully configured in the Hub. Check Setup settings.");
         setLoading(true);
         try {
-          const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
+          // SMART SEARCH: Grabs last name
+          let searchName = job.customer.trim();
+          if (searchName.includes(' ')) {
+            searchName = searchName.split(' ').pop(); 
+          }
+
+          // FIX: Using fullText bypasses the underscore problem in file names
+          const query = `fullText contains '${searchName}' and mimeType='application/pdf'`;
+          
           const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
-          if (!driveData.files?.length) { setLoading(false); alert("No PDF Found in Drive."); return; }
+          
+          if (!driveData.files?.length) { 
+            setLoading(false); 
+            alert(`No PDF Found in Drive containing "${searchName}".`); 
+            return; 
+          }
 
           const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fileRes.blob();
@@ -96,7 +107,8 @@
           reader.readAsDataURL(blob);
           reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
-            const promptText = `Extract items. Header: Location. Specs: Color, Hardware, Size. JSON: [{"line":"1","itemType":"Window/Door","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
+            const promptText = `Extract all window and door items from this contract. Header: Location. Specs: Color, Hardware, Size. JSON EXACT FORMAT: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
+            
             const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
@@ -104,10 +116,27 @@
             const result = await geminiRes.json();
             const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
             const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '' }));
+            
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
             setLoading(false);
           };
-        } catch (e) { setLoading(false); console.error(e); alert("Extraction Error: " + e.message); }
+        } catch (e) { 
+          setLoading(false); 
+          console.error(e); 
+          alert("Extraction Error: " + e.message); 
+        }
+      };
+
+      const startManualSheet = () => {
+        setJobs(prev => prev.map(job => {
+          if (job.id === activeJobId) {
+            return { 
+              ...job, 
+              data: [{ line: 1, itemType: 'Window', location: 'Unit 1', fmWidth: '', fmHeight: '', grids: '', glass: '', extras: '' }] 
+            };
+          }
+          return job;
+        }));
       };
 
       return (
@@ -123,21 +152,26 @@
               
               <div className="border-b-4 border-slate-200 pb-2 flex justify-between items-end">
                   <h3 className="font-black text-2xl uppercase text-slate-800">{activeJob.customer}</h3>
-                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-md active:scale-95">Scan PDF 📄</button>
+                  {activeJob.data.length > 0 && (
+                    <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-md active:scale-95">Rescan PDF 📄</button>
+                  )}
               </div>
 
               {loading ? (
                 <div className="p-20 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-white shadow-sm">
-                  <p className="text-slate-400 font-black uppercase text-xs animate-pulse">Pulling Contract Data...</p>
+                  <p className="text-slate-400 font-black uppercase text-xs animate-pulse">Scanning PDF & Analyzing Build Data...</p>
                 </div>
               ) : activeJob.data && activeJob.data.length === 0 ? (
-                <div className="p-16 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-white shadow-sm">
-                  <p className="text-slate-400 font-black uppercase text-xs mb-4">Ready to Scan</p>
-                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg mr-2">Scan PDF</button>
-                  <button onClick={() => {
-                      updateItem('location', 'Manual Entry'); 
-                      updateItem('itemType', 'Window');
-                  }} className="bg-[#1a3a5c] text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg mt-4">Start Manual Sheet</button>
+                <div className="p-10 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-slate-50">
+                  <p className="text-slate-500 font-bold uppercase text-xs mb-6">Contract Data Empty</p>
+                  
+                  <div className="flex flex-col gap-3 items-center">
+                      <button onClick={() => autoLoadContract(activeJob)} className="w-full bg-blue-600 text-white px-6 py-4 rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">📄 Scan PDF Contract</button>
+                      
+                      <p className="text-xs text-slate-400 font-bold my-2">OR</p>
+                      
+                      <button onClick={startManualSheet} className="w-full bg-[#1a3a5c] text-white px-6 py-4 rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">Start Manual Sheet</button>
+                  </div>
                 </div>
               ) : (
                 <div className={`bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm ${isDoor ? 'door-accent' : 'window-accent'}`}>
@@ -242,9 +276,14 @@
                     </div>
                   </div>
 
-                  <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] shadow-xl transition-all mb-8">
-                    Save & Next Unit ➔
-                  </button>
+                  <div className="flex gap-2 mb-8">
+                      <button onClick={() => setActiveItemIndex(p => Math.max(p - 1, 0))} className="w-1/4 bg-slate-300 text-slate-600 py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] transition-all">
+                        ◀
+                      </button>
+                      <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-3/4 bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] shadow-xl transition-all">
+                        Save & Next ➔
+                      </button>
+                  </div>
                 </>
               )}
             </div>
