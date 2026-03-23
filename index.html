@@ -170,7 +170,6 @@ function geminiInsight(ev){
   var rawText = (ev.notesHtml || '').replace(/<[^>]+>/g,' ');
   var prompt='You are a field measure prep assistant for Visionaire Windows. Write a single practical 1-2 sentence prep note for the measurer heading to this appointment. Be specific.\n\nCustomer: '+ev.customer+'\nAddress: '+ev.address+'\nNotes: '+rawText+'\n\nRespond with 1-2 sentences only.';
   
-  // FIX: Updated to Gemini 2.5 Flash
   fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+geminiKey,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -182,16 +181,41 @@ function geminiInsight(ev){
   }).catch(function(){insights[ev.id]='Could not load insight.';render();});
 }
 
+// 💥 UPDATED SMART NOTE CLEANER
 function cleanNotes(html) {
   if (!html) return "";
   let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
   const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
   labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'gi'), `|||$1`); });
-  text = text.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
+  
   return text.split('|||').filter(l => l.trim().length > 3).map(line => {
     let part = line.trim();
     let label = labels.find(lab => part.toLowerCase().startsWith(lab.toLowerCase()));
-    if (label) return `<span class="note-line"><span class="note-label">${label}</span>${part.substring(label.length).trim()}</span>`;
+    
+    if (label) {
+      let content = part.substring(label.length).trim();
+      
+      // If this is the "Contact:" block, strip name/address and keep ONLY phone numbers
+      if (label.toLowerCase() === 'contact:') {
+          let phones = content.match(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g);
+          if (phones) {
+              content = phones.map(p => `<a href="tel:${p}" class="tel-link">${p}</a>`).join(' &nbsp;|&nbsp; ');
+          } else {
+              content = "No phone number listed";
+          }
+          label = "CONTACT PHONE:"; // Rename the label to match
+      } 
+      // If this is the "Edit event" block, make it a clean button
+      else if (label.toLowerCase() === 'edit event at:') {
+          return `<span class="note-line"><span class="note-label">CRM LINK:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700; text-decoration:underline;">Open in MarketSharp</a></span>`;
+      } 
+      // For all other blocks, just linkify phone numbers normally
+      else {
+          content = content.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
+      }
+      
+      return `<span class="note-line"><span class="note-label">${label}</span>${content}</span>`;
+    }
     return `<span class="note-line">${part}</span>`;
   }).join('');
 }
@@ -199,7 +223,6 @@ function cleanNotes(html) {
 function parseEv(ev){
   var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
   
-  // FIX: Aggressive Name Cleanup. Removes 'Measure', 'FM', and ANY leading punctuation/colons
   let rawName = ev.summary.replace(/final\s*measure/ig, '')
                           .replace(/\bmeasure\b/ig, '')
                           .replace(/\bfm\b/ig, '')
