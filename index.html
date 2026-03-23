@@ -155,15 +155,14 @@ function syncCalendar(){
     });
 }
 
-// 🚀 MORNING BATCH PRE-SCAN
 async function preloadToday() {
   if (preloading) return;
   const dayEvs = calEvents.filter(e => e.startDate === selDate);
   const existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
   const targets = dayEvs.filter(ev => !existingJobs.find(j => j.id === ev.id && j.data?.length > 0));
   
-  if (targets.length === 0) return alert("Everything is already pre-loaded for today!");
-  if (!confirm(`Found ${targets.length} jobs to prep. Start batch scan? (Wait 5s between jobs)`)) return;
+  if (targets.length === 0) return alert("Everything pre-loaded!");
+  if (!confirm(`Pre-load ${targets.length} jobs?`)) return;
 
   preloading = true;
   for (let i = 0; i < targets.length; i++) {
@@ -180,19 +179,22 @@ async function preloadToday() {
   lastDriveSync = new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
   save();
   render();
-  alert("Today's morning prep is finished!");
 }
 
 async function processSingleJob(ev) {
+  let latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+  let token = latestPrefs.accessToken;
   let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
   let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
-  const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
-  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf'`;
+  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
   const dData = await dRes.json();
   const fileId = dData.files?.[0]?.id;
   if (!fileId) return;
 
-  const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
+
+  const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
   const blob = await fRes.blob();
   const base64 = await new Promise((resolve) => {
     const reader = new FileReader();
@@ -200,9 +202,14 @@ async function processSingleJob(ev) {
     reader.readAsDataURL(blob);
   });
 
-  const promptText = `Analyze door/window specialist. 1. Briefing: 1 sentence. 2. Combine Door system components. 3. Extract Qty, Type, Location, Unit Size. 
-  MAP DATA: contractSize: text after "Unit Size:". doorType: Single/Double/French. swing: RHI, LHI, RHO, LHO. jambDepth: 4-9/16, etc. grids: Contour/Flat/SDL. glass: obscure patterns. osj/osbm: true if cladding loose. 
-  Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Door","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","casing":"","color":"","style":"","osj":false,"osbm":false,"grids":"","glass":"","extras":""}]}`;
+  const promptText = `Analyze project details for Visionaire Windows tech. 
+  DATA MAP:
+  1. Determine 'itemType': 'Door' if keywords (French, Sidelite, Entry, Slider) are found. Otherwise 'Window'.
+  2. HARDENED GROUPING: Combine all sidelites and transoms into the slab opening.
+  3. Extract Specs: Handing (RHI/LHO), Jamb Depth (4-9/16), Glass (DLA-UV/Standard), and Colors.
+  4. Checklist Prep: Create a summary of these confirmed manufacturer details.
+  5. Repair Notes: Identify ROT, HEADER, or CUSTOM CONSTRUCTION mentioned.
+  Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
   
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
   const result = await res.json();
@@ -210,7 +217,7 @@ async function processSingleJob(ev) {
   const parsed = JSON.parse(text);
   
   let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-  const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), syncTime: new Date().toLocaleString() };
+  const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, repairNotes: parsed.repairNotes, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink };
   
   const existingIdx = jobs.findIndex(j => j.id === ev.id);
   if (existingIdx > -1) jobs[existingIdx] = jobData; else jobs.unshift(jobData);
@@ -232,7 +239,7 @@ function cleanNotes(html) {
           content = phones ? phones.map(p => `<a href="tel:${p}" class="tel-link">${p}</a>`).join(' | ') : "No phone listed";
           label = "CONTACT:";
       } else if (label.toLowerCase() === 'edit event at:') {
-          return `<span class="note-line"><span class="note-label">CRM LINK:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700; text-decoration:underline;">Open MarketSharp</a></span>`;
+          return `<span class="note-line"><span class="note-label">CRM:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700;">Open MarketSharp</a></span>`;
       }
       return `<span class="note-line"><span class="note-label">${label}</span>${content}</span>`;
     }
@@ -262,7 +269,7 @@ function rHeader(){
   top.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
   var badge=el('div',{C:'acct-badge'});
   badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
-  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Sign-in Required')}));
+  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Sign-in Needed')}));
   top.appendChild(badge); h.appendChild(top);
   var tabs=el('div',{C:'vtabs'});
   [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(t => {
@@ -276,20 +283,17 @@ function rSetup(main){
   body.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
   var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
   body.appendChild(ci);
-  if(accessToken&&userEmail){ body.appendChild(el('button',{C:'g-btn conn',t:'✓ Account Connected', click: signOut})); } else { body.appendChild(el('button',{C:'g-btn',t:'Connect Google Account', click: signIn})); }
+  if(accessToken&&userEmail){ body.appendChild(el('button',{C:'g-btn conn',t:'✓ Connected', click: signOut})); } else { body.appendChild(el('button',{C:'g-btn',t:'Connect Google', click: signIn})); }
   body.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
   var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
   body.appendChild(gk);
-  body.appendChild(el('span',{C:'lbl',t:'Keyword Search'}));
-  var st=el('input',{C:'inp',value:searchTerm}); st.addEventListener('input',e=>{searchTerm=e.target.value;save();});
-  body.appendChild(st);
-  body.appendChild(el('button',{C:'btn-p',t:'Save & Sync Calendar',click:()=>{save();syncCalendar();}}));
+  body.appendChild(el('button',{C:'btn-p',t:'Save Hub Config',click:()=>{save();syncCalendar();}}));
   var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'Hub Settings'})); sc.appendChild(body);
   main.appendChild(sc);
 }
 
 function rSched(main){
-  if(!accessToken){main.appendChild(el('div',{t:'Connect account in Setup to view schedule.'})); return;}
+  if(!accessToken){main.appendChild(el('div',{t:'Connect account to view schedule.'})); return;}
   var sb=el('div',{C:'sync-bar'});
   var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail||'Calendar'})); 
   si.appendChild(el('div',{C:'sync-sub', t:'Sync: '+(lastSync||'--') + ' | Prep: '+(lastDriveSync||'--')}));
@@ -303,7 +307,7 @@ function rSched(main){
   rDateStrip(main);
   var dayEvs = calEvents.filter(e=>e.startDate===selDate);
   if(dayEvs.length === 0) {
-     main.appendChild(el('div', {C: 'empty-state', t: 'No appointments on this day.'}));
+     main.appendChild(el('div', {C: 'empty-state', t: 'No measurements today.'}));
   } else { dayEvs.forEach(ev=>main.appendChild(rCard(ev))); }
 }
 
@@ -337,12 +341,12 @@ function rCard(ev){
     var det=el('div',{C:'cc-det'});
     var n = el('div',{C:'dnotes'}); 
     let notesHtml = "";
-    if(ev.address) notesHtml += '<span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:700;">' + ev.address + '</a></span>';
+    if(ev.address) notesHtml += '<span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb;">' + ev.address + '</a></span>';
     notesHtml += cleanNotes(ev.notesHtml);
     n.innerHTML = notesHtml || "No notes."; det.appendChild(n); card.appendChild(det);
   }
   var acts=el('div',{C:'cc-acts'});
-  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); var jobs = JSON.parse(localStorage.getItem('visionaireJobs'))||[]; if(!jobs.find(j=>j.id===ev.id)) jobs.unshift({id:ev.id, customer:ev.customer, time:ev.startTime, data:[]}); localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); window.location.href='measure.html'; }}));
+  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='measure.html'; }}));
   acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
   card.appendChild(acts); return card;
 }
