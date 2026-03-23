@@ -18,10 +18,7 @@
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
-    .hdr-logo{display:flex;flex-direction:column}
     .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
-    .hdr-sub{font-size:0.48rem;font-weight:800;letter-spacing:0.35em;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-top:3px}
-    .hdr-right{display:flex;align-items:center;gap:7px}
     .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
     .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
     .acct-dot.off{background:var(--s400)}
@@ -68,18 +65,10 @@
     .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
     .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--s700);line-height:1.7;}
     .note-line { display: block; padding-bottom: 6px; border-bottom: 1px dashed var(--s200); margin-bottom: 6px; }
-    .note-line:last-child { border-bottom: none; }
     .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 1px; }
     .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
-    .gi{background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px}
-    .gi-head{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-    .gi-badge{background:linear-gradient(135deg,#4285f4,#34a853);color:white;font-size:0.58rem;font-weight:800;padding:2px 7px;border-radius:99px;letter-spacing:0.05em}
-    .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
-    .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200);}
-    .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
-    @keyframes sp{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
@@ -100,7 +89,6 @@ var userEmail    = prefs.userEmail   || null;
 var geminiKey    = prefs.geminiKey   || '';
 var clientId     = prefs.clientId   || '';
 var searchTerm   = prefs.searchTerm  || 'Measure';
-var insights     = {}; 
 
 function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
 function save(){
@@ -162,24 +150,6 @@ function syncCalendar(){
     });
 }
 
-function geminiInsight(ev){
-  if(!geminiKey)return;
-  if(insights[ev.id]){render();return;}
-  insights[ev.id]='...';render();
-  var rawText = (ev.notesHtml || '').replace(/<[^>]+>/g,' ');
-  var prompt='You are a field measure prep assistant for Visionaire Windows. Write a single practical 1-2 sentence prep note for the measurer heading to this appointment. Be specific. Notes: '+rawText;
-  
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+geminiKey,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:120}})
-  }).then(function(r){return r.json();})
-  .then(function(d){
-    var t='';try{t=d.candidates[0].content.parts[0].text.trim();}catch(e){}
-    insights[ev.id]=t||'No insight available.';render();
-  }).catch(function(){insights[ev.id]='Could not load insight.';render();});
-}
-
 function cleanNotes(html) {
   if (!html) return "";
   let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
@@ -229,9 +199,7 @@ function render(){
 function rHeader(){
   var h=el('div',{C:'hdr'});
   var top=el('div',{C:'hdr-top'});
-  var logo=el('div',{C:'hdr-logo'});
-  logo.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
-  top.appendChild(logo);
+  top.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
   var badge=el('div',{C:'acct-badge'});
   badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
   badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Not signed in')}));
@@ -317,18 +285,6 @@ function rCard(ev){
   head.appendChild(body); card.appendChild(head);
   if(isExp){
     var det=el('div',{C:'cc-det'});
-    if(geminiKey){
-      var gi=el('div',{C:'gi'});
-      var gih=el('div',{C:'gi-head'});
-      gih.appendChild(el('span',{C:'gi-badge',t:'✦ Gemini'}));
-      gih.appendChild(el('span',{style:'font-size:0.68rem;font-weight:700;color:var(--s600)',t:'AI Prep Note'}));
-      gi.appendChild(gih);
-      var ins=insights[ev.id];
-      if(!ins){var tap=el('button',{C:'gi-tap',t:'Tap to generate prep note...',click:function(e){return function(){geminiInsight(e);};}(ev)});gi.appendChild(tap);}
-      else if(ins==='...'){var sr2=el('div',{C:'lrow',style:'padding:6px 0;justify-content:flex-start'});sr2.appendChild(el('div',{C:'spin'}));sr2.appendChild(el('span',{C:'ltxt',t:'Thinking...'}));gi.appendChild(sr2);}
-      else{gi.appendChild(el('div',{C:'gi-txt',t:ins}));}
-      det.appendChild(gi);
-    }
     var n = el('div',{C:'dnotes'}); 
     let notesHtml = "";
     if(ev.address) {
