@@ -53,7 +53,7 @@
       };
 
       const playBriefing = (text) => {
-        if (!window.speechSynthesis) return alert("Your browser doesn't support audio playback.");
+        if (!window.speechSynthesis) return alert("Audio not supported.");
         window.speechSynthesis.cancel(); 
         if (isPlaying) { setIsPlaying(false); return; }
         const utterance = new SpeechSynthesisUtterance(text);
@@ -81,17 +81,11 @@
             text += `-------------------------------------\n`;
           });
         }
-
         text += `\nSIGN-OFF CHECKLIST:\n`;
-        text += `[${signoffData.alarms ? 'X' : ' '}] Alarms Reviewed\n`;
-        text += `[${signoffData.photos ? 'X' : ' '}] Photos Taken (Ext)\n`;
-        text += `[${signoffData.colors ? 'X' : ' '}] Colors Confirmed\n`;
-        text += `[${signoffData.swings ? 'X' : ' '}] Door Swings Confirmed\n`;
-        text += `HO Initials: ${signoffData.initials || '_____'}\n`;
+        text += `[${signoffData.alarms ? 'X' : ' '}] Alarms\n[${signoffData.photos ? 'X' : ' '}] Photos\n[${signoffData.colors ? 'X' : ' '}] Colors\n[${signoffData.swings ? 'X' : ' '}] Swings\n`;
+        text += `Initials: ${signoffData.initials || '_____'}\n`;
 
-        navigator.clipboard.writeText(text)
-          .then(() => alert('Full job data copied to Clipboard!'))
-          .catch(()=> alert('Failed to copy.'));
+        navigator.clipboard.writeText(text).then(() => alert('Copied to Clipboard!'));
       };
 
       const updateHeader = (key, value) => {
@@ -129,50 +123,36 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract. 
-        1. Write a 1 sentence verbal briefing of the scope.
-        2. Extract window/door units. 
-        LEGACY/PROVIA DOOR RULES:
-        - Combine "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITES" into ONE item.
-        - For 'contractSize', find the exact text "Unit Size:".
-        - In 'extras', create a highly readable list using this exact structure:
-          SYSTEM: [Nominal Size], [Sidelite Width], [Unit Size], [Frame Depth]
-          FRAME: [Color], [Cladding Info]
-          ENTRY: [Style/Gauge], [Colors Int/Ext], [Swing]
-          SIDELITES: [Style/Gauge], [Glass Type], [Colors Int/Ext]
-          HARDWARE: [Lockset/Deadbolt/Peepsite]
-        Return ONLY valid JSON: {"summary": "...", "items": [{"line":"1","itemType":"Door","location":"","contractSize":"60 1/16\\" x 81 11/16\\"","extras":"SYSTEM: ...\\nFRAME: ...\\nENTRY: ...\\nSIDELITES: ...\\nHARDWARE: ..."}]}`;
+        const promptText = `Analyze this contract. 1. Write a 1 sentence verbal briefing. 2. Extract units. Rules: Combine "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITES" into ONE line. For 'contractSize', find "Unit Size:". structure extras with headers SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"line":"1","itemType":"Door","location":"","contractSize":"...","extras":"..."}]}`;
         
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
         });
         
-        if (geminiRes.status === 429) { setLoading(false); return alert("⏳ AI Rate Limit Hit. Wait 60s."); }
-        if (!geminiRes.ok) { setLoading(false); return alert("AI Error."); }
+        if (geminiRes.status === 429) { setLoading(false); return alert("⏳ Rate limit hit. Wait 60s."); }
+        if (!geminiRes.ok) { setLoading(false); return alert("API Error."); }
         
         const result = await geminiRes.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        
         try {
           const parsed = JSON.parse(text);
           const items = (parsed.items || []).map(i => ({ ...i, fmWidth: '', fmHeight: '', verified: false }));
           setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items, summary: parsed.summary || '' } : j));
           setActiveTab('measure');
           setLoading(false);
-        } catch(e) { setLoading(false); alert("AI Response Error."); }
+        } catch(e) { setLoading(false); alert("Parse Error."); }
       };
 
       const autoLoadContract = async (job) => {
         const token = prefs.accessToken; const apiKey = prefs.geminiKey;
-        if (!token || !apiKey) return alert("System not configured.");
+        if (!token || !apiKey) return alert("Missing Config.");
         setLoading(true);
         try {
           let cleanName = job.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
           let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b).replace(/'/g, "\\'");
           const query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
-          const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
-          const dRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const dData = await dRes.json();
           if (!dData.files?.length) { setLoading(false); return alert("No file found."); }
           const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
@@ -182,7 +162,14 @@
         } catch (e) { setLoading(false); }
       };
 
-      if(!activeJob) return <div className="p-10 text-center font-bold">No active job.</div>;
+      const handleManualUpload = (e, job) => {
+        const file = e.target.files[0]; if (!file) return;
+        setLoading(true);
+        const reader = new FileReader(); reader.readAsDataURL(file);
+        reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
+      };
+
+      if(!activeJob) return <div className="p-10 text-center font-bold">No job active.</div>;
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col shadow-xl">
@@ -202,81 +189,83 @@
           </header>
 
           <main className="p-4 flex-1 pb-32 bg-slate-100">
-            {loading ? <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Processing Contract...</div> : 
-             !activeJob.data?.length ? (
-               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
-                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan PDF Contract</button>
-                 <div className="text-slate-400 font-bold text-xs">— OR —</div>
-                 <button onClick={addUnit} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg">➕ Add Unit Manually</button>
-               </div>
-             ) : (
-               <>
-                 {activeTab === 'overview' && (
-                   <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
-                     {activeJob.summary && (
+            <div className="space-y-6">
+              {loading ? (
+                <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Processing PDF...</div>
+              ) : !activeJob.data?.length ? (
+                <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
+                   <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan Drive PDF</button>
+                   <div className="text-slate-400 font-bold text-xs">— OR —</div>
+                   <label className="bg-emerald-600 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg cursor-pointer w-full block text-center">
+                     ⬆️ Upload Manually
+                     <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleManualUpload(e, activeJob)} />
+                   </label>
+                   <div className="text-slate-400 font-bold text-xs">— OR —</div>
+                   <button onClick={addUnit} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg">➕ Add Manually</button>
+                </div>
+              ) : (
+                <>
+                  {activeTab === 'overview' && (
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
+                       {activeJob.summary && (
                          <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
                              <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
                              <div><div className="font-black text-xs uppercase tracking-wider">Audio Briefing</div><div className="text-slate-500 text-xs font-bold line-clamp-2">{activeJob.summary}</div></div>
                          </div>
-                     )}
-                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Job Details</h2>
-                     {['brand', 'crew', 'extColor', 'intColor'].map(f => (
-                       <div key={f}><span className="field-label">{f.replace(/([A-Z])/g, ' $1')}</span><input type="text" className="input-field" value={headerData[f] || ''} onChange={e => updateHeader(f, e.target.value)} /></div>
-                     ))}
-                   </div>
-                 )}
+                       )}
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Details</h2>
+                       {['brand', 'crew', 'extColor', 'intColor'].map(f => (
+                         <div key={f}><span className="field-label">{f}</span><input type="text" className="input-field" value={headerData[f] || ''} onChange={e => updateHeader(f, e.target.value)} /></div>
+                       ))}
+                    </div>
+                  )}
 
-                 {activeTab === 'measure' && (
-                   <div className="space-y-6">
-                     <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] shadow-sm p-5 space-y-5">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-xs text-slate-500 uppercase">Unit {activeItemIndex + 1} of {activeJob.data.length}</span>
-                          <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer font-black">{currentItem.itemType} ⟳</span>
-                        </div>
-                        <div onClick={() => { let loc = prompt("Location:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer">
-                          <span className="field-label">Location</span>
-                          <h2 className="text-2xl font-black text-slate-800 uppercase underline decoration-slate-200 underline-offset-4">{currentItem.location || 'Unknown'}</h2>
-                        </div>
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <span className="field-label">Contract Spec Sheet</span>
-                          <div className="contract-spec-box font-bold text-slate-600 text-[11px] leading-relaxed">
-                            {currentItem.extras || 'No specs found.'}
+                  {activeTab === 'measure' && (
+                    <div className="space-y-6">
+                       <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] shadow-sm p-5 space-y-5">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-xs text-slate-500 uppercase">Unit {activeItemIndex + 1} / {activeJob.data.length}</span>
+                            <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer font-black">{currentItem.itemType} ⟳</span>
                           </div>
+                          <div onClick={() => { let loc = prompt("Loc:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer">
+                            <span className="field-label">Location</span>
+                            <h2 className="text-2xl font-black text-slate-800 uppercase underline decoration-slate-200 underline-offset-4">{currentItem.location || 'Unknown'}</h2>
+                          </div>
+                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <span className="field-label">Contract Specs</span>
+                            <div className="contract-spec-box font-bold text-slate-600 text-[11px] leading-relaxed">{currentItem.extras || 'No specs.'}</div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 pt-2">
+                              <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
+                              <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
+                          </div>
+                          <div className={`p-3 rounded-xl border flex justify-between items-center ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                             <div><span className="text-[10px] font-black uppercase text-slate-500 block">Unit Size</span><span className="font-bold text-slate-800">{currentItem.contractSize || 'N/A'}</span></div>
+                             <label className="flex items-center gap-2 text-xs font-black cursor-pointer px-3 py-2 rounded-lg bg-white/50 border border-current">
+                                <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600" />
+                                {currentItem.verified ? 'VERIFIED' : 'VERIFY'}
+                             </label>
+                          </div>
+                       </div>
+                       <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
+                        <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow">{f}</button>)}</div>
+                        <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className="bg-white p-5 rounded-2xl font-black text-2xl shadow-sm text-slate-700">{n}</button>)}</div>
+                        <div className="flex gap-2 mt-4">
+                          <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
+                          <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl">
+                            {activeItemIndex === activeJob.data.length - 1 ? '➕ Unit' : 'Next ➔'}
+                          </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
-                            <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
-                        </div>
-                        <div className={`p-3 rounded-xl border flex justify-between items-center ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                           <div><span className="text-[10px] font-black uppercase text-slate-500 block">Unit Size</span><span className="font-bold text-slate-800">{currentItem.contractSize || 'N/A'}</span></div>
-                           <label className="flex items-center gap-2 text-xs font-black cursor-pointer px-3 py-2 rounded-lg bg-white/50 border border-current">
-                              <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600" />
-                              {currentItem.verified ? 'VERIFIED' : 'VERIFY'}
-                           </label>
-                        </div>
-                     </div>
-
-                     <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                      <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow">{f}</button>)}</div>
-                      <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className="bg-white p-5 rounded-2xl font-black text-2xl shadow-sm text-slate-700">{n}</button>)}</div>
-                      <div className="flex gap-2 mt-4">
-                        <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
-                        <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl">
-                          {activeItemIndex === activeJob.data.length - 1 ? '➕ Add Unit' : 'Next Unit ➔'}
-                        </button>
                       </div>
                     </div>
-                   </div>
-                 )}
+                  )}
 
-                 {activeTab === 'signoff' && (
-                   <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
-                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
-                     
-                     {/* DYNAMIC DOOR SYSTEM CHECKLIST */}
-                     {activeJob.data.some(d => d.itemType === 'Door') && (
+                  {activeTab === 'signoff' && (
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Checklist</h2>
+                       {activeJob.data.some(d => d.itemType === 'Door') && (
                         <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
-                           <h4 className="font-black text-xs text-blue-800 uppercase flex items-center gap-2">🚪 Door System Verification</h4>
+                           <h4 className="font-black text-xs text-blue-800 uppercase">🚪 Door Verification</h4>
                            {activeJob.data.filter(d => d.itemType === 'Door').map((door, idx) => (
                              <div key={idx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100">
                                 <div className="text-blue-700 font-black mb-1">UNIT: {door.location.toUpperCase()}</div>
@@ -285,28 +274,27 @@
                            ))}
                            <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer">
                               <input type="checkbox" className="w-5 h-5 accent-blue-600" checked={signoffData.doorVerify || false} onChange={e=>updateSignoff('doorVerify', e.target.checked)} />
-                              <span className="text-xs font-black text-blue-900">Homeowner confirmed all door details match</span>
+                              <span className="text-xs font-black text-blue-900">HO confirmed door specs</span>
                            </label>
                         </div>
-                     )}
-
-                     <div className="space-y-3">
-                       {['alarms', 'photos', 'colors', 'swings'].map(f => (
-                         <label key={f} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                           <input type="checkbox" checked={signoffData[f] || false} onChange={e=>updateSignoff(f, e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                           <span className="font-bold text-slate-700 text-sm uppercase">{f} Checked</span>
-                         </label>
-                       ))}
-                     </div>
-                     <div className="pt-4 border-t-2 border-dashed border-slate-200">
-                       <span className="field-label">Homeowner Initials</span>
-                       <input type="text" className="input-field text-center text-2xl tracking-widest uppercase" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
-                     </div>
-                     <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl">📋 Copy Full Job Info</button>
-                   </div>
-                 )}
-               </>
-             )}
+                       )}
+                       <div className="space-y-3">
+                         {['alarms', 'photos', 'colors', 'swings'].map(f => (
+                           <label key={f} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                             <input type="checkbox" checked={signoffData[f] || false} onChange={e=>updateSignoff(f, e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                             <span className="font-bold text-slate-700 text-sm uppercase">{f}</span>
+                           </label>
+                         ))}
+                       </div>
+                       <div className="pt-4 border-t-2 border-dashed border-slate-200">
+                         <span className="field-label">Homeowner Initials</span>
+                         <input type="text" className="input-field text-center text-2xl tracking-widest uppercase" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                       </div>
+                       <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl">📋 Copy Full Job</button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </main>
         </div>
