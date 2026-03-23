@@ -42,7 +42,7 @@
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
       const goBackToHub = () => { 
-          window.speechSynthesis.cancel(); // Stop talking if we leave
+          window.speechSynthesis.cancel(); 
           window.location.href = 'index.html'; 
       };
 
@@ -51,10 +51,9 @@
         return name.replace(/^[^a-zA-Z0-9]+/, '').trim();
       };
 
-      // TEXT TO SPEECH ENGINE
       const playBriefing = (text) => {
         if (!window.speechSynthesis) return alert("Your browser doesn't support audio playback.");
-        window.speechSynthesis.cancel(); // Stop anything currently playing
+        window.speechSynthesis.cancel(); 
         
         if (isPlaying) {
             setIsPlaying(false);
@@ -139,7 +138,6 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        // AI PROMPT UPDATED: Now asks for a verbal summary AND the items in a strictly formatted JSON object.
         const promptText = `Analyze this contract. 1. Write a 1 to 2 sentence verbal briefing of the scope of work (e.g. "Replacing 5 windows and 1 sliding door with Simonton brand."). 2. Extract all window/door units. 
         Return ONLY valid JSON matching this exact structure: 
         {
@@ -154,7 +152,7 @@
         
         if (geminiRes.status === 429) {
             setLoading(false);
-            return alert("⏳ AI Rate Limit Hit (Too Many Requests).\n\nPlease wait exactly 60 seconds and try again!");
+            return alert("⏳ AI Rate Limit Hit (Daily Quota Exhausted).\n\nYou have likely hit your DAILY limit of 1,500 free requests because of the old calendar glitch.\n\nFIX: Go to Google AI Studio, generate a new free API Key, and paste it into the Setup tab to reset your limit immediately!");
         }
 
         if (!geminiRes.ok) { 
@@ -172,7 +170,7 @@
           const summaryText = parsed.summary || '';
           
           setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items, summary: summaryText } : j));
-          setActiveTab('measure'); // Drop them right into measuring
+          setActiveTab('measure');
           setLoading(false);
         } catch(parseErr) {
           setLoading(false);
@@ -271,11 +269,9 @@
                  </div>
                ) : (
                  <>
-                   {/* TAB 1: OVERVIEW & AUDIO PLAYER */}
                    {activeTab === 'overview' && (
                      <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
                        
-                       {/* AUDIO BRIEFING PLAYER */}
                        {activeJob.summary && (
                          <div 
                             onClick={() => playBriefing(activeJob.summary)}
@@ -305,7 +301,6 @@
                      </div>
                    )}
 
-                   {/* TAB 2: MEASURE */}
                    {activeTab === 'measure' && (
                      <div className="space-y-6">
                        <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
@@ -362,7 +357,6 @@
                      </div>
                    )}
 
-                   {/* TAB 3: SIGN-OFF */}
                    {activeTab === 'signoff' && (
                      <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
                        <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
