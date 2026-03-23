@@ -90,24 +90,24 @@
         }
       };
 
-      // 🛠️ UNIVERSAL INSERT LOGIC: Clones Type/Location/Specs but resets measurements
       const insertLineBelow = (index) => {
         const source = activeJob.data[index];
-        const newUnit = { 
-          itemType: source.itemType, 
-          location: source.location, 
-          qty: '1', 
-          fmWidth: '', 
-          fmHeight: '', 
-          verified: false, 
-          extras: source.extras, 
-          contractSize: source.contractSize 
-        };
+        const newUnit = { itemType: source.itemType, location: source.location, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: source.extras, contractSize: source.contractSize };
         const newData = [...activeJob.data];
         newData.splice(index + 1, 0, newUnit);
         setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
-        setActiveField(null);
         setExpandedIndex(index + 1);
+        setActiveField(null);
+      };
+
+      // 🛠️ NEW: REMOVE LINE LOGIC
+      const removeLine = (index) => {
+        if (confirm("Permanently delete this opening line?")) {
+          const newData = activeJob.data.filter((_, i) => i !== index);
+          setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
+          setExpandedIndex(null);
+          setActiveField(null);
+        }
       };
 
       const addUnitAtEnd = () => {
@@ -127,7 +127,7 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract as a door/window specialist. 1. Briefing: 1 sentence. 2. Combine Door system components. 3. Extract Qty, Type, Location, Unit Size. 4. Format extras with headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
+        const promptText = `Analyze this contract. Combine Door components. Extract Qty, Type, Location, Unit Size. Format extras with headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
         if (!res.ok) { setLoading(false); return alert("AI Error."); }
         const result = await res.json();
@@ -147,7 +147,7 @@
           const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
           const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const dData = await dRes.json();
-          if (!dData.files?.[0]) { setLoading(false); return alert("No file found."); }
+          if (!dData.files?.[0]) { setLoading(false); return alert("No 2026 contract found."); }
           const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
@@ -161,7 +161,7 @@
             <div className="flex justify-between items-center mb-3">
               <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded shadow-sm">Close</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
-              <button onClick={() => alert('Export Logic remains.')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow-sm">Export</button>
+              <button onClick={() => alert('Export Logic active.')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow-sm">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
@@ -172,15 +172,14 @@
 
           <main className="p-3 flex-1">
             {loading ? (
-              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Scanning Contract Files...</div>
+              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Processing Files...</div>
             ) : !activeJob.data?.length ? (
               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
-                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan Drive PDF</button>
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
                  <button onClick={addUnitAtEnd} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">➕ Add Unit Manually</button>
               </div>
             ) : (
               <div className="space-y-4">
-                
                 {activeTab === 'overview' && (
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
                     {activeJob.summary && (
@@ -189,13 +188,13 @@
                            <div className="font-black text-xs uppercase text-slate-800">Briefing: <span className="block text-[10px] font-bold text-slate-500 lowercase">{activeJob.summary}</span></div>
                        </div>
                     )}
-                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Project Settings</h2>
+                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Specs</h2>
                     <div className="grid grid-cols-2 gap-3">
                        <div className="col-span-2"><span className="field-label">Window Brand</span><input className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                        <div><span className="field-label">Glass Type</span><input className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                        <div><span className="field-label">Existing Frame</span><input className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                     </div>
-                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan Drive</button>
+                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10 shadow-sm">🗑️ Wipe Data & Rescan Drive</button>
                   </div>
                 )}
 
@@ -240,20 +239,20 @@
                                  <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'location', e.target.value)} /></div>
                               </div>
                               <div>
-                                 <span className="field-label">Project Specs / Details</span>
-                                 <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] border border-slate-100">{unit.extras || 'No specs listed.'}</div>
+                                 <span className="field-label">Notes / Specs</span>
+                                 <textarea className="input-box h-16 text-[10px]" value={unit.extras} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'extras', e.target.value)} />
                               </div>
-                              <div className="flex flex-col gap-2">
-                                 <div className={`p-3 flex-1 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
+                              <div className="space-y-2">
+                                 <div className={`p-3 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
                                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-tight">Contract: {unit.contractSize}</span>
                                     <label className="flex items-center gap-2 text-[10px] font-black cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-current shadow-sm">
                                        <input type="checkbox" checked={unit.verified || false} onChange={e => updateItem(idx, 'verified', e.target.checked)} className="w-4 h-4 accent-green-600" /> Verify
                                     </label>
                                  </div>
-                                 {/* ➕ INSERT LINE LOGIC: Clones either Door or Window properties */}
-                                 <button onClick={()=>insertLineBelow(idx)} className="w-full py-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase border border-blue-100 shadow-sm active:scale-95 transition-transform">
-                                    ➕ Insert New {unit.itemType === 'Door' ? 'Door' : 'Unit'} Below
-                                 </button>
+                                 <div className="flex gap-2">
+                                    <button onClick={()=>insertLineBelow(idx)} className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase border border-blue-100 shadow-sm active:scale-95 transition-transform">➕ Insert Line Below</button>
+                                    <button onClick={()=>removeLine(idx)} className="flex-1 py-3 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase border border-red-100 shadow-sm active:scale-95 transition-transform text-center">🗑️ Remove Unit</button>
+                                 </div>
                               </div>
                            </div>
                          )}
@@ -266,13 +265,12 @@
                 {activeTab === 'signoff' && (
                   <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6 border border-slate-200 pb-10">
                      <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Final Verification</h2>
-                     {/* 🚪 DOOR SYSTEM SPEC CHECK FOR SIGN-OFF */}
                      {activeJob.data.some(d => d.itemType === 'Door') && (
-                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
+                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4 shadow-sm">
                            <h4 className="font-black text-[10px] text-blue-800 uppercase flex items-center gap-2">🚪 Door System Verification</h4>
                            {activeJob.data.filter(d => d.itemType === 'Door').map((door, dIdx) => (
                              <div key={dIdx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100 shadow-sm">
-                                <div className="text-blue-700 font-black mb-1">{door.location.toUpperCase()} DOOR SYSTEM</div>
+                                <div className="text-blue-700 font-black mb-1">{door.location.toUpperCase()} DOOR</div>
                                 <div className="contract-spec-box">{door.extras}</div>
                              </div>
                            ))}
@@ -303,9 +301,9 @@
                        ))}
                      </div>
                      <div className="space-y-2 pt-4 border-t border-slate-100">
-                       <div className="flex justify-between items-end px-1"><span className="field-label">Customer Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear</button></div>
+                       <div className="flex justify-between items-end px-1"><span className="field-label">Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear</button></div>
                        <canvas ref={canvasRef} className="sig-canvas industrial-shadow" width="350" height="150"></canvas>
-                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full" placeholder="Print Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full shadow-sm" placeholder="Print Full Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
                      </div>
                   </div>
                 )}
@@ -313,10 +311,9 @@
             )}
           </main>
 
-          {/* ON-DEMAND KEYPAD */}
           <div className={`keypad-container bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 ${activeField ? 'keypad-open' : ''}`}>
              <div className="flex justify-between items-center px-4 mb-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry: {activeField?.field==='qty'?'Quantity':'Dimension'}</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{activeField?.field === 'qty' ? 'Set Qty' : 'Set Measurement'}</span>
                 <button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button>
              </div>
              <div className="grid grid-cols-7 gap-1.5 mb-3">
