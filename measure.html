@@ -59,16 +59,16 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      const updateHeader = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, header: { ...j.header, [key]: value } } : j));
-      const updateSignoff = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
-      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
-
       const formatSpecs = (input) => {
         if (!input) return "No specs.";
         if (typeof input === 'string') return input;
         if (typeof input === 'object') return Object.entries(input).map(([k, v]) => `${k}: ${v}`).join('\n');
         return String(input);
       };
+
+      const updateHeader = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, header: { ...j.header, [key]: value } } : j));
+      const updateSignoff = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
+      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
 
       const handleKeyPress = (val) => {
         if (!activeField) return;
@@ -78,29 +78,17 @@
         updateItem(index, field, cur);
       };
 
-      // 🧠 ENHANCED AI SCAN LOGIC
-      const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze as a door/window specialist. 
-        RULES: Combine "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITE" into ONE item. 
-        MAPPING: 
-        - contractSize: exact text after "Unit Size:". 
-        - doorType: Single, Double, or Sidelight combo. 
-        - swing: Match RHI, LHI, RHO, LHO. 
-        - jambDepth: 4-9/16, 6-9/16, etc. 
-        - grids: Contour, Flat, SDL, or None. 
-        - glass: Match obscure patterns if found. 
-        - osj/osbm: True if "Frame Cladding" or "Brickmold" noted as loose or included.
-        Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Door","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","casing":"","color":"","style":"","osj":false,"osbm":false,"grids":"","glass":"","extras":""}]}`;
-        
+      const processPDFBase64 = async (base64, apiKey, job, contractLink) => {
+        const promptText = `Analyze project. Extract Qty, Type, Location, Unit Size. 'itemType' must be 'Door' if it's a door system, otherwise 'Window'. 'extras' must be a SINGLE STRING with line breaks. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Window or Door","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","casing":"","color":"","style":"","osj":false,"osbm":false,"grids":"","glass":"","extras":""}]}`;
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
         const result = await res.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
         try {
           const parsed = JSON.parse(text);
           const syncTime = new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
-          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, syncTime: syncTime } : j));
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, syncTime: syncTime, contractLink: contractLink } : j));
           setLoading(false);
-        } catch(e) { setLoading(false); alert("AI Sync Error."); }
+        } catch(e) { setLoading(false); }
       };
 
       const autoLoadContract = async (job) => {
@@ -111,12 +99,55 @@
           const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
           const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const dData = await dRes.json();
-          if (!dData.files?.[0]) { setLoading(false); return alert("Contract not found."); }
+          if (!dData.files?.[0]) { setLoading(false); return alert("Not found."); }
+          const contractLink = `https://drive.google.com/file/d/${dData.files[0].id}/view`;
           const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
-          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
+          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job, contractLink); };
         } catch (e) { setLoading(false); }
+      };
+
+      const wipeAndRescan = () => {
+        if (confirm("Wipe and rescan?")) {
+          setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [], summary: '', syncTime: null, contractLink: null } : j));
+          setActiveTab('measure'); setExpandedIndex(0);
+        }
+      };
+
+      const insertLineBelow = (index) => {
+        const source = activeJob.data[index];
+        const newUnit = { itemType: source.itemType, location: source.location, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: source.extras, contractSize: source.contractSize };
+        const newData = [...activeJob.data];
+        newData.splice(index + 1, 0, newUnit);
+        setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
+        setExpandedIndex(index + 1); setActiveField(null);
+      };
+
+      const removeLine = (index) => {
+        if (confirm("Delete this?")) {
+          const newData = activeJob.data.filter((_, i) => i !== index);
+          setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
+        }
+      };
+
+      const addUnitAtEnd = (type) => {
+        const newUnit = { 
+          itemType: type, 
+          location: `New ${type}`, 
+          qty: '1', 
+          fmWidth: '', 
+          fmHeight: '', 
+          verified: false, 
+          extras: '',
+          doorType: type === 'Door' ? 'Single' : '',
+          swing: '',
+          jambDepth: type === 'Door' ? '4-9/16" (2x4 wall)' : '',
+          grids: 'None',
+          glass: 'None'
+        };
+        setJobs(prev => prev.map(j => j.id === activeJob.id ? { ...j, data: [...j.data, newUnit] } : j));
+        setExpandedIndex(activeJob.data.length);
       };
 
       return (
@@ -136,78 +167,99 @@
 
           <main className="p-3 flex-1">
             {loading ? (
-               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Syncing Contract Data...</div>
+               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Scanning...</div>
             ) : !activeJob.data?.length ? (
                <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
-                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan PDF Contract</button>
+                 <div className="flex gap-2">
+                    <button onClick={() => addUnitAtEnd('Window')} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-md">➕ Add Window</button>
+                    <button onClick={() => addUnitAtEnd('Door')} className="flex-1 bg-[#064e3b] text-white py-3 rounded-xl font-black text-[10px] uppercase shadow-md">➕ Add Door</button>
+                 </div>
                </div>
             ) : (
               <div className="space-y-4">
-                {activeJob.data.map((unit, idx) => (
-                  <div key={idx} className="unit-card industrial-shadow" style={unit.itemType === 'Door' ? {borderLeft: '10px solid #064e3b'} : {}}>
-                     <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
-                        <div className="flex items-center gap-3">
-                           <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
-                           <div><div className="text-xs font-black text-slate-800 uppercase">{unit.location || 'Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px] font-black">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400">Qty: {unit.qty} | {unit.contractSize}</div></div>
-                        </div>
-                        <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
-                     </div>
-
-                     {expandedIndex === idx && (
-                       <div className="p-4 border-t border-slate-100 bg-white space-y-4">
-                          <div className="grid grid-cols-3 gap-3">
-                             <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}>
-                               <span className="field-label">Width</span>
-                               <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div>
-                             </div>
-                             <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}>
-                               <span className="field-label">Height</span>
-                               <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div>
-                             </div>
-                             <div onClick={() => setActiveField({index: idx, field: 'qty'})}>
-                               <span className="field-label">Qty</span>
-                               <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div>
-                             </div>
-                          </div>
-
-                          {unit.itemType === 'Door' ? (
-                            <div className="space-y-3">
-                              <div className="flex gap-2">
-                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx, 'osj', e.target.checked)}/> OSJ</label>
-                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx, 'osbm', e.target.checked)}/> OSBM</label>
-                              </div>
-                              <div><span className="field-label">Door Type</span><select className="input-box" value={unit.doorType} onChange={e=>updateItem(idx, 'doorType', e.target.value)}>{opt(DOOR_T, unit.doorType)}</select></div>
-                              <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx, 'swing', e.target.value)}><option value="">-- Select --</option>{opt(SWINGS, unit.swing)}</select></div>
-                              <div><span className="field-label">Jamb Depth</span><select className="input-box" value={unit.jambDepth} onChange={e=>updateItem(idx, 'jambDepth', e.target.value)}><option value="">-- Select --</option>{opt(JAMBS, unit.jambDepth)}</select></div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div><span className="field-label">Casing</span><select className="input-box" value={unit.casing} onChange={e=>updateItem(idx, 'casing', e.target.value)}>{opt(CASINGS, unit.casing)}</select></div>
-                                <div><span className="field-label">Color</span><input type="text" className="input-box" value={unit.color} onChange={e=>updateItem(idx, 'color', e.target.value)} placeholder="Color..."/></div>
-                              </div>
-                              <div><span className="field-label">Door Style</span><input type="text" className="input-box" value={unit.style} onChange={e=>updateItem(idx, 'style', e.target.value)} placeholder="Style..."/></div>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div className="grid grid-cols-2 gap-3">
-                                 <div><span className="field-label">Type</span><select className="input-box" value={unit.itemType} onChange={e=>updateItem(idx, 'itemType', e.target.value)}>{opt(WIN_T, unit.itemType)}</select></div>
-                                 <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onChange={e=>updateItem(idx, 'location', e.target.value)} placeholder="Location..."/></div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                 <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx, 'grids', e.target.value)}>{opt(GRIDS, unit.grids)}</select></div>
-                                 <div><span className="field-label">Glass / Obscure</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx, 'glass', e.target.value)}>{opt(GLASS_O, unit.glass)}</select></div>
-                              </div>
-                            </div>
-                          )}
-                          <div><span className="field-label">Notes</span><textarea className="input-box h-16 text-[10px]" value={unit.notes} onChange={e=>updateItem(idx, 'notes', e.target.value)} placeholder="Notes..."/></div>
-                       </div>
-                     )}
+                {activeTab === 'overview' && (
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                    {activeJob.contractLink && (
+                       <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>
+                    )}
+                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Specs</h2>
+                    <div className="grid grid-cols-2 gap-3">
+                       <div className="col-span-2"><span className="field-label">Window Brand</span><input className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
+                       <div><span className="field-label">Glass Type</span><input className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
+                       <div><span className="field-label">Existing Frame</span><input className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
+                    </div>
+                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan</button>
                   </div>
-                ))}
+                )}
+
+                {activeTab === 'measure' && (
+                  <div className="space-y-4">
+                    {activeJob.data.map((unit, idx) => (
+                      <div key={idx} className="unit-card industrial-shadow" style={unit.itemType === 'Door' ? {borderLeft: '12px solid #064e3b'} : {borderLeft: '12px solid #1a3a5c'}}>
+                         <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
+                            <div className="flex items-center gap-3">
+                               <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
+                               <div><div className="text-xs font-black text-slate-800 uppercase">{unit.location || 'Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px] font-black">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400">Qty: {unit.qty} | {unit.contractSize}</div></div>
+                            </div>
+                            <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
+                         </div>
+
+                         {expandedIndex === idx && (
+                           <div className="p-4 border-t border-slate-100 bg-white space-y-4">
+                              <div className="grid grid-cols-3 gap-3">
+                                 <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
+                                 <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
+                                 <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
+                              </div>
+                              {unit.itemType === 'Door' ? (
+                                <div className="space-y-3">
+                                  <div className="flex gap-2">
+                                    <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx, 'osj', e.target.checked)}/> OSJ</label>
+                                    <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx, 'osbm', e.target.checked)}/> OSBM</label>
+                                  </div>
+                                  <div><span className="field-label">Door Type</span><select className="input-box" value={unit.doorType} onChange={e=>updateItem(idx, 'doorType', e.target.value)}>{opt(DOOR_T, unit.doorType)}</select></div>
+                                  <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx, 'swing', e.target.value)}><option value="">-- Select --</option>{opt(SWINGS, unit.swing)}</select></div>
+                                  <div><span className="field-label">Jamb Depth</span><select className="input-box" value={unit.jambDepth} onChange={e=>updateItem(idx, 'jambDepth', e.target.value)}><option value="">-- Select --</option>{opt(JAMBS, unit.jambDepth)}</select></div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div><span className="field-label">Casing</span><select className="input-box" value={unit.casing} onChange={e=>updateItem(idx, 'casing', e.target.value)}>{opt(CASINGS, unit.casing)}</select></div>
+                                    <div><span className="field-label">Color</span><input type="text" className="input-box" value={unit.color} onChange={e=>updateItem(idx, 'color', e.target.value)} placeholder="Color..."/></div>
+                                  </div>
+                                  <div><span className="field-label">Door Style</span><input type="text" className="input-box" value={unit.style} onChange={e=>updateItem(idx, 'style', e.target.value)} placeholder="Style..."/></div>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 gap-3">
+                                     <div><span className="field-label">Type</span><select className="input-box" value={unit.itemType} onChange={e=>updateItem(idx, 'itemType', e.target.value)}>{opt(WIN_T, unit.itemType)}</select></div>
+                                     <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onChange={e=>updateItem(idx, 'location', e.target.value)} placeholder="Location..."/></div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                     <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx, 'grids', e.target.value)}>{opt(GRIDS, unit.grids)}</select></div>
+                                     <div><span className="field-label">Glass / Obscure</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx, 'glass', e.target.value)}>{opt(GLASS_O, unit.glass)}</select></div>
+                                  </div>
+                                </div>
+                              )}
+                              <div><span className="field-label">Notes</span><textarea className="input-box h-16 text-[10px]" value={unit.notes} onChange={e=>updateItem(idx, 'notes', e.target.value)} placeholder="Notes..."/></div>
+                              <div className="flex gap-2">
+                                 <button onClick={()=>insertLineBelow(idx)} className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase border border-blue-100">➕ Insert Below</button>
+                                 <button onClick={()=>removeLine(idx)} className="flex-1 py-3 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase border border-red-100 text-center">🗑️ Remove Unit</button>
+                              </div>
+                           </div>
+                         )}
+                      </div>
+                    ))}
+                    <div className="flex gap-2 mt-4">
+                       <button onClick={() => addUnitAtEnd('Window')} className="flex-1 bg-slate-800 text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">➕ Add Window</button>
+                       <button onClick={() => addUnitAtEnd('Door')} className="flex-1 bg-[#064e3b] text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">➕ Add Door</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </main>
 
           <div className={`keypad-container bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 ${activeField ? 'keypad-open' : ''}`}>
-             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Numerical Entry</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button></div>
+             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry: {activeField?.field}</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button></div>
              <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}</div>
              <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (<button key={n} onClick={() => handleKeyPress(n)} className={`keypad-btn ${n==='CLR'?'text-red-500':n==='DEL'?'text-orange-500':''}`}>{n}</button>))}</div>
           </div>
