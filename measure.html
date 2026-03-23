@@ -32,6 +32,7 @@
       const [activeItemIndex, setActiveItemIndex] = useState(0);
       const [activeField, setActiveField] = useState('fmWidth');
       const [loading, setLoading] = useState(false);
+      const [isPlaying, setIsPlaying] = useState(false);
 
       const activeJob = jobs.find(j => j.id === activeJobId);
       const currentItem = activeJob?.data?.[activeItemIndex] || {};
@@ -40,17 +41,42 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      const goBackToHub = () => { window.location.href = 'index.html'; };
+      const goBackToHub = () => { 
+          window.speechSynthesis.cancel(); // Stop talking if we leave
+          window.location.href = 'index.html'; 
+      };
 
       const cleanCustomerName = (name) => {
         if (!name) return '';
         return name.replace(/^[^a-zA-Z0-9]+/, '').trim();
       };
 
+      // TEXT TO SPEECH ENGINE
+      const playBriefing = (text) => {
+        if (!window.speechSynthesis) return alert("Your browser doesn't support audio playback.");
+        window.speechSynthesis.cancel(); // Stop anything currently playing
+        
+        if (isPlaying) {
+            setIsPlaying(false);
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        utterance.onend = () => setIsPlaying(false);
+        utterance.onerror = () => setIsPlaying(false);
+        
+        setIsPlaying(true);
+        window.speechSynthesis.speak(utterance);
+      };
+
       const exportData = () => {
         if(!activeJob) return alert('No data to export.');
         let text = `FINAL MEASURE SHEET: ${cleanCustomerName(activeJob.customer).toUpperCase()}\n`;
         text += `=====================================\n`;
+        if(activeJob.summary) text += `Scope: ${activeJob.summary}\n`;
         if(headerData.brand) text += `Brand: ${headerData.brand}\n`;
         if(headerData.crew) text += `Crew: ${headerData.crew}\n`;
         if(headerData.extColor || headerData.intColor) text += `Colors: ${headerData.extColor||'N/A'} (Ext) / ${headerData.intColor||'N/A'} (Int)\n`;
@@ -113,34 +139,45 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Extract units as JSON: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
+        // AI PROMPT UPDATED: Now asks for a verbal summary AND the items in a strictly formatted JSON object.
+        const promptText = `Analyze this contract. 1. Write a 1 to 2 sentence verbal briefing of the scope of work (e.g. "Replacing 5 windows and 1 sliding door with Simonton brand."). 2. Extract all window/door units. 
+        Return ONLY valid JSON matching this exact structure: 
+        {
+          "summary": "verbal briefing here",
+          "items": [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]
+        }`;
         
-        // FIX: Using gemini-2.5-flash as the official standard free-tier model.
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
         });
         
-        // FIX: Provide a helpful pop-up if they hit the 429 Speed Limit
         if (geminiRes.status === 429) {
             setLoading(false);
-            return alert("⏳ AI Rate Limit Hit (Too Many Requests).\n\nGoogle's free tier only allows 15 actions per minute. Please wait exactly 60 seconds and try again!");
+            return alert("⏳ AI Rate Limit Hit (Too Many Requests).\n\nPlease wait exactly 60 seconds and try again!");
         }
 
         if (!geminiRes.ok) { 
             const errData = await geminiRes.json();
             setLoading(false); 
-            console.error("API Error:", errData);
             return alert(`API Error: ${errData.error?.message || 'Unknown'}`); 
         }
         
         const result = await geminiRes.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '', verified: false }));
         
-        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
-        setActiveTab('measure');
-        setLoading(false);
+        try {
+          const parsed = JSON.parse(text);
+          const items = (parsed.items || []).map(i => ({ ...i, fmWidth: '', fmHeight: '', verified: false }));
+          const summaryText = parsed.summary || '';
+          
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items, summary: summaryText } : j));
+          setActiveTab('measure'); // Drop them right into measuring
+          setLoading(false);
+        } catch(parseErr) {
+          setLoading(false);
+          alert("Failed to read the AI's response correctly. Please try scanning again.");
+        }
       };
 
       const autoLoadContract = async (job) => {
@@ -234,9 +271,30 @@
                  </div>
                ) : (
                  <>
+                   {/* TAB 1: OVERVIEW & AUDIO PLAYER */}
                    {activeTab === 'overview' && (
                      <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Job Details</h2>
+                       
+                       {/* AUDIO BRIEFING PLAYER */}
+                       {activeJob.summary && (
+                         <div 
+                            onClick={() => playBriefing(activeJob.summary)}
+                            className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all border-2 ${isPlaying ? 'bg-blue-50 border-blue-400 shadow-inner' : 'bg-slate-50 border-slate-200 shadow-sm hover:bg-slate-100'}`}>
+                             <div className={`text-3xl ${isPlaying ? 'animate-pulse' : ''}`}>
+                               {isPlaying ? '⏸️' : '🔊'}
+                             </div>
+                             <div>
+                               <div className="font-black text-slate-800 text-sm uppercase tracking-wider">
+                                 {isPlaying ? 'Playing Briefing...' : 'Play Audio Briefing'}
+                               </div>
+                               <div className="text-slate-500 text-xs mt-1 font-bold line-clamp-2">
+                                 {activeJob.summary}
+                               </div>
+                             </div>
+                         </div>
+                       )}
+
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2 mt-4">Global Job Details</h2>
                        <div><span className="field-label">Window Brand</span><input type="text" className="input-field" placeholder="Simonton, ProVia, etc." value={headerData.brand || ''} onChange={e => updateHeader('brand', e.target.value)} /></div>
                        <div><span className="field-label">Install Crew / Type</span><input type="text" className="input-field" placeholder="Retro, Capping, etc." value={headerData.crew || ''} onChange={e => updateHeader('crew', e.target.value)} /></div>
                        <div className="grid grid-cols-2 gap-4">
@@ -247,6 +305,7 @@
                      </div>
                    )}
 
+                   {/* TAB 2: MEASURE */}
                    {activeTab === 'measure' && (
                      <div className="space-y-6">
                        <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
@@ -303,6 +362,7 @@
                      </div>
                    )}
 
+                   {/* TAB 3: SIGN-OFF */}
                    {activeTab === 'signoff' && (
                      <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
                        <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
