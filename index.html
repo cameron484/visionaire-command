@@ -7,156 +7,319 @@
   <style>
     :root {
       --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
-      --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1; --s400:#94a3b8; --s500:#64748b; --s700:#334155; --s800:#1e293b; --border:#e2e8f0;
+      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
+      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
+      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
+      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
+      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
+
+    /* HEADER */
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
-    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;color:white;text-transform:uppercase}
+    .hdr-logo{display:flex;flex-direction:column}
+    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
+    .hdr-sub{font-size:0.48rem;font-weight:800;letter-spacing:0.35em;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-top:3px}
+    .hdr-right{display:flex;align-items:center;gap:7px}
+    .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
+    .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
+    .acct-dot.off{background:var(--s400)}
+    .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .hdr-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.8);border-radius:8px;padding:6px 9px;font-size:0.65rem;font-weight:700;cursor:pointer;letter-spacing:0.04em}
+    .hdr-btn:active{background:rgba(255,255,255,0.22)}
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
-    .vtab{flex:1;padding:12px 4px;font-size:0.68rem;font-weight:700;color:rgba(255,255,255,0.4);background:transparent;border:none;border-bottom:3px solid transparent}
+    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
+
+    /* MAIN */
     .main{padding:14px 12px 100px}
+    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
+
+    /* SETUP CARD */
+    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
+    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;}
+    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
+    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
+    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
+
+    /* SYNC BAR */
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
-    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase}
-    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px}
-    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;min-width:55px}
-    .dchip.on{background:var(--navy);border-color:var(--navy);color:white}
+    .sync-sub{font-size:0.61rem;color:var(--s500);margin-top:1px}
+    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase;cursor:pointer}
+
+    /* DATE STRIP */
+    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px; scrollbar-width: none;}
+    .dstrip::-webkit-scrollbar { display: none; }
+    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;min-width:55px}
+    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
+    .dchip.ev{border-color:var(--amber)}
     .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
     .dchip.on .dc-d, .dchip.on .dc-n {color:white}
     .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
-    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05);display:flex;flex-direction:column}
-    .cc-body{padding:12px}
-    .cc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
-    .cc-name{font-size:1.1rem;font-weight:900;color:var(--s800);text-transform:uppercase;text-decoration:none}
-    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px}
-    .cc-addr{font-size:0.75rem;color:var(--s500);margin-bottom:6px;display:block}
-    .pill-rep{font-size:0.62rem;font-weight:700;padding:3px 8px;border-radius:6px;background:var(--navy-light);color:var(--navy);display:inline-block}
+
+    /* CUSTOMER CARDS */
+    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .cc-head{display:flex;align-items:stretch}
+    .cc-bar{width:8px;flex-shrink:0}
+    .cc-bar.win{background:linear-gradient(180deg,var(--navy) 0%,var(--navy-mid) 100%)}
+    .cc-bar.door{background:linear-gradient(180deg,var(--emerald) 0%,var(--emerald-mid) 100%)}
+    .cc-bar.both{background:linear-gradient(180deg,var(--navy) 0%,var(--emerald) 100%)}
+    .cc-body{flex:1;padding:12px 12px 12px 10px}
+    .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
+    .cc-name{font-size:1rem;font-weight:900;color:var(--s800);text-transform:uppercase;letter-spacing:-0.01em;line-height:1.15;flex:1;}
+    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;}
+    .cc-addr{font-size:0.74rem;color:var(--s500);margin-bottom:8px;line-height:1.35; display: block;}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
-    .ca{flex:1;padding:12px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);border-right:1px solid var(--border)}
+    .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.63rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
+    .ca:not(:last-child){border-right:1px solid var(--border)}
     .ca.p{color:var(--navy)}
-    .det-box{padding:12px;background:var(--s50);border-top:1px solid var(--border)}
-    .dnotes{font-size:0.78rem;color:var(--s700);line-height:1.6}
-    .dnotes ul { padding-left: 18px; margin: 8px 0; }
-    .dnotes li { margin-bottom: 4px; }
+
+    /* EXPANDED NOTES */
+    .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
+    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.8rem;color:var(--s700);line-height:1.6;}
+    .dnotes ul { padding-left: 20px; margin: 8px 0; }
+    .dnotes li { margin-bottom: 6px; }
+
+    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
+    .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-var prefs = JSON.parse(localStorage.getItem(STORAGE_KEY))||{};
-var view = prefs.accessToken ? 'sched' : 'setup';
-var calEvents = prefs.calEvents || [];
-var selDate = new Date().toISOString().slice(0,10);
-var expandId = null;
-var loading = false;
+var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly';
+var TARGET_FOLDER_ID = '0B69WGNfZx9kuYmFJRFhfcGxWY0k';
 
-function save(){ prefs.calEvents = calEvents; localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); }
+var prefs        = loadPrefs();
+var view         = prefs.accessToken ? 'sched' : 'setup'; 
+var calEvents    = prefs.calEvents || []; 
+var loading      = false;
+var loadTxt      = 'Loading\u2026';
+var lastSync     = prefs.lastSync   || null;
+var selDate      = todayStr();
+var expandId     = null;
+var accessToken  = prefs.accessToken || null;
+var userEmail    = prefs.userEmail   || null;
+var geminiKey    = prefs.geminiKey   || '';
+var clientId     = prefs.clientId   || '';
+
+function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
+function save(){
+  prefs.accessToken=accessToken; prefs.userEmail=userEmail;
+  prefs.geminiKey=geminiKey; prefs.clientId=clientId;
+  prefs.lastSync=lastSync; prefs.calEvents=calEvents; 
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));
+}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+
+function loadGIS(cb){
+  if(window.google&&window.google.accounts){cb();return;}
+  var s=document.createElement('script');
+  s.src='https://accounts.google.com/gsi/client';
+  s.onload=cb;
+  document.head.appendChild(s);
+}
+
+function signIn(){
+  if(!clientId){alert('Enter Client ID first.'); return;}
+  loadGIS(function(){
+    var client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:GCAL_SCOPE,
+      callback:function(resp){
+        if(resp.error)return;
+        accessToken=resp.access_token;
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
+          .then(r=>r.json()).then(info=>{userEmail=info.email; save(); syncCalendar();});
+      }
+    });
+    client.requestAccessToken({prompt:'select_account'});
+  });
+}
 
 function syncCalendar(){
-  if(!prefs.accessToken) return;
-  loading = true; render();
+  if(!accessToken) return;
+  loading=true; loadTxt='Pulling Calendar...'; render();
   var past = new Date(); past.setDate(past.getDate()-7);
   var future = new Date(); future.setDate(future.getDate()+30);
   var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q=Final Measure';
-  fetch(url,{headers:{'Authorization':'Bearer '+prefs.accessToken}})
+  fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
     .then(r=>r.json()).then(data=>{
-      calEvents = (data.items||[]).map(ev=>{
-        var d = ev.description || '';
-        // Extract address and rep name from text
-        var addr = ev.location || (d.match(/Address:\s*([^\n<]+)/i)||[,''])[1].trim();
-        var rep = (d.match(/Consultant:\s*([^\n<]+)/i)||[,''])[1].trim();
-        return {
-          id: ev.id,
-          customer: ev.summary.replace(/final measure/i,'').trim(),
-          startTime: ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : 'Scheduled',
-          startDate: (ev.start.dateTime||ev.start.date).slice(0,10),
-          address: addr, rep: rep,
-          link: ev.htmlLink,
-          notesHtml: ev.description || 'No job notes found.'
-        };
-      });
-      loading = false; save(); render();
+      calEvents=(data.items||[]).map(parseEv);
+      lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      save(); loading=false; render();
+      syncContracts(calEvents, selDate);
     });
 }
 
+async function syncContracts(events, targetDate) {
+  if(!accessToken || !geminiKey) return;
+  var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  var dailyEvents = events.filter(function(e) { return e.startDate === targetDate; });
+
+  for(var i=0; i<dailyEvents.length; i++){
+    var ev = dailyEvents[i];
+    loadTxt = 'Checking ' + ev.customer + '...'; render();
+
+    try {
+      let lastName = ev.customer.trim().split(' ').pop();
+      // Connection Strategy: Look for SOLD or Signed + Last Name in folder tree
+      var query = "fullText contains '" + lastName.replace(/'/g, "\\'") + "' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'";
+      var driveUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true';
+      
+      var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
+      var dData = await dRes.json();
+
+      if(dData.files && dData.files.length > 0){
+        var file = dData.files[0];
+        var jIdx = existingJobs.findIndex(j => j.customer === ev.customer);
+        if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime) continue;
+
+        loadTxt = 'Extracting SOLD data for ' + ev.customer + '...'; render();
+        var fRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media&supportsAllDrives=true', { headers: {'Authorization': 'Bearer ' + accessToken} });
+        var blob = await fRes.blob();
+        var base64 = await new Promise(r => { var rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
+
+        var prompt = "Extract all window/door units. JSON EXACT FORMAT: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+        var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
+        });
+        if(!gRes.ok) break; 
+        var gData = await gRes.json();
+        var text = gData.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        var items = JSON.parse(text).map(it => Object.assign({}, it, {fmWidth:'', fmHeight:''}));
+
+        var newJob = { id: ev.id, customer: ev.customer, time: ev.startTime, data: items, pdfModifiedTime: file.modifiedTime };
+        if(jIdx >= 0) existingJobs[jIdx] = newJob; else existingJobs.unshift(newJob);
+        localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
+        await new Promise(r => setTimeout(r, 4000));
+      } else {
+        if(!existingJobs.some(j => j.customer === ev.customer)){
+          existingJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime, data: []});
+          localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
+        }
+      }
+    } catch(e) { console.warn(e); }
+  }
+  loading = false; render();
+}
+
+function parseEv(ev){
+  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
+  var plainDesc = (ev.description||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&');
+  return {
+    id: ev.id, customer: ev.summary.replace(/final measure/i,'').trim(),
+    address: ev.location || '', startDate: start.slice(0,10),
+    startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled',
+    notesRaw: ev.description || 'No job notes.',
+    hasWin: /window/i.test(ev.summary + plainDesc), hasDoor: /door/i.test(ev.summary + plainDesc)
+  };
+}
+
 function render(){
-  var root = document.getElementById('root'); root.innerHTML = '';
-  var wrap = el('div',{C:'app'});
-  var h = el('div',{C:'hdr'});
-  var ht = el('div',{C:'hdr-top'});
-  ht.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
-  h.appendChild(ht);
-  var tabs = el('div',{C:'vtabs'});
-  [['sched','Schedule'],['setup','Setup']].forEach(t=>{
+  var root=document.getElementById('root'); root.innerHTML='';
+  var wrap=el('div',{C:'app'});
+  wrap.appendChild(rHeader());
+  var main=el('div',{C:'main'});
+  if(view==='setup') rSetup(main); else rSched(main);
+  wrap.appendChild(main); root.appendChild(wrap);
+}
+
+function rHeader(){
+  var h=el('div',{C:'hdr'});
+  var top=el('div',{C:'hdr-top'});
+  var logo=el('div',{C:'hdr-logo'});
+  logo.appendChild(el('span',{C:'hdr-title',t:'Visionaire'}));
+  logo.appendChild(el('span',{C:'hdr-sub',t:'Customer Hub'}));
+  top.appendChild(logo);
+  var badge=el('div',{C:'acct-badge'});
+  badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
+  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||'Not signed in'}));
+  top.appendChild(badge); h.appendChild(top);
+  var tabs=el('div',{C:'vtabs'});
+  [['sched','Schedule'],['setup','Setup']].forEach(t => {
     tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:()=>{view=t[0];render();}}));
   });
-  h.appendChild(tabs); wrap.appendChild(h);
+  h.appendChild(tabs); return h;
+}
 
-  var main = el('div',{C:'main'});
-  if(view==='setup'){
-    main.appendChild(el('div',{t:'System Configured. Sync to see your calendar.'}));
-  } else {
-    var sb = el('div',{C:'sync-bar'});
-    sb.appendChild(el('span',{C:'sync-title',t:'Visionaire Calendar'}));
-    sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
-    main.appendChild(sb);
+function rSetup(main){
+  var body=el('div',{C:'sc-body'});
+  body.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
+  var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
+  body.appendChild(ci);
+  body.appendChild(el('button',{C:'g-btn',t:accessToken?'Connected':'Sign in Google',click:accessToken?null:signIn}));
+  body.appendChild(el('span',{C:'lbl',t:'Gemini Key'}));
+  var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
+  body.appendChild(gk);
+  body.appendChild(el('button',{C:'btn-p',t:'Save Config',click:()=>{save();syncCalendar();}}));
+  var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'System Config'})); sc.appendChild(body);
+  main.appendChild(sc);
+}
 
-    var ds = el('div',{C:'dstrip'});
-    for(var i=-1; i<12; i++){
-      var d = new Date(); d.setDate(d.getDate()+i);
-      var iso = d.toISOString().slice(0,10);
-      var chip = el('div',{C:'dchip'+(selDate===iso?' on':''),click:((val)=>{return()=>{selDate=val;render();}})(iso)});
-      chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
-      chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
-      ds.appendChild(chip);
-    }
-    main.appendChild(ds);
+function rSched(main){
+  if(!accessToken){main.appendChild(el('div',{t:'Go to Setup to sign in.'})); return;}
+  var sb=el('div',{C:'sync-bar'});
+  var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail})); si.appendChild(el('div',{C:'sync-sub',t:'Last: '+lastSync}));
+  sb.appendChild(si); sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
+  main.appendChild(sb);
+  if(loading){main.appendChild(el('div',{C:'lrow',t:loadTxt})); return;}
+  rDateStrip(main);
+  calEvents.filter(e=>e.startDate===selDate).forEach(ev=>main.appendChild(rCard(ev)));
+}
 
-    calEvents.filter(e=>e.startDate===selDate).forEach(ev=>{
-      var card = el('div',{C:'cc'});
-      var body = el('div',{C:'cc-body'});
-      var top = el('div',{C:'cc-top'});
-      top.appendChild(el('a',{C:'cc-name',t:ev.customer, href:ev.link, target:'_blank'}));
-      top.appendChild(el('span',{C:'cc-time',t:ev.startTime}));
-      body.appendChild(top);
-      if(ev.address) body.appendChild(el('span',{C:'cc-addr',t:ev.address}));
-      if(ev.rep) body.appendChild(el('span',{C:'pill-rep',t:'👤 '+ev.rep}));
-      card.appendChild(body);
-
-      if(expandId === ev.id){
-        var det = el('div',{C:'det-box'});
-        var n = el('div',{C:'dnotes'}); n.innerHTML = ev.notesHtml;
-        det.appendChild(n); card.appendChild(det);
-      }
-      
-      var acts = el('div',{C:'cc-acts'});
-      acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{
-        localStorage.setItem('activeJobId', JSON.stringify(ev.id));
-        var jobs = JSON.parse(localStorage.getItem('visionaireJobs'))||[];
-        if(!jobs.find(j=>j.id===ev.id)) jobs.unshift({id:ev.id, customer:ev.customer, data:[]});
-        localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
-        window.location.href = 'measure.html';
-      }}));
-      acts.appendChild(el('button',{C:'ca',t:expandId===ev.id?'Less':'More',click:()=>{expandId=(expandId===ev.id?null:ev.id); render();}}));
-      card.appendChild(acts); main.appendChild(card);
-    });
+function rDateStrip(main){
+  var strip=el('div',{C:'dstrip'});
+  for(var i=-1; i<=14; i++){
+    var d=new Date(); d.setDate(d.getDate()+i); var iso=d.toISOString().slice(0,10);
+    var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),click:()=>{selDate=iso; render(); if(geminiKey&&!loading){loading=true;render();syncContracts(calEvents,selDate);}}});
+    chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
+    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+    strip.appendChild(chip);
   }
-  wrap.appendChild(main); root.appendChild(wrap);
+  main.appendChild(strip);
+}
+
+function rCard(ev){
+  var isExp=expandId===ev.id;
+  var card=el('div',{C:'cc'});
+  var head=el('div',{C:'cc-head'});
+  head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
+  var body=el('div',{C:'cc-body'});
+  var top=el('div',{C:'cc-top'}); top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
+  top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); body.appendChild(top);
+  if(ev.address) body.appendChild(el('span',{C:'cc-addr',t:ev.address}));
+  head.appendChild(body); card.appendChild(head);
+  if(isExp){
+    var det=el('div',{C:'cc-det'});
+    det.appendChild(el('div',{C:'dnotes'})).innerHTML = ev.notesRaw;
+    card.appendChild(det);
+  }
+  var acts=el('div',{C:'cc-acts'});
+  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{
+    var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
+    if(!j.some(i=>i.customer===ev.customer))j.unshift({id:ev.id, customer:ev.customer, time:ev.startTime, data:[]});
+    localStorage.setItem('visionaireJobs',JSON.stringify(j));
+    localStorage.setItem('activeJobId', JSON.stringify(ev.id));
+    window.location.href='measure.html';
+  }}));
+  acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
+  card.appendChild(acts); return card;
 }
 
 function el(tag,props){
   var e=document.createElement(tag);
-  for(var k in props){
-    if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else if(k==='href')e.href=props[k]; else if(k==='target')e.target=props[k]; else e[k]=props[k];
-  }
+  for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else e[k]=props[k]; }
   return e;
 }
-render();
+document.addEventListener('DOMContentLoaded',render);
 </script>
 </body>
 </html>
