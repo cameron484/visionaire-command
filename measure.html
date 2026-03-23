@@ -16,6 +16,7 @@
     .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; }
     .input-field { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; font-weight: 700; color: #1e293b; outline: none; }
     .input-field:focus { border-color: #1a3a5c; box-shadow: 0 0 0 3px rgba(26,58,92,0.1); }
+    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -54,19 +55,10 @@
       const playBriefing = (text) => {
         if (!window.speechSynthesis) return alert("Your browser doesn't support audio playback.");
         window.speechSynthesis.cancel(); 
-        
-        if (isPlaying) {
-            setIsPlaying(false);
-            return;
-        }
-
+        if (isPlaying) { setIsPlaying(false); return; }
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        
         utterance.onend = () => setIsPlaying(false);
         utterance.onerror = () => setIsPlaying(false);
-        
         setIsPlaying(true);
         window.speechSynthesis.speak(utterance);
       };
@@ -84,9 +76,8 @@
         if(activeJob.data && activeJob.data.length > 0) {
           activeJob.data.forEach((item, i) => {
             text += `UNIT ${i+1}: ${item.itemType.toUpperCase()} - ${item.location}\n`;
-            text += `Specs: ${item.style || 'N/A'} | ${item.color || 'N/A'} | ${item.glass || 'N/A'} | ${item.grids || 'N/A'}\n`;
+            text += `Specs:\n${item.extras}\n`;
             text += `Sizes: Contract [${item.contractSize || 'N/A'}] -> FM [W: ${item.fmWidth || '___'} x H: ${item.fmHeight || '___'}] ${item.verified ? '(VERIFIED)' : ''}\n`;
-            if(item.extras) text += `Notes: ${item.extras}\n`;
             text += `-------------------------------------\n`;
           });
         }
@@ -99,7 +90,7 @@
         text += `HO Initials: ${signoffData.initials || '_____'}\n`;
 
         navigator.clipboard.writeText(text)
-          .then(() => alert('Full job data copied to Clipboard! Ready for MarketSharp.'))
+          .then(() => alert('Full job data copied to Clipboard!'))
           .catch(()=> alert('Failed to copy.'));
       };
 
@@ -138,28 +129,27 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract. 1. Write a 1 to 2 sentence verbal briefing of the scope of work (e.g. "Replacing 5 windows and 1 sliding door with Simonton brand."). 2. Extract all window/door units. 
-        Return ONLY valid JSON matching this exact structure: 
-        {
-          "summary": "verbal briefing here",
-          "items": [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]
-        }`;
+        const promptText = `Analyze this contract. 
+        1. Write a 1 sentence verbal briefing of the scope.
+        2. Extract window/door units. 
+        LEGACY/PROVIA DOOR RULES:
+        - Combine "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITES" into ONE item.
+        - For 'contractSize', find the exact text "Unit Size:".
+        - In 'extras', create a highly readable list using this exact structure:
+          SYSTEM: [Nominal Size], [Sidelite Width], [Unit Size], [Frame Depth]
+          FRAME: [Color], [Cladding Info]
+          ENTRY: [Style/Gauge], [Colors Int/Ext], [Swing]
+          SIDELITES: [Style/Gauge], [Glass Type], [Colors Int/Ext]
+          HARDWARE: [Lockset/Deadbolt/Peepsite]
+        Return ONLY valid JSON: {"summary": "...", "items": [{"line":"1","itemType":"Door","location":"","contractSize":"60 1/16\\" x 81 11/16\\"","extras":"SYSTEM: ...\\nFRAME: ...\\nENTRY: ...\\nSIDELITES: ...\\nHARDWARE: ..."}]}`;
         
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
         });
         
-        if (geminiRes.status === 429) {
-            setLoading(false);
-            return alert("⏳ AI Rate Limit Hit (Daily Quota Exhausted).\n\nYou have likely hit your DAILY limit of 1,500 free requests because of the old calendar glitch.\n\nFIX: Go to Google AI Studio, generate a new free API Key, and paste it into the Setup tab to reset your limit immediately!");
-        }
-
-        if (!geminiRes.ok) { 
-            const errData = await geminiRes.json();
-            setLoading(false); 
-            return alert(`API Error: ${errData.error?.message || 'Unknown'}`); 
-        }
+        if (geminiRes.status === 429) { setLoading(false); return alert("⏳ AI Rate Limit Hit. Wait 60s."); }
+        if (!geminiRes.ok) { setLoading(false); return alert("AI Error."); }
         
         const result = await geminiRes.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -167,229 +157,156 @@
         try {
           const parsed = JSON.parse(text);
           const items = (parsed.items || []).map(i => ({ ...i, fmWidth: '', fmHeight: '', verified: false }));
-          const summaryText = parsed.summary || '';
-          
-          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items, summary: summaryText } : j));
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items, summary: parsed.summary || '' } : j));
           setActiveTab('measure');
           setLoading(false);
-        } catch(parseErr) {
-          setLoading(false);
-          alert("Failed to read the AI's response correctly. Please try scanning again.");
-        }
+        } catch(e) { setLoading(false); alert("AI Response Error."); }
       };
 
       const autoLoadContract = async (job) => {
         const token = prefs.accessToken; const apiKey = prefs.geminiKey;
-        if (!token || !apiKey) return alert("System not fully configured in Hub.");
+        if (!token || !apiKey) return alert("System not configured.");
         setLoading(true);
         try {
           let cleanName = job.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
-          let nameParts = cleanName.split(/\s+/);
-          let searchTarget = nameParts.reduce((a, b) => a.length > b.length ? a : b).replace(/'/g, "\\'");
-          
-          const query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement' or name contains 'SOLD' or name contains 'Order') and mimeType='application/pdf'`;
+          let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b).replace(/'/g, "\\'");
+          const query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
           const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
-          
-          const driveRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
-          const driveData = await driveRes.json();
-          if (!driveData.files?.length) { setLoading(false); return alert(`No signed contract found containing "${searchTarget}".`); }
-
-          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
-          const blob = await fileRes.blob();
+          const dRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
+          const dData = await dRes.json();
+          if (!dData.files?.length) { setLoading(false); return alert("No file found."); }
+          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
-          reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            await processPDFBase64(base64, apiKey, job);
-          };
-        } catch (e) { setLoading(false); console.error(e); alert("Drive Search Error. You can try uploading manually."); }
+          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], apiKey, job); };
+        } catch (e) { setLoading(false); }
       };
 
-      const handleManualUpload = (e, job) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const apiKey = prefs.geminiKey;
-        if (!apiKey) return alert("System not fully configured in Hub (missing Gemini Key).");
-
-        setLoading(true);
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = async () => {
-          try {
-            const base64 = reader.result.split(',')[1];
-            await processPDFBase64(base64, apiKey, job);
-          } catch (error) {
-            setLoading(false);
-            console.error(error);
-            alert("Error processing manually uploaded PDF.");
-          }
-        };
-      };
-
-      if(!activeJob) return <div className="p-10 text-center font-bold">Return to Hub to select customer.</div>;
-
-      const hasData = activeJob?.data?.length > 0;
+      if(!activeJob) return <div className="p-10 text-center font-bold">No active job.</div>;
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col shadow-xl">
-          <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] flex flex-col gap-4 sticky top-0 z-50">
-            <div className="flex justify-between items-center">
-              <button onClick={goBackToHub} className="text-white font-black text-[10px] uppercase bg-white/20 px-3 py-2 rounded">Close</button>
-              <h1 className="font-black italic text-lg uppercase text-center flex-1 truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
-              <button onClick={exportData} className="text-[#1a3a5c] bg-[#f59e0b] font-black text-[10px] uppercase px-3 py-2 rounded shadow">Export</button>
+          <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
+            <div className="flex justify-between items-center mb-3">
+              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/20 px-3 py-2 rounded">Close</button>
+              <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
+              <button onClick={exportData} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded">Export</button>
             </div>
-            
-            {hasData && (
+            {activeJob.data?.length > 0 && (
               <div className="flex bg-black/30 rounded-lg p-1 gap-1">
-                <button onClick={() => setActiveTab('overview')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded ${activeTab==='overview'?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-70'}`}>Overview</button>
-                <button onClick={() => setActiveTab('measure')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded ${activeTab==='measure'?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-70'}`}>Units</button>
-                <button onClick={() => setActiveTab('signoff')} className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded ${activeTab==='signoff'?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-70'}`}>Sign-Off</button>
+                {['overview', 'measure', 'signoff'].map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-xs font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-70'}`}>{tab}</button>
+                ))}
               </div>
             )}
           </header>
 
           <main className="p-4 flex-1 pb-32 bg-slate-100">
-            <div className="space-y-6">
-              
-              {loading ? <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Reading PDF & Analyzing Data...</div> : 
-               !hasData ? (
-                 <div className="p-6 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-4 mt-6">
-                   <div className="text-4xl mb-2">📄</div>
-                   <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform w-full">Scan Drive Contract</button>
-                   
-                   <div className="text-slate-400 font-bold text-xs my-1">— OR —</div>
-                   
-                   <label className="bg-emerald-600 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform cursor-pointer w-full block text-center">
-                     ⬆️ Upload PDF Manually
-                     <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleManualUpload(e, activeJob)} />
-                   </label>
-
-                   <div className="text-slate-400 font-bold text-xs my-1">— OR —</div>
-
-                   <button onClick={addUnit} className="bg-slate-800 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform w-full">➕ Add Unit Manually</button>
-                 </div>
-               ) : (
-                 <>
-                   {activeTab === 'overview' && (
-                     <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
-                       
-                       {activeJob.summary && (
-                         <div 
-                            onClick={() => playBriefing(activeJob.summary)}
-                            className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all border-2 ${isPlaying ? 'bg-blue-50 border-blue-400 shadow-inner' : 'bg-slate-50 border-slate-200 shadow-sm hover:bg-slate-100'}`}>
-                             <div className={`text-3xl ${isPlaying ? 'animate-pulse' : ''}`}>
-                               {isPlaying ? '⏸️' : '🔊'}
-                             </div>
-                             <div>
-                               <div className="font-black text-slate-800 text-sm uppercase tracking-wider">
-                                 {isPlaying ? 'Playing Briefing...' : 'Play Audio Briefing'}
-                               </div>
-                               <div className="text-slate-500 text-xs mt-1 font-bold line-clamp-2">
-                                 {activeJob.summary}
-                               </div>
-                             </div>
+            {loading ? <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Processing Contract...</div> : 
+             !activeJob.data?.length ? (
+               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan PDF Contract</button>
+                 <div className="text-slate-400 font-bold text-xs">— OR —</div>
+                 <button onClick={addUnit} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg">➕ Add Unit Manually</button>
+               </div>
+             ) : (
+               <>
+                 {activeTab === 'overview' && (
+                   <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
+                     {activeJob.summary && (
+                         <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
+                             <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
+                             <div><div className="font-black text-xs uppercase tracking-wider">Audio Briefing</div><div className="text-slate-500 text-xs font-bold line-clamp-2">{activeJob.summary}</div></div>
                          </div>
-                       )}
+                     )}
+                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Job Details</h2>
+                     {['brand', 'crew', 'extColor', 'intColor'].map(f => (
+                       <div key={f}><span className="field-label">{f.replace(/([A-Z])/g, ' $1')}</span><input type="text" className="input-field" value={headerData[f] || ''} onChange={e => updateHeader(f, e.target.value)} /></div>
+                     ))}
+                   </div>
+                 )}
 
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2 mt-4">Global Job Details</h2>
-                       <div><span className="field-label">Window Brand</span><input type="text" className="input-field" placeholder="Simonton, ProVia, etc." value={headerData.brand || ''} onChange={e => updateHeader('brand', e.target.value)} /></div>
-                       <div><span className="field-label">Install Crew / Type</span><input type="text" className="input-field" placeholder="Retro, Capping, etc." value={headerData.crew || ''} onChange={e => updateHeader('crew', e.target.value)} /></div>
-                       <div className="grid grid-cols-2 gap-4">
-                         <div><span className="field-label">Exterior Color</span><input type="text" className="input-field" placeholder="White, Bronze..." value={headerData.extColor || ''} onChange={e => updateHeader('extColor', e.target.value)} /></div>
-                         <div><span className="field-label">Interior Color</span><input type="text" className="input-field" placeholder="White, Woodgrain..." value={headerData.intColor || ''} onChange={e => updateHeader('intColor', e.target.value)} /></div>
-                       </div>
-                       <button onClick={() => setActiveTab('measure')} className="w-full bg-[#1a3a5c] text-white py-4 rounded-xl font-bold text-sm uppercase mt-4">Start Measuring ➔</button>
-                     </div>
-                   )}
-
-                   {activeTab === 'measure' && (
-                     <div className="space-y-6">
-                       <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-xs uppercase text-slate-500">Unit {activeItemIndex + 1} of {activeJob.data.length}</span>
-                            <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer shadow-md tracking-wider">{currentItem.itemType} ⟳</span>
-                          </div>
-                          
-                          <div onClick={() => { let loc = prompt("Enter location:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer group">
-                            <span className="field-label group-hover:text-blue-500">Location (Tap to edit)</span>
-                            <h2 className="text-2xl font-black text-slate-800 uppercase border-b-2 border-dashed border-transparent group-hover:border-blue-200 inline-block">{currentItem.location || 'Unknown'}</h2>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            {['Grids', 'Glass'].map(type => (
-                              <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
-                            ))}
-                          </div>
-                          
-                          <div>
-                            <span className="field-label">Contract Specs / Extras</span>
-                            <div className="bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">
-                              {currentItem.style || 'N/A'} | {currentItem.color || 'N/A'} | {currentItem.hardware || 'N/A'} <br/> {currentItem.extras}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 pt-2">
-                              <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
-                              <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
-                          </div>
-
-                          <div className={`p-3 rounded-xl border flex justify-between items-center transition-colors ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                             <div>
-                               <span className="text-[10px] font-black uppercase text-slate-500 block">Contract Size</span>
-                               <span className="font-bold text-slate-800">{currentItem.contractSize || 'Unknown'}</span>
-                             </div>
-                             <label className={`flex items-center gap-2 text-sm font-black cursor-pointer px-3 py-2 rounded-lg ${currentItem.verified ? 'text-green-700 bg-green-100' : 'text-amber-700 bg-amber-100'}`}>
-                                <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600 cursor-pointer" />
-                                {currentItem.verified ? 'VERIFIED' : 'VERIFY SIZE'}
-                             </label>
-                          </div>
-                       </div>
-
-                       <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                        <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow active:scale-95 transition-transform">{f}</button>)}</div>
-                        <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black text-2xl shadow-sm hover:bg-slate-50 active:scale-95 transition-transform ${n==='CLR'?'text-red-500 text-sm':n==='DEL'?'text-orange-500 text-sm':'text-slate-700'}`}>{n}</button>)}</div>
-                        <div className="flex gap-2 mt-4">
-                          <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase active:scale-95 transition-transform">Prev</button>
-                          <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl active:scale-95 transition-transform">
-                            {activeItemIndex === activeJob.data.length - 1 ? '➕ Add Unit' : 'Next Unit ➔'}
-                          </button>
+                 {activeTab === 'measure' && (
+                   <div className="space-y-6">
+                     <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] shadow-sm p-5 space-y-5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-xs text-slate-500 uppercase">Unit {activeItemIndex + 1} of {activeJob.data.length}</span>
+                          <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer font-black">{currentItem.itemType} ⟳</span>
                         </div>
+                        <div onClick={() => { let loc = prompt("Location:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer">
+                          <span className="field-label">Location</span>
+                          <h2 className="text-2xl font-black text-slate-800 uppercase underline decoration-slate-200 underline-offset-4">{currentItem.location || 'Unknown'}</h2>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <span className="field-label">Contract Spec Sheet</span>
+                          <div className="contract-spec-box font-bold text-slate-600 text-[11px] leading-relaxed">
+                            {currentItem.extras || 'No specs found.'}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
+                            <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
+                        </div>
+                        <div className={`p-3 rounded-xl border flex justify-between items-center ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                           <div><span className="text-[10px] font-black uppercase text-slate-500 block">Unit Size</span><span className="font-bold text-slate-800">{currentItem.contractSize || 'N/A'}</span></div>
+                           <label className="flex items-center gap-2 text-xs font-black cursor-pointer px-3 py-2 rounded-lg bg-white/50 border border-current">
+                              <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600" />
+                              {currentItem.verified ? 'VERIFIED' : 'VERIFY'}
+                           </label>
+                        </div>
+                     </div>
+
+                     <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
+                      <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow">{f}</button>)}</div>
+                      <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className="bg-white p-5 rounded-2xl font-black text-2xl shadow-sm text-slate-700">{n}</button>)}</div>
+                      <div className="flex gap-2 mt-4">
+                        <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
+                        <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl">
+                          {activeItemIndex === activeJob.data.length - 1 ? '➕ Add Unit' : 'Next Unit ➔'}
+                        </button>
                       </div>
+                    </div>
+                   </div>
+                 )}
+
+                 {activeTab === 'signoff' && (
+                   <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
+                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
+                     
+                     {/* DYNAMIC DOOR SYSTEM CHECKLIST */}
+                     {activeJob.data.some(d => d.itemType === 'Door') && (
+                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
+                           <h4 className="font-black text-xs text-blue-800 uppercase flex items-center gap-2">🚪 Door System Verification</h4>
+                           {activeJob.data.filter(d => d.itemType === 'Door').map((door, idx) => (
+                             <div key={idx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100">
+                                <div className="text-blue-700 font-black mb-1">UNIT: {door.location.toUpperCase()}</div>
+                                <div className="contract-spec-box">{door.extras}</div>
+                             </div>
+                           ))}
+                           <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer">
+                              <input type="checkbox" className="w-5 h-5 accent-blue-600" checked={signoffData.doorVerify || false} onChange={e=>updateSignoff('doorVerify', e.target.checked)} />
+                              <span className="text-xs font-black text-blue-900">Homeowner confirmed all door details match</span>
+                           </label>
+                        </div>
+                     )}
+
+                     <div className="space-y-3">
+                       {['alarms', 'photos', 'colors', 'swings'].map(f => (
+                         <label key={f} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                           <input type="checkbox" checked={signoffData[f] || false} onChange={e=>updateSignoff(f, e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                           <span className="font-bold text-slate-700 text-sm uppercase">{f} Checked</span>
+                         </label>
+                       ))}
                      </div>
-                   )}
-
-                   {activeTab === 'signoff' && (
-                     <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
-                       
-                       <div className="space-y-3">
-                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                           <input type="checkbox" checked={signoffData.alarms || false} onChange={e=>updateSignoff('alarms', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                           <span className="font-bold text-slate-700 text-sm">Alarms Reviewed / Handled</span>
-                         </label>
-                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                           <input type="checkbox" checked={signoffData.photos || false} onChange={e=>updateSignoff('photos', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                           <span className="font-bold text-slate-700 text-sm">Photos Taken (All sides, Exterior)</span>
-                         </label>
-                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                           <input type="checkbox" checked={signoffData.colors || false} onChange={e=>updateSignoff('colors', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                           <span className="font-bold text-slate-700 text-sm">Colors Confirmed with HO</span>
-                         </label>
-                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                           <input type="checkbox" checked={signoffData.swings || false} onChange={e=>updateSignoff('swings', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                           <span className="font-bold text-slate-700 text-sm">Door Swings Confirmed (If applicable)</span>
-                         </label>
-                       </div>
-
-                       <div className="pt-4 border-t-2 border-dashed border-slate-200">
-                         <span className="field-label">Homeowner Sign-Off Initials</span>
-                         <input type="text" className="input-field text-center text-2xl tracking-widest uppercase" placeholder="Type Initials" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
-                       </div>
-
-                       <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl mt-4">📋 Copy Full Job to Clipboard</button>
+                     <div className="pt-4 border-t-2 border-dashed border-slate-200">
+                       <span className="field-label">Homeowner Initials</span>
+                       <input type="text" className="input-field text-center text-2xl tracking-widest uppercase" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
                      </div>
-                   )}
-                 </>
-               )}
+                     <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl">📋 Copy Full Job Info</button>
+                   </div>
+                 )}
+               </>
+             )}
             </div>
           </main>
         </div>
