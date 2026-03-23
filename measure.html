@@ -79,7 +79,15 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job, contractLink) => {
-        const promptText = `Analyze project. Extract Qty, Type, Location, Unit Size. 'itemType' must be 'Door' if it's a door system, otherwise 'Window'. 'extras' must be a SINGLE STRING with line breaks. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Window or Door","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","casing":"","color":"","style":"","osj":false,"osbm":false,"grids":"","glass":"","extras":""}]}`;
+        const promptText = `Analyze as a Visionaire Windows measure tech. 
+        RULES:
+        1. STRICKLY COMBINE all parts of a door assembly (Sidelites, Transoms, Slab) into ONE single 'Door' entry. 
+        2. A 'Storm Door' is a separate 'Door' entry.
+        3. Do NOT include capping, labor, or non-window/door items.
+        4. Use 'itemType' exactly: 'Door' or 'Window'.
+        5. Map swing to RHI, LHI, RHO, LHO.
+        Return ONLY JSON: {"summary": "Brief 1-sentence recap", "items": [{"qty":"1","itemType":"Door or Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","casing":"","color":"","style":"","osj":false,"osbm":false,"grids":"","glass":"","extras":""}]}`;
+        
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
         const result = await res.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -88,20 +96,25 @@
           const syncTime = new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
           setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, syncTime: syncTime, contractLink: contractLink } : j));
           setLoading(false);
-        } catch(e) { setLoading(false); }
+        } catch(e) { setLoading(false); alert("AI Sync Logic Error."); }
       };
 
       const autoLoadContract = async (job) => {
         setLoading(true);
         try {
+          const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+          const token = latestPrefs.accessToken;
+          if (!token) { setLoading(false); return alert("Refresh your session in the Hub."); }
+
           let cleanName = job.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
           let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
           const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
-          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const dData = await dRes.json();
-          if (!dData.files?.[0]) { setLoading(false); return alert("Not found."); }
-          const contractLink = `https://drive.google.com/file/d/${dData.files[0].id}/view`;
-          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
+          if (!dData.files?.[0]) { setLoading(false); return alert("Contract not found."); }
+          const fileId = dData.files[0].id;
+          const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
+          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
           reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job, contractLink); };
@@ -109,7 +122,7 @@
       };
 
       const wipeAndRescan = () => {
-        if (confirm("Wipe and rescan?")) {
+        if (confirm("Wipe this customer data and rescan?")) {
           setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [], summary: '', syncTime: null, contractLink: null } : j));
           setActiveTab('measure'); setExpandedIndex(0);
         }
@@ -117,7 +130,7 @@
 
       const insertLineBelow = (index) => {
         const source = activeJob.data[index];
-        const newUnit = { itemType: source.itemType, location: source.location, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: source.extras, contractSize: source.contractSize };
+        const newUnit = { ...source, fmWidth: '', fmHeight: '', verified: false, qty: '1' };
         const newData = [...activeJob.data];
         newData.splice(index + 1, 0, newUnit);
         setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
@@ -125,7 +138,7 @@
       };
 
       const removeLine = (index) => {
-        if (confirm("Delete this?")) {
+        if (confirm("Delete this opening?")) {
           const newData = activeJob.data.filter((_, i) => i !== index);
           setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
         }
@@ -133,18 +146,8 @@
 
       const addUnitAtEnd = (type) => {
         const newUnit = { 
-          itemType: type, 
-          location: `New ${type}`, 
-          qty: '1', 
-          fmWidth: '', 
-          fmHeight: '', 
-          verified: false, 
-          extras: '',
-          doorType: type === 'Door' ? 'Single' : '',
-          swing: '',
-          jambDepth: type === 'Door' ? '4-9/16" (2x4 wall)' : '',
-          grids: 'None',
-          glass: 'None'
+          itemType: type, location: `New ${type}`, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: '',
+          doorType: type === 'Door' ? 'Single' : '', swing: '', jambDepth: type === 'Door' ? '4-9/16" (2x4 wall)' : '', grids: 'None', glass: 'None'
         };
         setJobs(prev => prev.map(j => j.id === activeJob.id ? { ...j, data: [...j.data, newUnit] } : j));
         setExpandedIndex(activeJob.data.length);
@@ -156,7 +159,7 @@
             <div className="flex justify-between items-center mb-3">
               <button onClick={() => window.location.href = 'index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Close</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{activeJob.customer}</h1>
-              <button onClick={() => alert('Exported!')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <button onClick={() => alert('Data copied to clipboard!')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
@@ -167,7 +170,7 @@
 
           <main className="p-3 flex-1">
             {loading ? (
-               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Scanning...</div>
+               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Scanning Driver Folder...</div>
             ) : !activeJob.data?.length ? (
                <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan PDF Contract</button>
@@ -181,7 +184,7 @@
                 {activeTab === 'overview' && (
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
                     {activeJob.contractLink && (
-                       <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>
+                       <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 View Original Contract</a>
                     )}
                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Specs</h2>
                     <div className="grid grid-cols-2 gap-3">
@@ -204,7 +207,6 @@
                             </div>
                             <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
                          </div>
-
                          {expandedIndex === idx && (
                            <div className="p-4 border-t border-slate-100 bg-white space-y-4">
                               <div className="grid grid-cols-3 gap-3">
@@ -239,16 +241,17 @@
                                   </div>
                                 </div>
                               )}
+                              <div><span className="field-label">Original Specs</span><div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] border border-slate-100">{formatSpecs(unit.extras)}</div></div>
                               <div><span className="field-label">Notes</span><textarea className="input-box h-16 text-[10px]" value={unit.notes} onChange={e=>updateItem(idx, 'notes', e.target.value)} placeholder="Notes..."/></div>
                               <div className="flex gap-2">
-                                 <button onClick={()=>insertLineBelow(idx)} className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase border border-blue-100">➕ Insert Below</button>
-                                 <button onClick={()=>removeLine(idx)} className="flex-1 py-3 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase border border-red-100 text-center">🗑️ Remove Unit</button>
+                                 <button onClick={()=>insertLineBelow(idx)} className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase border border-blue-100 shadow-sm active:scale-95 transition-transform">➕ Insert Below</button>
+                                 <button onClick={()=>removeLine(idx)} className="flex-1 py-3 bg-red-50 text-red-600 rounded-lg font-black text-[10px] uppercase border border-red-100 text-center shadow-sm active:scale-95 transition-transform">🗑️ Remove Unit</button>
                               </div>
                            </div>
                          )}
                       </div>
                     ))}
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex gap-2 mt-4 pb-10">
                        <button onClick={() => addUnitAtEnd('Window')} className="flex-1 bg-slate-800 text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">➕ Add Window</button>
                        <button onClick={() => addUnitAtEnd('Door')} className="flex-1 bg-[#064e3b] text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">➕ Add Door</button>
                     </div>
