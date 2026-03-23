@@ -114,14 +114,24 @@
 
       const processPDFBase64 = async (base64, apiKey, job) => {
         const promptText = `Extract units as JSON: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        
+        // BUGFIX: Switched to the highly stable gemini-1.5-flash model which has a massive 1-Million TPM limit for PDFs.
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
         });
-        if (!geminiRes.ok) { setLoading(false); return alert("AI limit hit. Wait 60 seconds."); }
+        
+        if (!geminiRes.ok) { 
+            const errData = await geminiRes.json();
+            setLoading(false); 
+            console.error("API Error:", errData);
+            return alert(`AI limit hit or error. Please wait 60 seconds. Details: ${errData.error?.message || 'Unknown'}`); 
+        }
+        
         const result = await geminiRes.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
         const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '', verified: false }));
+        
         setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
         setActiveTab('measure');
         setLoading(false);
