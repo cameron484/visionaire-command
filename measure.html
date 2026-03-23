@@ -9,13 +9,14 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: 'Courier New', monospace; background: #f1f5f9; }
+    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, sans-serif; background: #f1f5f9; }
     .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
-    .field-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; display: block; }
-    .spec-pill { font-size: 10px; font-weight: 700; padding: 6px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569; transition: all 0.2s; }
-    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; box-shadow: 0 4px 12px rgba(26,58,92,0.2); }
+    .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; display: block; }
+    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; box-shadow: 0 4px 12px rgba(26,58,92,0.25); }
     .active-pill-door { background: #064e3b; color: white; border-color: #064e3b; box-shadow: 0 4px 12px rgba(6,78,59,0.25); }
     .door-accent { border-left: 12px solid #064e3b !important; }
+    .window-accent { border-left: 12px solid #1a3a5c !important; }
   </style>
 </head>
 <body>
@@ -24,9 +25,11 @@
     const { useState, useEffect } = React;
 
     function VisionaireApp() {
-      const [apiKey] = useState(localStorage.getItem('geminiApiKey') || '');
-      const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
+      // 1. LOOK IN THE CORRECT FOLDER FOR THE KEYS!
+      const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
+      const apiKey = prefs.geminiKey || '';
       
+      const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
       const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
       
       const [activeItemIndex, setActiveItemIndex] = useState(0);
@@ -34,31 +37,22 @@
       const [loading, setLoading] = useState(false);
 
       const activeJob = jobs.find(j => j.id === activeJobId);
-      
-      // CRASH PREVENTION: Safely handle undefined data
       const currentItem = activeJob?.data?.[activeItemIndex] || {};
       const isDoor = (currentItem.itemType || '').toLowerCase().includes('door');
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
-
-      useEffect(() => {
-        if (activeJobId && activeJob && activeJob.data && activeJob.data.length === 0 && apiKey) {
-          autoLoadContract(activeJob);
-        }
-      }, [activeJobId]);
 
       const goBackToHub = () => {
         localStorage.removeItem('activeJobId'); 
         window.location.href = 'index.html'; 
       };
 
-      // CRASH PREVENTION: If the ID is completely wrong, show a safe exit screen
       if (!activeJobId || !activeJob) {
          return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-6 text-center">
                <div className="bg-white p-8 rounded-[2rem] shadow-xl max-w-sm w-full border-t-8 border-red-500">
-                 <h2 className="text-2xl font-black text-slate-800 mb-2 uppercase">Sync Error</h2>
-                 <p className="font-bold text-slate-500 mb-8 text-sm">Customer data could not be loaded cleanly. Please return to the Hub and try again.</p>
+                 <h2 className="text-2xl font-black text-slate-800 mb-2 uppercase">Data Cleared</h2>
+                 <p className="font-bold text-slate-500 mb-8 text-sm">Please return to the Hub to select a customer.</p>
                  <button onClick={goBackToHub} className="w-full bg-[#1a3a5c] text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">◀ Return to Hub</button>
                </div>
             </div>
@@ -85,14 +79,16 @@
       };
 
       const autoLoadContract = async (job) => {
-        const token = localStorage.getItem('googleAccessToken');
+        // 2. GET THE TOKEN FROM THE CORRECT LOCATION!
+        const token = prefs.accessToken;
+        
         if (!token || !apiKey) return alert("System not fully configured in the Hub.");
         setLoading(true);
         try {
           const query = `name contains '${job.customer}' and mimeType='application/pdf'`;
           const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1`, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
-          if (!driveData.files?.length) { setLoading(false); return; }
+          if (!driveData.files?.length) { setLoading(false); alert("No PDF Found in Drive."); return; }
 
           const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fileRes.blob();
@@ -111,7 +107,7 @@
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
             setLoading(false);
           };
-        } catch (e) { setLoading(false); }
+        } catch (e) { setLoading(false); console.error(e); alert("Extraction Error: " + e.message); }
       };
 
       return (
@@ -121,7 +117,7 @@
             <button onClick={goBackToHub} className="text-[#f59e0b] font-black text-[10px] uppercase">Close Job</button>
           </header>
 
-          <main className="p-4 flex-1 pb-32">
+          <main className="p-4 flex-1 pb-32 bg-slate-100">
             <div className="space-y-6">
               <button onClick={goBackToHub} className="text-[10px] font-black text-slate-400">◀ BACK TO HUB</button>
               
@@ -131,50 +127,53 @@
               </div>
 
               {loading ? (
-                <div className="p-20 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-slate-50">
+                <div className="p-20 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-white shadow-sm">
                   <p className="text-slate-400 font-black uppercase text-xs animate-pulse">Pulling Contract Data...</p>
                 </div>
               ) : activeJob.data && activeJob.data.length === 0 ? (
-                <div className="p-16 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-slate-50">
-                  <p className="text-slate-400 font-black uppercase text-xs mb-4">No PDF Found in Drive</p>
+                <div className="p-16 text-center border-4 border-dashed border-slate-200 rounded-[2rem] bg-white shadow-sm">
+                  <p className="text-slate-400 font-black uppercase text-xs mb-4">Ready to Scan</p>
+                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg mr-2">Scan PDF</button>
                   <button onClick={() => {
                       updateItem('location', 'Manual Entry'); 
                       updateItem('itemType', 'Window');
-                  }} className="bg-[#1a3a5c] text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg">Start Manual Sheet</button>
+                  }} className="bg-[#1a3a5c] text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg mt-4">Start Manual Sheet</button>
                 </div>
               ) : (
-                <div className={`bg-slate-50 border-2 border-slate-200 rounded-[2rem] overflow-hidden ${isDoor ? 'door-accent' : 'border-l-[12px] border-l-[#1a3a5c]'}`}>
+                <div className={`bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm ${isDoor ? 'door-accent' : 'window-accent'}`}>
                   <div className={`${isDoor ? 'bg-[#064e3b]' : 'bg-[#1a3a5c]'} p-4 flex justify-between items-center`}>
-                    <span className="text-white font-black text-xs uppercase italic">Line {activeItemIndex + 1} of {activeJob.data.length}</span>
-                    <span className="bg-[#f59e0b] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">{currentItem.itemType}</span>
+                    <span className="text-white font-bold text-xs uppercase tracking-widest">Line {activeItemIndex + 1} of {activeJob.data.length}</span>
+                    <span className="bg-[#f59e0b] text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{currentItem.itemType}</span>
                   </div>
 
-                  <div className="p-5 space-y-5">
+                  <div className="p-5 space-y-6">
                     <div>
                       <span className="field-label">Location on House</span>
-                      <h2 className="text-xl font-black text-slate-800 uppercase leading-tight mb-2">{currentItem.location}</h2>
+                      <h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location}</h2>
                       {currentItem.contractSize && (
-                        <div className="inline-block bg-blue-50 border border-blue-100 px-3 py-1 rounded-md">
+                        <div className="inline-block mt-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg">
                           <span className="text-[10px] font-bold text-blue-800 uppercase">Contract Size: {currentItem.contractSize}</span>
                         </div>
                       )}
                     </div>
 
                     {isDoor && (
-                      <div className="grid grid-cols-2 gap-4 bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                        <div>
-                          <span className="field-label text-emerald-700">Frame Prep</span>
-                          <div className="flex gap-2">
-                            <button onClick={() => updateItem('osj', !currentItem.osj)} className={`spec-pill ${currentItem.osj ? 'active-pill-door' : ''}`}>OSJ</button>
-                            <button onClick={() => updateItem('osbm', !currentItem.osbm)} className={`spec-pill ${currentItem.osbm ? 'active-pill-door' : ''}`}>OSBM</button>
+                      <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="field-label text-emerald-700">Frame Prep</span>
+                            <div className="flex gap-2">
+                              <button onClick={() => updateItem('osj', !currentItem.osj)} className={`spec-pill ${currentItem.osj ? 'active-pill-door' : ''}`}>OSJ</button>
+                              <button onClick={() => updateItem('osbm', !currentItem.osbm)} className={`spec-pill ${currentItem.osbm ? 'active-pill-door' : ''}`}>OSBM</button>
+                            </div>
                           </div>
-                        </div>
-                        <div>
-                          <span className="field-label text-emerald-700">Swing</span>
-                          <div className="flex gap-1 flex-wrap">
-                            {['L/IN', 'R/IN', 'L/OUT', 'R/OUT'].map(s => (
-                              <button key={s} onClick={() => updateItem('swing', s)} className={`spec-pill ${currentItem.swing === s ? 'active-pill-door' : ''}`}>{s}</button>
-                            ))}
+                          <div>
+                            <span className="field-label text-emerald-700">Swing</span>
+                            <div className="flex flex-wrap gap-2">
+                              {['L/IN', 'R/IN', 'L/OUT', 'R/OUT'].map(s => (
+                                <button key={s} onClick={() => updateItem('swing', s)} className={`spec-pill ${currentItem.swing === s ? 'active-pill-door' : ''}`}>{s}</button>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -183,7 +182,7 @@
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <span className="field-label">Grid Style</span>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-2">
                           {['Contour', 'Flat', 'SDL'].map(g => (
                             <button key={g} onClick={() => updateItem('grids', g)} className={`spec-pill ${currentItem.grids === g ? 'active-pill' : ''}`}>{g}</button>
                           ))}
@@ -191,7 +190,7 @@
                       </div>
                       <div>
                         <span className="field-label">Glass Type</span>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-2">
                           {['Temp', 'Obscure'].map(gl => (
                             <button key={gl} onClick={() => updateItem('glass', gl)} className={`spec-pill ${currentItem.glass === gl ? 'active-pill' : ''}`}>{gl}</button>
                           ))}
@@ -202,7 +201,7 @@
                     <div>
                       <span className="field-label">Trim & Hardware Notes</span>
                       <textarea 
-                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-600 italic"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 placeholder-slate-400 focus:border-[#1a3a5c] focus:ring-1 focus:ring-[#1a3a5c] outline-none transition-all"
                         rows="3"
                         value={currentItem.extras || ''}
                         onChange={(e) => updateItem('extras', e.target.value)}
@@ -211,13 +210,13 @@
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-lg' : 'bg-slate-100 border-transparent'}`}>
+                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmWidth' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
                         <span className="field-label">Final Width</span>
-                        <span className="text-3xl font-black">{currentItem.fmWidth || '-'}</span>
+                        <span className="text-3xl font-black text-slate-800">{currentItem.fmWidth || '-'}</span>
                       </div>
-                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-lg' : 'bg-slate-100 border-transparent'}`}>
+                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center transition-all ${activeField === 'fmHeight' ? 'border-[#1a3a5c] bg-white shadow-md' : 'bg-slate-50 border-transparent'}`}>
                         <span className="field-label">Final Height</span>
-                        <span className="text-3xl font-black">{currentItem.fmHeight || '-'}</span>
+                        <span className="text-3xl font-black text-slate-800">{currentItem.fmHeight || '-'}</span>
                       </div>
                     </div>
                   </div>
@@ -230,20 +229,22 @@
                   <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
                     <div className="grid grid-cols-7 gap-1.5 mb-3">
                       {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => (
-                        <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-xl font-black text-[10px] active:scale-95 transition-all">{f}</button>
+                        <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-sm">{f}</button>
                       ))}
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {[1,2,3,4,5,6,7,8,9].map(n => (
-                        <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:scale-95 shadow-sm transition-all">{n}</button>
+                        <button key={n} onClick={() => handleKeyPress(n.toString())} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">{n}</button>
                       ))}
-                      <button onClick={() => handleKeyPress('CLR')} className="bg-white p-5 rounded-2xl font-black text-xs text-red-500 uppercase">CLR</button>
-                      <button onClick={() => handleKeyPress('0')} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700">0</button>
-                      <button onClick={() => handleKeyPress('DEL')} className="bg-white p-5 rounded-2xl font-black text-xs text-orange-500 uppercase">DEL</button>
+                      <button onClick={() => handleKeyPress('CLR')} className="bg-white p-5 rounded-2xl font-black text-sm text-red-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">CLR</button>
+                      <button onClick={() => handleKeyPress('0')} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700 active:bg-slate-50 active:scale-95 shadow-sm transition-all">0</button>
+                      <button onClick={() => handleKeyPress('DEL')} className="bg-white p-5 rounded-2xl font-black text-sm text-orange-500 uppercase active:bg-slate-50 active:scale-95 shadow-sm transition-all">DEL</button>
                     </div>
                   </div>
 
-                  <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-6 rounded-[2.2rem] font-black uppercase tracking-widest active:scale-95 shadow-2xl">Save & Next Unit ➔</button>
+                  <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase tracking-widest active:scale-[0.98] shadow-xl transition-all mb-8">
+                    Save & Next Unit ➔
+                  </button>
                 </>
               )}
             </div>
