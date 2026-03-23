@@ -7,7 +7,7 @@
   <style>
     :root {
       --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
-      --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s400:#94a3b8; --s500:#64748b; --s700:#334155; --s800:#1e293b; --border:#e2e8f0;
+      --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1; --s400:#94a3b8; --s500:#64748b; --s700:#334155; --s800:#1e293b; --border:#e2e8f0;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
@@ -25,17 +25,23 @@
     .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px}
     .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;min-width:55px}
     .dchip.on{background:var(--navy);border-color:var(--navy);color:white}
-    .dchip.on .dc-d, .dchip.on .dc-n {color:white}
     .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
+    .dchip.on .dc-d, .dchip.on .dc-n {color:white}
     .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
     .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05);display:flex;flex-direction:column}
-    .cc-head{padding:12px;display:flex;justify-content:space-between;align-items:flex-start}
-    .cc-name{font-size:1rem;font-weight:900;color:var(--s800);text-transform:uppercase}
+    .cc-body{padding:12px}
+    .cc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+    .cc-name{font-size:1.1rem;font-weight:900;color:var(--s800);text-transform:uppercase;text-decoration:none}
     .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px}
+    .cc-addr{font-size:0.75rem;color:var(--s500);margin-bottom:6px;display:block}
+    .pill-rep{font-size:0.62rem;font-weight:700;padding:3px 8px;border-radius:6px;background:var(--navy-light);color:var(--navy);display:inline-block}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
     .ca{flex:1;padding:12px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);border-right:1px solid var(--border)}
     .ca.p{color:var(--navy)}
-    .dnotes{padding:12px;background:var(--s100);font-size:0.75rem;color:var(--s700);line-height:1.5;white-space:pre-wrap}
+    .det-box{padding:12px;background:var(--s50);border-top:1px solid var(--border)}
+    .dnotes{font-size:0.78rem;color:var(--s700);line-height:1.6}
+    .dnotes ul { padding-left: 18px; margin: 8px 0; }
+    .dnotes li { margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -46,12 +52,10 @@ var prefs = JSON.parse(localStorage.getItem(STORAGE_KEY))||{};
 var view = prefs.accessToken ? 'sched' : 'setup';
 var calEvents = prefs.calEvents || [];
 var selDate = new Date().toISOString().slice(0,10);
+var expandId = null;
 var loading = false;
 
-function save(){ 
-  prefs.calEvents = calEvents; 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); 
-}
+function save(){ prefs.calEvents = calEvents; localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); }
 
 function syncCalendar(){
   if(!prefs.accessToken) return;
@@ -61,23 +65,28 @@ function syncCalendar(){
   var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q=Final Measure';
   fetch(url,{headers:{'Authorization':'Bearer '+prefs.accessToken}})
     .then(r=>r.json()).then(data=>{
-      calEvents = (data.items||[]).map(ev=>({
-        id: ev.id,
-        customer: ev.summary.replace(/final measure/i,'').trim(),
-        startTime: ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : 'Scheduled',
-        startDate: (ev.start.dateTime||ev.start.date).slice(0,10),
-        notes: ev.description || 'No notes.'
-      }));
+      calEvents = (data.items||[]).map(ev=>{
+        var d = ev.description || '';
+        // Extract address and rep name from text
+        var addr = ev.location || (d.match(/Address:\s*([^\n<]+)/i)||[,''])[1].trim();
+        var rep = (d.match(/Consultant:\s*([^\n<]+)/i)||[,''])[1].trim();
+        return {
+          id: ev.id,
+          customer: ev.summary.replace(/final measure/i,'').trim(),
+          startTime: ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : 'Scheduled',
+          startDate: (ev.start.dateTime||ev.start.date).slice(0,10),
+          address: addr, rep: rep,
+          link: ev.htmlLink,
+          notesHtml: ev.description || 'No job notes found.'
+        };
+      });
       loading = false; save(); render();
     });
 }
 
 function render(){
-  var root = document.getElementById('root');
-  root.innerHTML = '';
+  var root = document.getElementById('root'); root.innerHTML = '';
   var wrap = el('div',{C:'app'});
-  
-  // Header
   var h = el('div',{C:'hdr'});
   var ht = el('div',{C:'hdr-top'});
   ht.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
@@ -90,16 +99,15 @@ function render(){
 
   var main = el('div',{C:'main'});
   if(view==='setup'){
-    main.appendChild(el('div',{t:'Go to Setup to manage Google/Gemini connection.'}));
+    main.appendChild(el('div',{t:'System Configured. Sync to see your calendar.'}));
   } else {
     var sb = el('div',{C:'sync-bar'});
     sb.appendChild(el('span',{C:'sync-title',t:'Visionaire Calendar'}));
     sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
     main.appendChild(sb);
 
-    // Date Strip
     var ds = el('div',{C:'dstrip'});
-    for(var i=-1; i<10; i++){
+    for(var i=-1; i<12; i++){
       var d = new Date(); d.setDate(d.getDate()+i);
       var iso = d.toISOString().slice(0,10);
       var chip = el('div',{C:'dchip'+(selDate===iso?' on':''),click:((val)=>{return()=>{selDate=val;render();}})(iso)});
@@ -111,10 +119,20 @@ function render(){
 
     calEvents.filter(e=>e.startDate===selDate).forEach(ev=>{
       var card = el('div',{C:'cc'});
-      var head = el('div',{C:'cc-head'});
-      head.appendChild(el('div',{C:'cc-name',t:ev.customer}));
-      head.appendChild(el('div',{C:'cc-time',t:ev.startTime}));
-      card.appendChild(head);
+      var body = el('div',{C:'cc-body'});
+      var top = el('div',{C:'cc-top'});
+      top.appendChild(el('a',{C:'cc-name',t:ev.customer, href:ev.link, target:'_blank'}));
+      top.appendChild(el('span',{C:'cc-time',t:ev.startTime}));
+      body.appendChild(top);
+      if(ev.address) body.appendChild(el('span',{C:'cc-addr',t:ev.address}));
+      if(ev.rep) body.appendChild(el('span',{C:'pill-rep',t:'👤 '+ev.rep}));
+      card.appendChild(body);
+
+      if(expandId === ev.id){
+        var det = el('div',{C:'det-box'});
+        var n = el('div',{C:'dnotes'}); n.innerHTML = ev.notesHtml;
+        det.appendChild(n); card.appendChild(det);
+      }
       
       var acts = el('div',{C:'cc-acts'});
       acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{
@@ -124,8 +142,8 @@ function render(){
         localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
         window.location.href = 'measure.html';
       }}));
-      card.appendChild(acts);
-      main.appendChild(card);
+      acts.appendChild(el('button',{C:'ca',t:expandId===ev.id?'Less':'More',click:()=>{expandId=(expandId===ev.id?null:ev.id); render();}}));
+      card.appendChild(acts); main.appendChild(card);
     });
   }
   wrap.appendChild(main); root.appendChild(wrap);
@@ -134,7 +152,7 @@ function render(){
 function el(tag,props){
   var e=document.createElement(tag);
   for(var k in props){
-    if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else e[k]=props[k];
+    if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else if(k==='href')e.href=props[k]; else if(k==='target')e.target=props[k]; else e[k]=props[k];
   }
   return e;
 }
