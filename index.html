@@ -78,7 +78,6 @@
 <script>
 var STORAGE_KEY = 'vhub_v2';
 var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly';
-var TARGET_FOLDER_ID = '0B69WGNfZx9kuYmFJRFhfcGxWY0k';
 
 var prefs        = loadPrefs();
 var view         = prefs.accessToken ? 'sched' : 'setup'; 
@@ -150,8 +149,10 @@ async function syncContracts(events, targetDate) {
     var ev = dailyEvents[i];
     try {
       let lastName = ev.customer.trim().split(' ').pop();
+      // ULTIMATE SEARCH: Removes Folder ID restriction to fix 403 Forbidden/Nested errors
       var query = "fullText contains '" + lastName.replace(/'/g, "\\'") + "' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'";
       var driveUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true';
+      
       var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
       var dData = await dRes.json();
 
@@ -164,7 +165,7 @@ async function syncContracts(events, targetDate) {
         var blob = await fRes.blob();
         var base64 = await new Promise(r => { var rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
 
-        var prompt = "Extract all window/door units. JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+        var prompt = "Extract all units. JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
         var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
@@ -185,25 +186,14 @@ async function syncContracts(events, targetDate) {
 
 function cleanNotes(html) {
   if (!html) return "No job notes.";
-  // Remove basic HTML junk
   let text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
-  
-  // Smart Splitter: Find labels like "Category:", "Contact:", "Edit event at:"
   const labels = ["Category:", "Contact:", "Product:", "Edit event at:", "Address:"];
-  labels.forEach(label => {
-    text = text.replace(new RegExp(`(${label})`, 'g'), `|||$1`);
-  });
-
-  // Convert Phone Numbers to clickable links
+  labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'g'), `|||$1`); });
   text = text.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
-
-  // Map each line to a clean styled block
   return text.split('|||').filter(l => l.trim().length > 3).map(line => {
     let part = line.trim();
     let label = labels.find(lab => part.startsWith(lab));
-    if (label) {
-      return `<span class="note-line"><span class="note-label">${label}</span>${part.replace(label, '').trim()}</span>`;
-    }
+    if (label) return `<span class="note-line"><span class="note-label">${label}</span>${part.replace(label, '').trim()}</span>`;
     return `<span class="note-line">${part}</span>`;
   }).join('');
 }
@@ -221,8 +211,7 @@ function parseEv(ev){
 
 function render(){
   var root=document.getElementById('root'); root.innerHTML='';
-  var wrap=el('div',{C:'app'});
-  wrap.appendChild(rHeader());
+  var wrap=el('div',{C:'app'}); wrap.appendChild(rHeader());
   var main=el('div',{C:'main'});
   if(view==='setup') rSetup(main); else rSched(main);
   wrap.appendChild(main); root.appendChild(wrap);
@@ -290,20 +279,16 @@ function rCard(ev){
   var body=el('div',{C:'cc-body'});
   var top=el('div',{C:'cc-top'}); top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
   top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); body.appendChild(top);
-  
-  // ADDRESS LINK
   if(ev.address) {
     var alink = el('a',{C:'cc-addr',t:ev.address});
     alink.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(ev.address);
     alink.target = "_blank";
     body.appendChild(alink);
   }
-  
   head.appendChild(body); card.appendChild(head);
   if(isExp){
     var det=el('div',{C:'cc-det'});
-    var n = el('div',{C:'dnotes'}); 
-    n.innerHTML = cleanNotes(ev.notesHtml); // RUN THE SMART PROCESSOR
+    var n = el('div',{C:'dnotes'}); n.innerHTML = cleanNotes(ev.notesHtml);
     det.appendChild(n); card.appendChild(det);
   }
   var acts=el('div',{C:'cc-acts'});
