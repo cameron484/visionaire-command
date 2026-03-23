@@ -58,17 +58,23 @@
       const autoLoadContract = async (job) => {
         const token = prefs.accessToken;
         const apiKey = prefs.geminiKey;
-        if (!token || !apiKey) return alert("System not fully configured.");
+        if (!token || !apiKey) return alert("System not fully configured in Hub.");
         setLoading(true);
         try {
-          let lastName = job.customer.trim().split(' ').pop();
-          // SEARCH FIX: No Folder ID restriction here either!
-          const query = "fullText contains '" + lastName.replace(/'/g, "\\'") + "' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'";
+          // SMART NAME EXTRACTION
+          let cleanName = job.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
+          let nameParts = cleanName.split(/\s+/);
+          // Find the longest word in their name (the most unique identifier)
+          let searchTarget = nameParts.reduce((a, b) => a.length > b.length ? a : b); 
+          searchTarget = searchTarget.replace(/'/g, "\\'");
+          
+          // BULLETPROOF SEARCH: Looks in file contents AND filename for the unique name + any contract keyword
+          const query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement' or name contains 'SOLD' or name contains 'Order') and mimeType='application/pdf'`;
           const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
           
           const driveRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
-          if (!driveData.files?.length) { setLoading(false); return alert("No SOLD contract found."); }
+          if (!driveData.files?.length) { setLoading(false); return alert(`No signed contract found containing "${searchTarget}".`); }
 
           const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fileRes.blob();
@@ -81,7 +87,7 @@
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
             });
-            if (!geminiRes.ok) { setLoading(false); return alert("AI Error."); }
+            if (!geminiRes.ok) { setLoading(false); return alert("AI limit hit. Wait 60 seconds."); }
             const result = await geminiRes.json();
             const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
             const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '' }));
@@ -100,19 +106,31 @@
           <main className="p-4 flex-1 pb-32 bg-slate-100">
             <div className="space-y-6">
               <h3 className="font-black text-2xl uppercase text-slate-800">{activeJob?.customer}</h3>
-              {loading ? <div className="p-20 text-center animate-pulse">CONNECTING SOLD DATA...</div> : 
+              {loading ? <div className="p-20 text-center animate-pulse">SEARCHING FILES & ANALYZING...</div> : 
                !activeJob?.data?.length ? <button onClick={() => autoLoadContract(activeJob)} className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase shadow-lg">Scan PDF Contract 📄</button> :
                <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
                   <div className="flex justify-between items-center"><span className="font-bold text-xs uppercase">Item {activeItemIndex + 1} of {activeJob.data.length}</span><span className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white">{currentItem.itemType}</span></div>
                   <div><span className="field-label">Location</span><h2 className="text-2xl font-black text-slate-800 uppercase">{currentItem.location || 'Unknown'}</h2></div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {['Grids', 'Glass'].map(type => (
+                      <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
+                    ))}
+                  </div>
+                  <div><span className="field-label">Contract Specs / Extras</span><div className="bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">{currentItem.style} | {currentItem.color} | {currentItem.hardware} <br/> {currentItem.extras}</div></div>
+
                   <div className="grid grid-cols-2 gap-3 pt-2">
                       <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
                       <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
                   </div>
                </div>}
               {!loading && activeJob?.data?.length > 0 && <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
+                <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs">{f}</button>)}</div>
                 <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700">{n}</button>)}</div>
-                <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase mt-4 shadow-xl">Next Unit ➔</button>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
+                  <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Next Unit ➔</button>
+                </div>
               </div>}
             </div>
           </main>
