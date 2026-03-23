@@ -9,13 +9,11 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; }
+    body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; font-family: ui-sans-serif, system-ui, sans-serif; background: #f1f5f9; }
     .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
     .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.4rem; display: block; }
-    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; transition: all 0.15s ease; }
     .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; box-shadow: 0 4px 12px rgba(26,58,92,0.25); }
-    .active-pill-door { background: #064e3b; color: white; border-color: #064e3b; box-shadow: 0 4px 12px rgba(6,78,59,0.25); }
-    .door-accent { border-left: 12px solid #064e3b !important; }
     .window-accent { border-left: 12px solid #1a3a5c !important; }
   </style>
 </head>
@@ -23,6 +21,7 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect } = React;
+    // Your specific Visionaire Folder ID
     const TARGET_FOLDER_ID = '0B69WGNfZx9kuYmFJRFhfcGxWY0k';
 
     function VisionaireApp() {
@@ -36,7 +35,6 @@
 
       const activeJob = jobs.find(j => j.id === activeJobId);
       const currentItem = activeJob?.data?.[activeItemIndex] || {};
-      const isDoor = (currentItem.itemType || '').toLowerCase().includes('door');
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
@@ -65,67 +63,80 @@
 
       const autoLoadContract = async (job) => {
         const token = prefs.accessToken;
-        if (!token || !apiKey) return alert("Setup Hub first.");
+        if (!token || !apiKey) return alert("Setup Hub settings first.");
         setLoading(true);
         try {
           let searchName = job.customer.trim();
           if (searchName.includes(' ')) { searchName = searchName.split(' ').pop(); }
 
-          // Connection Strategy: Prioritize "(SOLD)" keyword
-          const query = "(fullText contains 'SOLD' or fullText contains 'Signed' or fullText contains 'Agreement') and fullText contains '" + searchName.replace(/'/g, "\\'") + "' and mimeType='application/pdf' and '" + TARGET_FOLDER_ID + "' in parents";
-          const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives`;
+          // DEEP SEARCH FIX: 
+          // 1. We search for the name + "Agreement" or "Signed" 
+          // 2. We sort by modifiedTime desc to get the 2026 file, NOT the 2019 file
+          // 3. We removed the "in parents" restriction so it can find files in SUB-FOLDERS
+          const query = `fullText contains '${searchName}' and (name contains 'Signed' or name contains 'Agreement' or name contains 'SOLD') and mimeType='application/pdf'`;
+          const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
           
           const driveRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
           const driveData = await driveRes.json();
           
-          if (!driveData.files?.length) { setLoading(false); alert(`No SOLD contract found for "${searchName}".`); return; }
+          if (!driveData.files?.length) { 
+            setLoading(false); 
+            alert(`Could not find a recent Signed Agreement for "${searchName}" in any folders.`); 
+            return; 
+          }
 
           const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const blob = await fileRes.blob();
           const base64 = await new Promise(r => { const reader = new FileReader(); reader.onloadend = () => r(reader.result.split(',')[1]); reader.readAsDataURL(blob); });
 
-          const promptText = `Extract unit units. JSON format: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
+          // GEMINI PROMPT
+          const promptText = `Extract all window and door line items from this contract. For each item, provide: line number, itemType (Window or Door), location, style, contractSize, color, hardware, and extras. Return ONLY a valid JSON array. Format: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
+          
           const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
           });
 
-          if (!geminiRes.ok) { setLoading(false); return alert("AI Limit hit. Wait 60s."); }
+          if (!geminiRes.ok) { setLoading(false); return alert("AI Limit hit or error. Wait 60s."); }
           const result = await geminiRes.json();
           const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
           const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '' }));
+          
           setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
           setLoading(false);
-        } catch (e) { setLoading(false); console.error(e); }
+        } catch (e) { 
+          setLoading(false); 
+          alert("Error analyzing contract: " + e.message);
+        }
       };
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col industrial-shadow">
-          <header className="bg-[#1a3a5c] text-white p-5 border-b-4 border-[#f59e0b] sticky top-0 z-50 flex justify-between items-center">
-            <h1 className="font-black italic text-xl tracking-tighter uppercase">Visionaire <span className="text-[10px] not-italic tracking-[0.3em] ml-2 opacity-70">Field Command</span></h1>
-            <button onClick={goBackToHub} className="text-[#f59e0b] font-black text-[10px] uppercase">Close Job</button>
+          <header className="bg-[#1a3a5c] text-white p-5 border-b-4 border-[#f59e0b] flex justify-between items-center">
+            <h1 className="font-black italic text-xl uppercase">Visionaire Command</h1>
+            <button onClick={goBackToHub} className="text-[#f59e0b] font-black text-[10px] uppercase">Close</button>
           </header>
           <main className="p-4 flex-1 pb-32 bg-slate-100">
             <div className="space-y-6">
               <div className="border-b-4 border-slate-200 pb-2 flex justify-between items-end">
                   <h3 className="font-black text-2xl uppercase text-slate-800">{activeJob.customer}</h3>
-                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-md">Scan PDF Contract 📄</button>
+                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase">Scan Contract 📄</button>
               </div>
-              {loading ? <div className="p-20 text-center animate-pulse uppercase font-black text-xs">Connecting SOLD Contract...</div> : 
-               !activeJob.data.length ? <div className="p-10 text-center border-4 border-dashed rounded-[2rem] bg-white"><button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-4 rounded-xl font-black text-xs uppercase">Scan SOLD Contract</button></div> :
+              {loading ? <div className="p-20 text-center animate-pulse uppercase font-black text-xs text-slate-500">Searching all folders & analyzing build...</div> : 
+               !activeJob.data.length ? <div className="p-10 text-center border-4 border-dashed rounded-[2rem] bg-white"><button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-4 rounded-xl font-black text-xs uppercase">Scan Newest Agreement</button></div> :
                <div className={`bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm`}>
                   <div className="bg-[#1a3a5c] p-4 flex justify-between items-center text-white font-bold text-xs uppercase tracking-widest">
-                    <span>Line {activeItemIndex + 1} of {activeJob.data.length}</span>
+                    <span>Item {activeItemIndex + 1} of {activeJob.data.length}</span>
                     <span className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full">{currentItem.itemType}</span>
                   </div>
                   <div className="p-5 space-y-6">
-                    <div><span className="field-label">Location</span><h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location}</h2>{currentItem.contractSize && <span className="text-[10px] bg-blue-50 px-2 py-1 rounded">Size: {currentItem.contractSize}</span>}</div>
+                    <div><span className="field-label">Location</span><h2 className="text-2xl font-black text-slate-800 uppercase leading-tight mb-1">{currentItem.location || 'Unknown'}</h2>{currentItem.contractSize && <span className="text-[10px] bg-blue-50 px-2 py-1 rounded">Contract: {currentItem.contractSize}</span>}</div>
                     <div className="grid grid-cols-2 gap-4">
                       {['Grids', 'Glass'].map(type => (
                         <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
                       ))}
                     </div>
-                    <div><span className="field-label">Notes</span><textarea className="w-full bg-slate-50 border rounded-xl p-3 text-sm" rows="3" value={currentItem.extras||''} onChange={e=>updateItem('extras',e.target.value)} /></div>
+                    <div><span className="field-label">Contract Specs / Extras</span><div className="bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">{currentItem.style} | {currentItem.color} | {currentItem.hardware} <br/> {currentItem.extras}</div></div>
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       {['fmWidth', 'fmHeight'].map(f => (
                         <div key={f} onClick={() => setActiveField(f)} className={`p-4 rounded-2xl border-4 text-center ${activeField===f?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">{f==='fmWidth'?'Final Width':'Final Height'}</span><span className="text-3xl font-black">{currentItem[f]||'-'}</span></div>
@@ -136,7 +147,10 @@
               {!loading && activeJob.data.length > 0 && <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
                 <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs">{f}</button>)}</div>
                 <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black ${n==='CLR'?'text-red-500 text-xs':n==='DEL'?'text-orange-500 text-xs':'text-2xl text-slate-700'}`}>{n}</button>)}</div>
-                <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="w-full bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase mt-4">Save & Next ➔</button>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
+                  <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Next Unit ➔</button>
+                </div>
               </div>}
             </div>
           </main>
