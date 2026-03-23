@@ -26,7 +26,6 @@
     .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
     .acct-dot.off{background:var(--s400)}
     .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .hdr-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.8);border-radius:8px;padding:6px 9px;font-size:0.65rem;font-weight:700;cursor:pointer;letter-spacing:0.04em}
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
     .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
@@ -37,13 +36,18 @@
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
     .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
+    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
+    .btn-disc{width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:var(--redl);color:var(--red);font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
+    .sync-sub{font-size:0.61rem;color:var(--s500);margin-top:1px}
     .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase;cursor:pointer}
     .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px; scrollbar-width: none;}
     .dstrip::-webkit-scrollbar { display: none; }
     .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;min-width:55px}
     .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
+    .dchip.ev{border-color:var(--amber)}
     .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
     .dchip.on .dc-d, .dchip.on .dc-n {color:white}
     .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
@@ -68,6 +72,11 @@
     .note-line:last-child { border-bottom: none; }
     .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 1px; }
     .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
+    .gi{background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px}
+    .gi-head{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+    .gi-badge{background:linear-gradient(135deg,#4285f4,#34a853);color:white;font-size:0.58rem;font-weight:800;padding:2px 7px;border-radius:99px;letter-spacing:0.05em}
+    .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
+    .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
     @keyframes sp{to{transform:rotate(360deg)}}
@@ -90,6 +99,7 @@ var accessToken  = prefs.accessToken || null;
 var userEmail    = prefs.userEmail   || null;
 var geminiKey    = prefs.geminiKey   || '';
 var clientId     = prefs.clientId   || '';
+var insights     = {}; 
 
 function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
 function save(){
@@ -125,6 +135,12 @@ function signIn(){
   });
 }
 
+function signOut(){
+  accessToken=null; userEmail=null; calEvents=[];
+  prefs.accessToken=null; prefs.userEmail=null; prefs.calEvents=[]; 
+  save(); view='setup'; render();
+}
+
 function syncCalendar(){
   if(!accessToken) return;
   loading=true; render();
@@ -148,10 +164,13 @@ async function syncContracts(events, targetDate) {
   for(var i=0; i<dailyEvents.length; i++){
     var ev = dailyEvents[i];
     try {
-      let lastName = ev.customer.trim().split(' ').pop();
-      // ULTIMATE SEARCH: Removes Folder ID restriction to fix 403 Forbidden/Nested errors
-      var query = "fullText contains '" + lastName.replace(/'/g, "\\'") + "' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'";
-      var driveUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true';
+      let cleanName = ev.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
+      let nameParts = cleanName.split(/\s+/);
+      let searchTarget = nameParts.reduce((a, b) => a.length > b.length ? a : b); 
+      searchTarget = searchTarget.replace(/'/g, "\\'");
+      
+      var query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement' or name contains 'SOLD' or name contains 'Order') and mimeType='application/pdf'`;
+      var driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
       
       var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
       var dData = await dRes.json();
@@ -161,12 +180,12 @@ async function syncContracts(events, targetDate) {
         var jIdx = existingJobs.findIndex(j => j.customer === ev.customer);
         if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime) continue;
 
-        var fRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media&supportsAllDrives=true', { headers: {'Authorization': 'Bearer ' + accessToken} });
+        var fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`, { headers: {'Authorization': 'Bearer ' + accessToken} });
         var blob = await fRes.blob();
         var base64 = await new Promise(r => { var rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
 
-        var prompt = "Extract all units. JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
-        var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+        var prompt = "Extract all window/door units. JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+        var gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
         });
@@ -184,9 +203,26 @@ async function syncContracts(events, targetDate) {
   }
 }
 
+function geminiInsight(ev){
+  if(!geminiKey)return;
+  if(insights[ev.id]){render();return;}
+  insights[ev.id]='...';render();
+  var rawText = (ev.notesHtml || '').replace(/<[^>]+>/g,' ');
+  var prompt='You are a field measure prep assistant for Visionaire Windows. Write a single practical 1-2 sentence prep note for the measurer heading to this appointment. Be specific.\n\nCustomer: '+ev.customer+'\nAddress: '+ev.address+'\nNotes: '+rawText+'\n\nRespond with 1-2 sentences only.';
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+geminiKey,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:120}})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    var t='';try{t=d.candidates[0].content.parts[0].text.trim();}catch(e){}
+    insights[ev.id]=t||'No insight available.';render();
+  }).catch(function(){insights[ev.id]='Could not load insight.';render();});
+}
+
 function cleanNotes(html) {
   if (!html) return "No job notes.";
-  let text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
   const labels = ["Category:", "Contact:", "Product:", "Edit event at:", "Address:"];
   labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'g'), `|||$1`); });
   text = text.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
@@ -227,9 +263,24 @@ function rHeader(){
   badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
   badge.appendChild(el('span',{C:'acct-txt',t:userEmail||'Not signed in'}));
   top.appendChild(badge); h.appendChild(top);
+  
   var tabs=el('div',{C:'vtabs'});
-  [['sched','Schedule'],['setup','Setup']].forEach(t => {
-    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:()=>{view=t[0];render();}}));
+  [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(t => {
+    tabs.appendChild(el('button',{
+      C:'vtab'+(view===t[0]?' on':''), t:t[1],
+      click:()=>{
+        if(t[0]==='manual'){
+          var n=prompt("Enter Customer Name for Manual Entry:");
+          if(n){
+            var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
+            var id=Date.now(); j.unshift({id:id, customer:n, time:'Manual', data:[]});
+            localStorage.setItem('visionaireJobs',JSON.stringify(j));
+            localStorage.setItem('activeJobId', JSON.stringify(id));
+            window.location.href='measure.html';
+          }
+        } else { view=t[0]; render(); }
+      }
+    }));
   });
   h.appendChild(tabs); return h;
 }
@@ -239,11 +290,22 @@ function rSetup(main){
   body.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
   var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
   body.appendChild(ci);
-  body.appendChild(el('button',{C:'g-btn',t:accessToken?'Connected':'Sign in Google',click:accessToken?null:signIn}));
+  
+  if(accessToken&&userEmail){
+    body.appendChild(el('button',{C:'g-btn conn',t:'\u2713 Connected as '+userEmail, click: signOut}));
+  } else {
+    body.appendChild(el('button',{C:'g-btn',t:'Sign in with Google', click: signIn}));
+  }
+  
   body.appendChild(el('span',{C:'lbl',t:'Gemini Key'}));
   var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
   body.appendChild(gk);
   body.appendChild(el('button',{C:'btn-p',t:'Save Config',click:()=>{save();syncCalendar();}}));
+  
+  if(accessToken){
+    body.appendChild(el('button',{C:'btn-disc',t:'Sign Out / Disconnect',click:signOut}));
+  }
+  
   var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'System Config'})); sc.appendChild(body);
   main.appendChild(sc);
 }
@@ -288,6 +350,20 @@ function rCard(ev){
   head.appendChild(body); card.appendChild(head);
   if(isExp){
     var det=el('div',{C:'cc-det'});
+    
+    if(geminiKey){
+      var gi=el('div',{C:'gi'});
+      var gih=el('div',{C:'gi-head'});
+      gih.appendChild(el('span',{C:'gi-badge',t:'\u2736 Gemini'}));
+      gih.appendChild(el('span',{style:'font-size:0.68rem;font-weight:700;color:var(--s600)',t:'AI Prep Note'}));
+      gi.appendChild(gih);
+      var ins=insights[ev.id];
+      if(!ins){var tap=el('button',{C:'gi-tap',t:'Tap to generate prep note\u2026',click:function(e){return function(){geminiInsight(e);};}(ev)});gi.appendChild(tap);}
+      else if(ins==='...'){var sr2=el('div',{C:'lrow',style:'padding:6px 0;justify-content:flex-start'});sr2.appendChild(el('div',{C:'spin'}));sr2.appendChild(el('span',{C:'ltxt',t:'Thinking\u2026'}));gi.appendChild(sr2);}
+      else{gi.appendChild(el('div',{C:'gi-txt',t:ins}));}
+      det.appendChild(gi);
+    }
+
     var n = el('div',{C:'dnotes'}); n.innerHTML = cleanNotes(ev.notesHtml);
     det.appendChild(n); card.appendChild(det);
   }
