@@ -1,209 +1,221 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<title>Visionaire — Measure Sheet v9.6</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-<style>
-:root{
-  --navy:#1a3a5c; --navy2:#162d47; --gold:#f59e0b; --green:#059669;
-  --red:#dc2626; --blue:#1e40af; --bluel:#eff6ff; --blueb:#bfdbfe;
-  --bg:#eef2f7; --card:#fff; --border:#dde3ec; --text:#1e293b; --muted:#64748b;
-  --door:#064e3b; --door-border:#6ee7b7; --door-light:#ecfdf5;
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{min-height:100%;font-family:'Courier New',monospace;background:var(--bg);color:var(--text);font-size:15px}
-.topbar{background:var(--navy);color:white;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.3);position:sticky;top:0;z-index:102}
-.topbar h1{font-size:15px;font-weight:700;letter-spacing:.06em}
-.topbar p{font-size:8px;opacity:.55;letter-spacing:.16em;text-transform:uppercase}
-.cbar{background:var(--navy2);border-bottom:3px solid var(--gold);padding:9px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.tabbar{background:var(--navy);display:flex;border-top:1px solid rgba(255,255,255,.1);position:sticky;top:122px;z-index:99}
-.tabbar button{flex:1;border:none;background:transparent;color:rgba(255,255,255,.6);font-family:inherit;font-size:13px;font-weight:700;padding:12px 6px;cursor:pointer;border-bottom:3px solid transparent}
-.tabbar button.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,255,255,.05)}
-.btn{border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;white-space:nowrap;height:52px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center}
-.btn-green{background:var(--green);color:white}
-.btn-blue{background:#1d4ed8;color:white}
-.btn-red{background:var(--red);color:white}
-.card{background:var(--card);border-radius:12px;border:1.5px solid var(--border);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)}
-.cb{padding:14px}
-.lbl{display:block;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px}
-input[type=text],textarea,select{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:0 12px;height:52px;font-family:inherit;font-size:15px;color:var(--text);background:white;outline:none;-webkit-appearance:none;appearance:none;box-sizing:border-box}
-input[type=text]:focus,textarea:focus,select:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,58,92,.12)}
-textarea{height:auto;min-height:80px;padding:12px;resize:vertical;line-height:1.5}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%2364748b' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px;cursor:pointer}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grp-btn{border-radius:14px;min-height:70px;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;margin-bottom:8px;box-shadow:0 3px 10px rgba(0,0,0,.18);user-select:none;padding:0 20px}
-.grp-btn-navy{background:var(--navy)}
-.grp-btn-door{background:var(--door)}
-.grp-btn-title{color:white;font-size:20px;font-weight:700;letter-spacing:.05em;text-align:center}
-.grp-btn-sub{color:rgba(255,255,255,.6);font-size:12px;margin-top:3px;text-align:center}
-.grp-btn-chev{position:absolute;right:18px;color:rgba(255,255,255,.5);font-size:18px;transition:transform .2s}
-.grp-btn-chev.open{transform:rotate(180deg)}
-.exp-bar{display:flex;gap:8px;margin-bottom:8px}
-.exp-bar button{flex:1;border:1.5px solid var(--border);background:white;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-.line-card{background:white;border:1.5px solid var(--border);border-radius:10px;margin-bottom:6px;overflow:hidden}
-.line-card.door-card{border-color:var(--door-border)}
-.line-summary{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;min-height:58px}
-.door-card .line-summary{background:#f0fdf4}
-.line-num{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;background:var(--navy);color:white}
-.door-card .line-num{background:var(--door)}
-.sum-info{flex:1;min-width:0}
-.line-body{display:none;padding:12px 14px;flex-direction:column;gap:10px;border-top:1px solid var(--border);background:#fafbfc}
-.line-body.open{display:flex}
-.door-card .line-body{border-top-color:var(--door-border);background:#f0fdf4}
-.size-inp{height:52px;font-size:20px;font-weight:700;text-align:center;border-radius:8px;border:2px solid var(--border);outline:none;background:white;width:100%;font-family:inherit}
-.os-box{background:#f0fdf4;border:1.5px solid var(--door-border);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;gap:8px}
-.os-item{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--door);cursor:pointer}
-.os-item input{width:18px;height:18px;accent-color:var(--green)}
-#save-ind{position:fixed;bottom:16px;right:16px;background:var(--green);color:white;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;opacity:0;transition:opacity .4s;z-index:999;pointer-events:none}
-.jobbar{background:#0f2238;border-bottom:2px solid rgba(255,255,255,.1);display:flex;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;position:sticky;top:56px;z-index:100}
-.job-tab{flex-shrink:0;border:none;background:transparent;color:rgba(255,255,255,.5);font-family:inherit;font-size:12px;font-weight:700;padding:9px 14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
-.job-tab.active{color:white;border-bottom-color:var(--gold);background:rgba(255,255,255,.07)}
-@media print{.topbar,.cbar,.jobbar,.tabbar,#save-ind{display:none!important}.line-body{display:flex!important}body{background:white}.line-card{break-inside:avoid}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Visionaire Field Command</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { overscroll-behavior-y: contain; background: #eef2f6; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
+    .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
+    .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.6rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
+    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
+    .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
+    .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
+    .active-input { border: 3px solid #1a3a5c !important; background: #f0f9ff; }
+    .sig-canvas { border: 2px dashed #cbd5e1; background: #fff; border-radius: 1rem; width: 100%; height: 150px; touch-action: none; }
+    .keypad-btn { background: white; border-radius: 0.75rem; padding: 1.25rem 0.5rem; font-weight: 900; font-size: 1.25rem; color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .keypad-btn:active { background: #f1f5f9; transform: scale(0.95); }
+    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
+    .keypad-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .keypad-open { transform: translateY(0); }
+    .checkbox-pill { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 10px; font-weight: 700; color: #475569; }
+    .checkbox-pill input { width: 16px; height: 16px; accent-color: #1a3a5c; }
+  </style>
 </head>
 <body>
-<div class="topbar">
-  <div><h1>VISIONAIRE WINDOWS</h1><p>Final Measure Sheet · v9.6</p></div>
-  <div style="display:flex;gap:6px">
-    <button class="btn btn-green" onclick="window.print()">🖨</button>
-    <button class="btn btn-red no-print" onclick="resetJob()" style="padding:0 12px">🗑</button>
-  </div>
-</div>
-<div class="jobbar" id="jobbar"></div>
-<div class="cbar">
-  <span style="color:var(--gold);font-weight:700;font-size:12px;white-space:nowrap">📄 CONTRACT</span>
-  <button class="btn btn-blue" id="upbtn" onclick="document.getElementById('fi').click()" style="height:40px;padding:0 14px;font-size:12px">⬆ Upload PDF</button>
-  <input type="file" id="fi" accept=".pdf,application/pdf" style="display:none" onchange="handleUpload(event)"/>
-  <span id="cst" style="font-size:11px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-</div>
-<div class="tabbar">
-  <button id="tab-sheet" class="active" onclick="switchTab('sheet')">📋 Measure Sheet</button>
-  <button id="tab-so" onclick="switchTab('so')">✍️ Sign-Off</button>
-</div>
-<div style="padding:12px 12px 60px" id="content"></div>
-<div id="save-ind">✓ Saved</div>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-<script>
-// Option lists updated for matching screenshots
-var WIN_T = ["DH", "SH", "SL", "PIC", "CAS", "AWN", "HOP", "B/B (Bay/Bow)", "T (Transom)", "Other"];
-var GRIDS = ["None", "Contour", "Flat", "SDL", "Other"];
-var GLASS_O = ["None", "Tempered", "Obscure – Standard", "Obscure – Rain", "Obscure – Flemish", "Obscure – Satin Etch", "Obscure – Granite", "Obscure – Bamboo", "Other"];
-var DOOR_T = ["Single", "Double / French", "Sliding Patio", "Single w/ Sidelights", "Double w/ Sidelights", "Single w/ Transom", "Bifold", "Other"];
-var SWINGS = ["RHI – Right Hand Inswing", "LHI – Left Hand Inswing", "RHO – Right Hand Outswing", "LHO – Left Hand Outswing", "Active/Passive – Right Active", "Active/Passive – Left Active"];
-var JAMBS = ["4-9/16\" (2x4 wall)", "6-9/16\" (2x6 wall)", "4-5/8\"", "Custom"];
-var CASINGS = ["356 – 2-1/4\"", "444 – 3-1/4\"", "S4S 1x4 – 3-1/2\"", "Other"];
+    const WIN_T = ["DH", "SH", "SL", "PIC", "CAS", "AWN", "HOP", "B/B (Bay/Bow)", "T (Transom)", "Other"];
+    const GRIDS = ["None", "Contour", "Flat", "SDL", "Other"];
+    const GLASS_O = ["None", "Tempered", "Obscure – Standard", "Obscure – Rain", "Obscure – Flemish", "Obscure – Satin Etch", "Obscure – Granite", "Obscure – Bamboo", "Other"];
+    const DOOR_T = ["Single", "Double / French", "Sliding Patio", "Single w/ Sidelights", "Double w/ Sidelights", "Single w/ Transom", "Bifold", "Other"];
+    const SWINGS = ["RHI – Right Hand Inswing", "LHI – Left Hand Inswing", "RHO – Right Hand Outswing", "LHO – Left Hand Outswing", "Active/Passive – Right Active", "Active/Passive – Left Active"];
+    const JAMBS = ["4-9/16\" (2x4 wall)", "6-9/16\" (2x6 wall)", "4-5/8\"", "Custom"];
+    const CASINGS = ["None", "356 – 2-1/4\"", "444 – 3-1/4\"", "S4S 1x4 – 3-1/2\"", "Other"];
 
-function mkW(n){ return {lineNum:n,width:"",height:"",qty:"1",type:"DH",location:"",grids:"None",glass:"None",notes:""}; }
-function mkD(n){ return {lineNum:n,doorType:"",osj:false,osbm:false,width:"",height:"",doorStyle:"",jambDepth:"",swing:"",casing:"",color:"",notes:""}; }
+    function VisionaireApp() {
+      const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
+      const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
+      const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
+      const [activeTab, setActiveTab] = useState('measure'); 
+      const [expandedIndex, setExpandedIndex] = useState(0);
+      const [activeField, setActiveField] = useState(null); 
+      const [loading, setLoading] = useState(false);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const canvasRef = useRef(null);
+      const isDrawing = useRef(false);
 
-// Multi-job storage
-var JOBS = [hydrateJob(null)];
-var activeIdx = 0;
-var S = JOBS[0];
+      const activeJob = jobs.find(j => j.id === activeJobId) || { data: [], header: {}, signoff: {} };
+      const headerData = activeJob.header || {};
+      const signoffData = activeJob.signoff || {};
 
-function hydrateJob(p){
-  return {
-    tab:"sheet", exp:{},
-    header:{customerName:"",consultant:"",date:"",winQty:"",doorQty:""},
-    wins: Array.from({length:20}, (_,i)=>mkW(i+1)),
-    doors: Array.from({length:8}, (_,i)=>mkD(i+1)),
-    contract:null
-  };
-}
+      useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-function save(){
-  localStorage.setItem("vm_jobs_v96", JSON.stringify(JOBS));
-  var el = document.getElementById("save-ind");
-  if(el){ el.style.opacity="1"; setTimeout(()=>el.style.opacity="0", 1000); }
-}
+      const updateHeader = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, header: { ...j.header, [key]: value } } : j));
+      const updateSignoff = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
+      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
 
-function upd(id){
-  var el=document.getElementById(id);
-  var val=el.value, p=id.split(".");
-  if(p[0]==="h") S.header[p[1]]=val;
-  else if(p[0]==="w") S.wins[+p[1]][p[2]]=val;
-  else if(p[0]==="d") S.doors[+p[1]][p[2]]=val;
-  save();
-  renderAll();
-}
+      const formatSpecs = (input) => {
+        if (!input) return "No specs.";
+        if (typeof input === 'string') return input;
+        if (typeof input === 'object') return Object.entries(input).map(([k, v]) => `${k}: ${v}`).join('\n');
+        return String(input);
+      };
 
-function buildWinCard(i){
-  var r=S.wins[i], key="w"+i, open=!!S.exp[key];
-  return `<div class="line-card">
-    <div class="line-summary" onclick="toggleCard('${key}')">
-      <div class="line-num">${r.lineNum}</div>
-      <div class="sum-info">${r.location || '<span style="color:var(--muted);font-style:italic">Empty</span>'} ${r.width?'<b>'+r.width+' x '+r.height+'</b>':''}</div>
-      <div class="badge" style="background:var(--navy);color:white">${r.type}</div>
-    </div>
-    <div class="line-body ${open?'open':''}">
-      <div style="display:grid;grid-template-columns:1fr 20px 1fr 60px;gap:8px;align-items:end">
-        <div><label class="lbl">Width</label><input type="text" id="w.${i}.width" value="${r.width}" placeholder='W"' oninput="upd('w.${i}.width')"/></div>
-        <div style="text-align:center;padding-bottom:15px">×</div>
-        <div><label class="lbl">Height</label><input type="text" id="w.${i}.height" value="${r.height}" placeholder='H"' oninput="upd('w.${i}.height')"/></div>
-        <div><label class="lbl">Qty</label><input type="text" id="w.${i}.qty" value="${r.qty}" oninput="upd('w.${i}.qty')"/></div>
-      </div>
-      <div class="g2">
-        <div><label class="lbl">Type</label><select id="w.${i}.type" onchange="upd('w.${i}.type')">${opt(WIN_T,r.type)}</select></div>
-        <div><label class="lbl">Location</label><input type="text" id="w.${i}.location" value="${r.location}" placeholder="Front/Left..." oninput="upd('w.${i}.location')"/></div>
-      </div>
-      <div class="g2">
-        <div><label class="lbl">Grids</label><select id="w.${i}.grids" onchange="upd('w.${i}.grids')">${opt(GRIDS,r.grids)}</select></div>
-        <div><label class="lbl">Glass / Obscure</label><select id="w.${i}.glass" onchange="upd('w.${i}.glass')">${opt(GLASS_O,r.glass)}</select></div>
-      </div>
-      <div><label class="lbl">Notes</label><textarea id="w.${i}.notes" oninput="upd('w.${i}.notes')">${r.notes}</textarea></div>
-    </div>
-  </div>`;
-}
+      const handleKeyPress = (val) => {
+        if (!activeField) return;
+        const { index, field } = activeField;
+        let cur = String(activeJob.data[index][field] || '');
+        if (val === 'DEL') cur = cur.slice(0, -1); else if (val === 'CLR') cur = ''; else cur += (cur.length > 0 && val.includes('/') ? ' ' : '') + val;
+        updateItem(index, field, cur);
+      };
 
-function buildDoorCard(i){
-  var r=S.doors[i], key="d"+i, open=!!S.exp[key];
-  return `<div class="line-card door-card">
-    <div class="line-summary" onclick="toggleCard('${key}')">
-      <div class="line-num">${r.lineNum}</div>
-      <div class="sum-info">${r.doorType || '<span style="color:var(--muted);font-style:italic">Empty</span>'}</div>
-    </div>
-    <div class="line-body ${open?'open':''}">
-      <div style="display:grid;grid-template-columns:1fr 20px 1fr 80px;gap:8px;align-items:stretch">
-        <div style="display:flex;flex-direction:column;justify-content:flex-end">
-          <label class="lbl">Width</label><input type="text" id="d.${i}.width" value="${r.width}" placeholder='W"' oninput="upd('d.${i}.width')"/>
+      // 🧠 ENHANCED AI SCAN LOGIC
+      const processPDFBase64 = async (base64, apiKey, job) => {
+        const promptText = `Analyze as a door/window specialist. 
+        RULES: Combine "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITE" into ONE item. 
+        MAPPING: 
+        - contractSize: exact text after "Unit Size:". 
+        - doorType: Single, Double, or Sidelight combo. 
+        - swing: Match RHI, LHI, RHO, LHO. 
+        - jambDepth: 4-9/16, 6-9/16, etc. 
+        - grids: Contour, Flat, SDL, or None. 
+        - glass: Match obscure patterns if found. 
+        - osj/osbm: True if "Frame Cladding" or "Brickmold" noted as loose or included.
+        Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Door","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","casing":"","color":"","style":"","osj":false,"osbm":false,"grids":"","glass":"","extras":""}]}`;
+        
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+        const result = await res.json();
+        const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          const parsed = JSON.parse(text);
+          const syncTime = new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, syncTime: syncTime } : j));
+          setLoading(false);
+        } catch(e) { setLoading(false); alert("AI Sync Error."); }
+      };
+
+      const autoLoadContract = async (job) => {
+        setLoading(true);
+        try {
+          let cleanName = job.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
+          let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+          const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
+          const dData = await dRes.json();
+          if (!dData.files?.[0]) { setLoading(false); return alert("Contract not found."); }
+          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
+          const blob = await fRes.blob();
+          const reader = new FileReader(); reader.readAsDataURL(blob);
+          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
+        } catch (e) { setLoading(false); }
+      };
+
+      return (
+        <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
+          <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
+            <div className="flex justify-between items-center mb-3">
+              <button onClick={() => window.location.href = 'index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Close</button>
+              <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{activeJob.customer}</h1>
+              <button onClick={() => alert('Exported!')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+            </div>
+            <div className="flex bg-black/20 rounded-lg p-1 gap-1">
+              {['overview', 'measure', 'signoff'].map(tab => (
+                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
+              ))}
+            </div>
+          </header>
+
+          <main className="p-3 flex-1">
+            {loading ? (
+               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Syncing Contract Data...</div>
+            ) : !activeJob.data?.length ? (
+               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
+               </div>
+            ) : (
+              <div className="space-y-4">
+                {activeJob.data.map((unit, idx) => (
+                  <div key={idx} className="unit-card industrial-shadow" style={unit.itemType === 'Door' ? {borderLeft: '10px solid #064e3b'} : {}}>
+                     <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
+                        <div className="flex items-center gap-3">
+                           <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
+                           <div><div className="text-xs font-black text-slate-800 uppercase">{unit.location || 'Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px] font-black">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400">Qty: {unit.qty} | {unit.contractSize}</div></div>
+                        </div>
+                        <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
+                     </div>
+
+                     {expandedIndex === idx && (
+                       <div className="p-4 border-t border-slate-100 bg-white space-y-4">
+                          <div className="grid grid-cols-3 gap-3">
+                             <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}>
+                               <span className="field-label">Width</span>
+                               <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div>
+                             </div>
+                             <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}>
+                               <span className="field-label">Height</span>
+                               <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div>
+                             </div>
+                             <div onClick={() => setActiveField({index: idx, field: 'qty'})}>
+                               <span className="field-label">Qty</span>
+                               <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div>
+                             </div>
+                          </div>
+
+                          {unit.itemType === 'Door' ? (
+                            <div className="space-y-3">
+                              <div className="flex gap-2">
+                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx, 'osj', e.target.checked)}/> OSJ</label>
+                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx, 'osbm', e.target.checked)}/> OSBM</label>
+                              </div>
+                              <div><span className="field-label">Door Type</span><select className="input-box" value={unit.doorType} onChange={e=>updateItem(idx, 'doorType', e.target.value)}>{opt(DOOR_T, unit.doorType)}</select></div>
+                              <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx, 'swing', e.target.value)}><option value="">-- Select --</option>{opt(SWINGS, unit.swing)}</select></div>
+                              <div><span className="field-label">Jamb Depth</span><select className="input-box" value={unit.jambDepth} onChange={e=>updateItem(idx, 'jambDepth', e.target.value)}><option value="">-- Select --</option>{opt(JAMBS, unit.jambDepth)}</select></div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div><span className="field-label">Casing</span><select className="input-box" value={unit.casing} onChange={e=>updateItem(idx, 'casing', e.target.value)}>{opt(CASINGS, unit.casing)}</select></div>
+                                <div><span className="field-label">Color</span><input type="text" className="input-box" value={unit.color} onChange={e=>updateItem(idx, 'color', e.target.value)} placeholder="Color..."/></div>
+                              </div>
+                              <div><span className="field-label">Door Style</span><input type="text" className="input-box" value={unit.style} onChange={e=>updateItem(idx, 'style', e.target.value)} placeholder="Style..."/></div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                 <div><span className="field-label">Type</span><select className="input-box" value={unit.itemType} onChange={e=>updateItem(idx, 'itemType', e.target.value)}>{opt(WIN_T, unit.itemType)}</select></div>
+                                 <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onChange={e=>updateItem(idx, 'location', e.target.value)} placeholder="Location..."/></div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                 <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx, 'grids', e.target.value)}>{opt(GRIDS, unit.grids)}</select></div>
+                                 <div><span className="field-label">Glass / Obscure</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx, 'glass', e.target.value)}>{opt(GLASS_O, unit.glass)}</select></div>
+                              </div>
+                            </div>
+                          )}
+                          <div><span className="field-label">Notes</span><textarea className="input-box h-16 text-[10px]" value={unit.notes} onChange={e=>updateItem(idx, 'notes', e.target.value)} placeholder="Notes..."/></div>
+                       </div>
+                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
+
+          <div className={`keypad-container bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 ${activeField ? 'keypad-open' : ''}`}>
+             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Numerical Entry</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button></div>
+             <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}</div>
+             <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (<button key={n} onClick={() => handleKeyPress(n)} className={`keypad-btn ${n==='CLR'?'text-red-500':n==='DEL'?'text-orange-500':''}`}>{n}</button>))}</div>
+          </div>
         </div>
-        <div style="text-align:center;display:flex;align-items:flex-end;padding-bottom:15px">×</div>
-        <div style="display:flex;flex-direction:column;justify-content:flex-end">
-          <label class="lbl">Height</label><input type="text" id="d.${i}.height" value="${r.height}" placeholder='H"' oninput="upd('d.${i}.height')"/>
-        </div>
-        <div class="os-box">
-          <label class="os-item"><input type="checkbox" ${r.osj?'checked':''} onchange="S.doors[${i}].osj=this.checked;save()"/> OSJ</label>
-          <label class="os-item"><input type="checkbox" ${r.osbm?'checked':''} onchange="S.doors[${i}].osbm=this.checked;save()"/> OSBM</label>
-        </div>
-      </div>
-      <div><label class="lbl">Door Type</label><select id="d.${i}.doorType" onchange="upd('d.${i}.doorType')"><option value="">-- Select --</option>${opt(DOOR_T,r.doorType)}</select></div>
-      <div><label class="lbl">Swing</label><select id="d.${i}.swing" onchange="upd('d.${i}.swing')"><option value="">-- Select swing --</option>${opt(SWINGS,r.swing)}</select></div>
-      <div><label class="lbl">Jamb Depth</label><select id="d.${i}.jambDepth" onchange="upd('d.${i}.jambDepth')"><option value="">-- Select --</option>${opt(JAMBS,r.jambDepth)}</select></div>
-      <div class="g2">
-        <div><label class="lbl">Casing</label><select id="d.${i}.casing" onchange="upd('d.${i}.casing')"><option value="">-- Select --</option>${opt(CASINGS,r.casing)}</select></div>
-        <div><label class="lbl">Color</label><input type="text" id="d.${i}.color" value="${r.color}" placeholder="Color..." oninput="upd('d.${i}.color')"/></div>
-      </div>
-      <div><label class="lbl">Door Style</label><input type="text" id="d.${i}.doorStyle" value="${r.doorStyle}" placeholder="Style..." oninput="upd('d.${i}.doorStyle')"/></div>
-      <div><label class="lbl">Notes</label><textarea id="d.${i}.notes" oninput="upd('d.${i}.notes')">${r.notes}</textarea></div>
-    </div>
-  </div>`;
-}
-
-function opt(list, val){ return list.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join(""); }
-function toggleCard(key){ S.exp[key]=!S.exp[key]; renderAll(); }
-
-function renderAll(){
-  var html = `<div class="grp-btn grp-btn-navy"><div><div class="grp-btn-title">WINDOWS 1-20</div><div class="grp-btn-sub">Tap to measure</div></div></div>`;
-  for(var i=0; i<20; i++) html += buildWinCard(i);
-  html += `<div style="margin:20px 0" class="grp-btn grp-btn-door"><div><div class="grp-btn-title">DOORS 1-8</div><div class="grp-btn-sub">Tap to measure</div></div></div>`;
-  for(var i=0; i<8; i++) html += buildDoorCard(i);
-  document.getElementById("content").innerHTML = html;
-}
-
-renderAll();
-</script>
+      );
+    }
+    const opt = (list, val) => list.map(o => <option key={o} value={o}>{o}</option>);
+    const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<VisionaireApp />);
+  </script>
 </body>
 </html>
