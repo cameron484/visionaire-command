@@ -141,13 +141,12 @@
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-// ADDED DRIVE SCOPE SO THE HUB CAN PULL PDFs AUTOMATICALLY
 var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly';
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 var prefs        = loadPrefs();
-var view         = prefs.accessToken ? 'sched' : 'setup'; // Default is now Schedule
-var calEvents    = [];
+var view         = prefs.accessToken ? 'sched' : 'setup'; 
+var calEvents    = prefs.calEvents || []; // Load memory to prevent auto-refresh!
 var loading      = false;
 var loadTxt      = 'Loading\u2026';
 var lastSync     = prefs.lastSync   || null;
@@ -164,6 +163,7 @@ function save(){
   prefs.accessToken=accessToken; prefs.userEmail=userEmail;
   prefs.geminiKey=geminiKey; prefs.clientId=clientId;
   prefs.lastSync=lastSync; prefs.searchTerm=prefs.searchTerm||'Final Measure';
+  prefs.calEvents=calEvents; // Save calendar events so it doesn't refresh when going back
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));}catch(e){}
 }
 function todayStr(){return new Date().toISOString().slice(0,10);}
@@ -225,7 +225,7 @@ function syncCalendar(){
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       save();
       render(); 
-      syncContracts(calEvents); // Begin background extraction
+      syncContracts(calEvents); 
     })
     .catch(function(err){loading=false;syncErr=err.message||'Sync failed.';render();});
 }
@@ -253,7 +253,6 @@ async function syncContracts(events) {
         var jIdx = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
         var needsUpdate = true;
 
-        // Check if we've already extracted this exact version of the file
         if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime && existingJobs[jIdx].data && existingJobs[jIdx].data.length > 0) {
           needsUpdate = false;
         }
@@ -296,7 +295,6 @@ async function syncContracts(events) {
           localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
         }
       } else {
-         // Create the job profile even if no PDF is found so it shows up in Field Command
          var jIdx2 = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
          if(jIdx2 < 0){
             existingJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime || 'Scheduled', data: []});
@@ -387,7 +385,6 @@ function rHeader(){
   right.appendChild(sb);top.appendChild(right);h.appendChild(top);
   var tabs=el('div',{C:'vtabs'});
   
-  // NEW TABS: Schedule, Manual, Setup
   [['sched','\uD83D\uDCC5 Schedule'],['manual','\uD83D\uDCDD Manual FM'],['setup','\u2699 Setup']].forEach(function(t){
     var tab=el('button',{
       C:'vtab'+(view===t[0]?' on':''),
@@ -421,7 +418,6 @@ function rSetup(main){
   card.appendChild(head);
   var body=el('div',{C:'sc-body'});
 
-  // Client ID
   body.appendChild(el('span',{C:'lbl',t:'Step 1 \u2014 Google OAuth Client ID'}));
   var ci=el('input',{C:'inp mono',type:'text',value:clientId,placeholder:'123456789-abc\u2026.apps.googleusercontent.com'});
   ci.addEventListener('input',function(){clientId=this.value.trim();prefs.clientId=clientId;save();});
@@ -430,7 +426,6 @@ function rSetup(main){
   h1.innerHTML='<strong>Get Client ID:</strong> <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> \u2192 New Project \u2192 Enable <b>Google Calendar API</b> \u2192 Credentials \u2192 OAuth 2.0 Client ID \u2192 Web application \u2192 Add <b>this file\u2019s URL</b> as an Authorized JavaScript Origin.';
   body.appendChild(h1);
 
-  // Google Sign-In
   body.appendChild(el('span',{C:'lbl',t:'Step 2 \u2014 Sign In With Your Visionaire Account'}));
   if(accessToken&&userEmail){
     var cb=el('button',{C:'g-btn conn',t:'\u2713 Connected as '+userEmail,click:function(){if(confirm('Sign out of '+userEmail+'?'))signOut();}});
@@ -443,13 +438,11 @@ function rSetup(main){
     body.appendChild(gb);
   }
 
-  // Gemini key
   body.appendChild(el('span',{C:'lbl',t:'Step 3 \u2014 Gemini API Key (AI Prep Notes)'}));
   var gk=el('input',{C:'inp mono',type:'password',value:geminiKey,placeholder:'AIza\u2026'});
   gk.addEventListener('input',function(){geminiKey=this.value.trim();prefs.geminiKey=geminiKey;save();});
   body.appendChild(gk);
 
-  // Search term
   body.appendChild(el('span',{C:'lbl',t:'Calendar Search Term'}));
   var st=el('input',{C:'inp',type:'text',value:prefs.searchTerm||'Final Measure',placeholder:'Final Measure'});
   st.addEventListener('input',function(){prefs.searchTerm=this.value.trim();save();});
@@ -467,7 +460,6 @@ function rSetup(main){
 function rSched(main){
   if(!accessToken){rNoAuth(main);return;}
   
-  // Sync bar from old Hub
   var sb=el('div',{C:'sync-bar'});
   var sbl=el('div',{C:'sync-l'});
   sbl.appendChild(el('span',{t:'\uD83D\uDCC5',style:'font-size:1.1rem'}));
@@ -553,21 +545,18 @@ function rCard(ev){
     var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
     var targetId = ev.id;
     
-    // 1. Check if we already have this customer in memory
     for(var i=0; i<eJobs.length; i++) {
       if(eJobs[i].customer === ev.customer) { 
-        targetId = eJobs[i].id; // Grab the existing ID!
+        targetId = eJobs[i].id; 
         break; 
       }
     }
     
-    // 2. If they are brand new, add them to memory
     if(targetId === ev.id) {
       eJobs.unshift({id: targetId, customer: ev.customer, time: ev.startTime||'Scheduled', data: []});
       localStorage.setItem('visionaireJobs', JSON.stringify(eJobs));
     }
     
-    // 3. Tell the Measure app EXACTLY which ID to open
     localStorage.setItem('activeJobId', JSON.stringify(targetId));
     window.location.href = 'measure.html';
   }});
@@ -580,7 +569,6 @@ function rCard(ev){
   card.appendChild(acts);return card;
 }
 
-// ── UTILITY ───────────────────────────────────────────────────────────────
 function el(tag,props){
   var e=document.createElement(tag);
   if(!props)return e;
@@ -595,8 +583,7 @@ function el(tag,props){
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  if(accessToken)syncCalendar();
-  render();
+  render(); // NO MORE AUTO-SYNC HERE! Just draw the page from memory.
 });
 </script>
 </body>
