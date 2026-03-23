@@ -162,7 +162,7 @@ var calEvents    = prefs.calEvents || [];
 var loading      = false;
 var loadTxt      = 'Loading\u2026';
 var lastSync     = prefs.lastSync   || null;
-var selDate      = todayStr(); // Ensure Date Strip logic works
+var selDate      = todayStr();
 var expandId     = null;
 var syncErr      = null;
 var accessToken  = prefs.accessToken || null;
@@ -229,7 +229,7 @@ function syncCalendar(){
     +'&maxResults=250&singleEvents=true&orderBy=startTime&q='+term;
   fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
     .then(function(r){
-      if(r.status===401){accessToken=null;prefs.accessToken=null;save();throw new Error('Session expired \u2014 please sign in again.');}
+      if(r.status===401){accessToken=null;prefs.accessToken=null;save();throw new Error('Google session expired \u2014 please sign out and sign back in from Setup.');}
       if(!r.ok)return r.json().then(function(e){throw new Error((e.error&&e.error.message)||'HTTP '+r.status);});
       return r.json();
     })
@@ -240,7 +240,6 @@ function syncCalendar(){
       if(dates.length&&dates.indexOf(selDate)<0)selDate=dates[0];
       save();
       render(); 
-      // FIX: Only scan contracts for the date you are currently looking at!
       syncContracts(calEvents, selDate); 
     })
     .catch(function(err){loading=false;syncErr=err.message||'Sync failed.';render();});
@@ -251,25 +250,28 @@ async function syncContracts(events, targetDate) {
     loading = false; render(); return;
   }
   var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-
-  // ONLY GRAB THE EVENTS FOR THE DAY WE ARE LOOKING AT
   var dailyEvents = events.filter(function(e) { return e.startDate === targetDate; });
 
   for(var i=0; i<dailyEvents.length; i++){
     var ev = dailyEvents[i];
-    loadTxt = 'Scanning ' + ev.customer + '...';
+    loadTxt = 'Checking ' + ev.customer + '...';
     render();
 
     try {
-      // FIX: Use fullText and only look for the last name
       let searchName = ev.customer.trim();
       if (searchName.includes(' ')) { searchName = searchName.split(' ').pop(); }
       
+      // Included Shared Drives fix here too!
       var query = "fullText contains '" + searchName.replace(/'/g, "\\'") + "' and mimeType='application/pdf'";
+      var driveUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives';
       
-      var dRes = await fetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=createdTime desc&pageSize=1', {
-        headers: {'Authorization': 'Bearer ' + accessToken}
-      });
+      var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
+      
+      if(dRes.status === 401 || dRes.status === 403) {
+         console.warn("Drive access denied. Stopping background sync.");
+         break; // Stop immediately to avoid spamming errors
+      }
+      
       var dData = await dRes.json();
 
       if(dData.files && dData.files.length > 0){
@@ -285,9 +287,8 @@ async function syncContracts(events, targetDate) {
           loadTxt = 'Extracting data for ' + ev.customer + '...';
           render();
 
-          var fRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media', {
-            headers: {'Authorization': 'Bearer ' + accessToken}
-          });
+          var fileUrl = 'https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media&supportsAllDrives=true';
+          var fRes = await fetch(fileUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
           var blob = await fRes.blob();
           var base64 = await new Promise(function(resolve){
             var reader = new FileReader();
@@ -296,18 +297,27 @@ async function syncContracts(events, targetDate) {
           });
 
           var prompt = "Extract all window and door items from this contract. Header: Location. Specs: Color, Hardware, Size. JSON EXACT FORMAT: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+          
           var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
           });
 
-          if(gRes.status === 429) {
-             console.log("Speed Limit Hit. Skipping " + ev.customer);
-             continue; // Skip to next one to avoid hard crash
+          // CRASH PREVENTION: Stop the loop if Gemini is rate limiting!
+          if(!gRes.ok) {
+             console.warn("API Error or Speed Limit Hit! Halting background sync. User can scan manually.");
+             break; 
           }
 
           var gData = await gRes.json();
+          
+          // CRASH PREVENTION: Verify data exists before trying to read it
+          if(!gData.candidates || gData.candidates.length === 0) {
+             console.warn("AI returned empty data for " + ev.customer);
+             continue;
+          }
+
           var text = gData.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
           var items = JSON.parse(text).map(function(item){ return Object.assign({}, item, {fmWidth:'', fmHeight:''}); });
 
@@ -324,10 +334,11 @@ async function syncContracts(events, targetDate) {
 
           localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
           
-          // CRASH PREVENTION: Wait 4 seconds between AI calls so Google doesn't block you!
+          // Wait 4 seconds to be kind to the API limit
           await new Promise(function(resolve){ setTimeout(resolve, 4000); });
         }
       } else {
+         // Create empty profile so they can use the manual button in the measure app
          var jIdx2 = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
          if(jIdx2 < 0){
             existingJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime || 'Scheduled', data: []});
@@ -543,7 +554,7 @@ function rDateStrip(main){
       if(accessToken && geminiKey && !loading) {
          loading = true;
          render();
-         syncContracts(calEvents, selDate); // Auto-scan when switching days!
+         syncContracts(calEvents, selDate); 
       }
     };}(ds)});
     var dnames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
