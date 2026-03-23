@@ -78,6 +78,7 @@
     .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
     .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
+    .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200);}
     .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
     @keyframes sp{to{transform:rotate(360deg)}}
   </style>
@@ -86,7 +87,6 @@
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-// Added email scope back so we can see who is logged in!
 var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
 
 var prefs        = loadPrefs();
@@ -100,12 +100,13 @@ var accessToken  = prefs.accessToken || null;
 var userEmail    = prefs.userEmail   || null;
 var geminiKey    = prefs.geminiKey   || '';
 var clientId     = prefs.clientId   || '';
+var searchTerm   = prefs.searchTerm  || 'Final Measure';
 var insights     = {}; 
 
 function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
 function save(){
   prefs.accessToken=accessToken; prefs.userEmail=userEmail;
-  prefs.geminiKey=geminiKey; prefs.clientId=clientId;
+  prefs.geminiKey=geminiKey; prefs.clientId=clientId; prefs.searchTerm=searchTerm;
   prefs.lastSync=lastSync; prefs.calEvents=calEvents; 
   localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));
 }
@@ -148,7 +149,8 @@ function syncCalendar(){
   loading=true; render();
   var past = new Date(); past.setDate(past.getDate()-7);
   var future = new Date(); future.setDate(future.getDate()+30);
-  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q=Final Measure';
+  var term = encodeURIComponent(searchTerm || 'Final Measure');
+  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q='+term;
   fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
     .then(r=>r.json()).then(data=>{
       calEvents=(data.items||[]).map(parseEv);
@@ -171,7 +173,7 @@ async function syncContracts(events, targetDate) {
       let searchTarget = nameParts.reduce((a, b) => a.length > b.length ? a : b); 
       searchTarget = searchTarget.replace(/'/g, "\\'");
       
-      var query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement' or name contains 'SOLD' or name contains 'Order') and mimeType='application/pdf'`;
+      var query = `fullText contains '${searchTarget}' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement' or name contains 'Order') and mimeType='application/pdf'`;
       var driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
       
       var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
@@ -293,8 +295,7 @@ function rSetup(main){
   var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
   body.appendChild(ci);
   
-  // FAILSAFE: Always render the disconnect button if token exists
-  if(accessToken){
+  if(accessToken&&userEmail){
     body.appendChild(el('button',{C:'g-btn conn',t:'\u2713 Signed In (' + (userEmail || 'Account') + ')', click: signOut}));
   } else {
     body.appendChild(el('button',{C:'g-btn',t:'Sign in with Google', click: signIn}));
@@ -303,6 +304,11 @@ function rSetup(main){
   body.appendChild(el('span',{C:'lbl',t:'Gemini Key'}));
   var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
   body.appendChild(gk);
+  
+  body.appendChild(el('span',{C:'lbl',t:'Calendar Search Term'}));
+  var st=el('input',{C:'inp',value:searchTerm}); st.addEventListener('input',e=>{searchTerm=e.target.value;save();});
+  body.appendChild(st);
+
   body.appendChild(el('button',{C:'btn-p',t:'Save Config & Sync',click:()=>{save();syncCalendar();}}));
   
   if(accessToken){
@@ -321,7 +327,13 @@ function rSched(main){
   main.appendChild(sb);
   if(loading){main.appendChild(el('div',{C:'lrow',t:'Pulling Calendar...'})); return;}
   rDateStrip(main);
-  calEvents.filter(e=>e.startDate===selDate).forEach(ev=>main.appendChild(rCard(ev)));
+  
+  var dayEvs = calEvents.filter(e=>e.startDate===selDate);
+  if(dayEvs.length === 0) {
+     main.appendChild(el('div', {C: 'empty-state', t: 'No measurements scheduled for ' + new Date(selDate+'T12:00:00').toLocaleDateString() + '.'}));
+  } else {
+     dayEvs.forEach(ev=>main.appendChild(rCard(ev)));
+  }
 }
 
 function rDateStrip(main){
