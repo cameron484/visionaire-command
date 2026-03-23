@@ -13,7 +13,6 @@
     .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
     .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
     .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.6rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
-    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
     .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
     .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
     .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
@@ -22,6 +21,13 @@
     .keypad-btn { background: white; border-radius: 0.75rem; padding: 1.25rem 0.5rem; font-weight: 900; font-size: 1.25rem; color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .keypad-btn:active { background: #f1f5f9; transform: scale(0.95); }
     .contract-spec-box { white-space: pre-line; line-height: 1.6; }
+    
+    /* Keypad Animation */
+    .keypad-container {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .keypad-open { transform: translateY(0); }
   </style>
 </head>
 <body>
@@ -36,7 +42,7 @@
       
       const [activeTab, setActiveTab] = useState('measure'); 
       const [expandedIndex, setExpandedIndex] = useState(0);
-      const [activeField, setActiveField] = useState({ index: 0, field: 'fmWidth' });
+      const [activeField, setActiveField] = useState(null); // { index, field } for numbers only
       const [loading, setLoading] = useState(false);
       const [isPlaying, setIsPlaying] = useState(false);
 
@@ -86,20 +92,23 @@
       const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
 
       const wipeAndRescan = () => {
-        if (confirm("Wipe current measurement data and briefing? This allows you to perform a fresh scan of the Google Drive folder.")) {
+        if (confirm("Wipe current measurement data and briefing?")) {
           setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [], summary: '' } : j));
-          setActiveTab('measure');
-          setExpandedIndex(0);
+          setActiveTab('measure'); setExpandedIndex(0);
         }
       };
 
-      const addUnit = () => {
-        const newUnit = { line: activeJob.data.length + 1, itemType: 'DH', location: 'New Location', qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: '' };
-        setJobs(prev => prev.map(j => j.id === activeJob.id ? { ...j, data: [...j.data, newUnit] } : j));
-        setExpandedIndex(activeJob.data.length);
+      const insertLineBelow = (index) => {
+        const source = activeJob.data[index];
+        const newUnit = { itemType: source.itemType, location: source.location, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: source.extras, contractSize: source.contractSize };
+        const newData = [...activeJob.data];
+        newData.splice(index + 1, 0, newUnit);
+        setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
+        setExpandedIndex(index + 1);
       };
 
       const handleKeyPress = (val) => {
+        if (!activeField) return;
         const { index, field } = activeField;
         let cur = activeJob.data[index][field] || '';
         if (val === 'DEL') cur = cur.slice(0, -1);
@@ -109,19 +118,9 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract as a door/window specialist. 
-        1. Write a 1-sentence briefing. 
-        2. Combine Combination Units, Entry Doors, and Sidelites into ONE physical opening.
-        3. Extract Qty, Type, Location, and "Unit Size:". 
-        4. Structure "extras" with headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE.
-        Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Door","location":"","contractSize":"...","extras":"..."}]}`;
-        
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { 
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) 
-        });
-        
-        if (!res.ok) { setLoading(false); return alert("AI Error. Key may be maxed."); }
+        const promptText = `Analyze this contract as a door/window specialist. Extract Qty, Type, Location, and "Unit Size:". Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+        if (!res.ok) { setLoading(false); return alert("AI Error."); }
         const result = await res.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
         try {
@@ -136,22 +135,11 @@
         try {
           let cleanName = job.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
           let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
-          
-          // Hunt for 2026 contract specifically to avoid old files
           const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
           const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const dData = await dRes.json();
-          
-          let fileId = dData.files?.[0]?.id;
-          if (!fileId) {
-            const q2 = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
-            const dRes2 = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q2)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
-            const dData2 = await dRes2.json();
-            fileId = dData2.files?.[0]?.id;
-          }
-
-          if (!fileId) { setLoading(false); return alert("No file found."); }
-          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
+          if (!dData.files?.[0]) { setLoading(false); return alert("No file found."); }
+          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
           reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
@@ -159,31 +147,29 @@
       };
 
       return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-64">
+        <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
           <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
             <div className="flex justify-between items-center mb-3">
               <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Close</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
-              <button onClick={() => alert('Clipboard Export is ready!')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <button onClick={() => alert('Exporting...')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
+                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
               ))}
             </div>
           </header>
 
           <main className="p-3 flex-1">
             {loading ? (
-              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest">Building Intelligent Measure Sheet...</div>
+              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest">Scanning Contract...</div>
             ) : !activeJob.data?.length ? (
               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
-                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
-                 <button onClick={addUnit} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">➕ Add Unit Manually</button>
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan Drive PDF</button>
               </div>
             ) : (
               <div className="space-y-4">
-                
                 {activeTab === 'overview' && (
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
                     {activeJob.summary && (
@@ -194,14 +180,11 @@
                     )}
                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Specs</h2>
                     <div className="grid grid-cols-2 gap-3">
-                       <div className="col-span-2">
-                          <span className="field-label">Window Brand</span>
-                          <input className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)} placeholder="Simonton, ProVia..." />
-                       </div>
-                       <div><span className="field-label">Glass Type</span><input className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)} placeholder="Low-E..." /></div>
-                       <div><span className="field-label">Existing Frame</span><input className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)} placeholder="Wood, Vinyl..." /></div>
+                       <div className="col-span-2"><span className="field-label">Window Brand</span><input className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
+                       <div><span className="field-label">Glass Type</span><input className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
+                       <div><span className="field-label">Existing Frame</span><input className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                     </div>
-                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan Drive</button>
+                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan</button>
                   </div>
                 )}
 
@@ -214,7 +197,7 @@
 
                     {activeJob.data.map((unit, idx) => (
                       <div key={idx} className="unit-card industrial-shadow">
-                         <div onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)} className="unit-header">
+                         <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
                             <div className="flex items-center gap-3">
                                <div className="unit-num">{idx + 1}</div>
                                <div>
@@ -228,36 +211,49 @@
                          {expandedIndex === idx && (
                            <div className="p-4 border-t border-slate-100 bg-white space-y-4">
                               <div className="grid grid-cols-3 gap-3">
-                                 <div onClick={()=>setActiveField({index: idx, field: 'fmWidth'})}>
+                                 {/* NUMERICAL FIELDS: TRIGGERS CUSTOM KEYPAD */}
+                                 <div onClick={(e)=>{ e.stopPropagation(); setActiveField({index: idx, field: 'fmWidth'}); }}>
                                     <span className="field-label">Final Width</span>
-                                    <div className={`input-box text-center text-lg ${activeField.index===idx && activeField.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div>
+                                    <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div>
                                  </div>
-                                 <div onClick={()=>setActiveField({index: idx, field: 'fmHeight'})}>
+                                 <div onClick={(e)=>{ e.stopPropagation(); setActiveField({index: idx, field: 'fmHeight'}); }}>
                                     <span className="field-label">Final Height</span>
-                                    <div className={`input-box text-center text-lg ${activeField.index===idx && activeField.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div>
+                                    <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div>
                                  </div>
-                                 <div><span className="field-label">Qty</span><input type="number" className="input-box text-center text-lg" value={unit.qty} onChange={e=>updateItem(idx, 'qty', e.target.value)} /></div>
+                                 <div onClick={(e)=>{ e.stopPropagation(); setActiveField({index: idx, field: 'qty'}); }}>
+                                    <span className="field-label">Qty</span>
+                                    <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div>
+                                 </div>
+                              </div>
+
+                              {/* TEXT FIELDS: TRIGGERS NATIVE KEYBOARD AND HIDES CUSTOM ONE */}
+                              <div className="grid grid-cols-2 gap-3">
+                                 <div><span className="field-label">Type</span><input type="text" className="input-box" value={unit.itemType} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'itemType', e.target.value)} /></div>
+                                 <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'location', e.target.value)} /></div>
                               </div>
                               <div>
-                                 <span className="field-label">Project Specs / Details</span>
-                                 <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] border border-slate-100">{unit.extras || 'No specs listed.'}</div>
+                                 <span className="field-label">Notes / Specs</span>
+                                 <textarea className="input-box h-16 text-[10px]" value={unit.extras} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'extras', e.target.value)} />
                               </div>
-                              <div className={`p-3 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
-                                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-tight">Contract: {unit.contractSize}</span>
-                                 <label className="flex items-center gap-2 text-[10px] font-black cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-current">
-                                    <input type="checkbox" checked={unit.verified || false} onChange={e => updateItem(idx, 'verified', e.target.checked)} className="w-4 h-4 accent-green-600" /> Verify
-                                 </label>
+
+                              <div className="flex gap-2">
+                                 <div className={`p-3 flex-1 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
+                                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-tight">Contract: {unit.contractSize}</span>
+                                    <label className="flex items-center gap-2 text-[10px] font-black cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-current">
+                                       <input type="checkbox" checked={unit.verified || false} onChange={e => updateItem(idx, 'verified', e.target.checked)} className="w-4 h-4 accent-green-600" /> Verify
+                                    </label>
+                                 </div>
+                                 <button onClick={()=>insertLineBelow(idx)} className="p-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[9px] uppercase border border-blue-100">➕ Insert Below</button>
                               </div>
                            </div>
                          )}
                       </div>
                     ))}
-                    <button onClick={addUnit} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black uppercase text-xs mb-10 shadow-lg">+ Add Manual Opening</button>
                   </>
                 )}
 
                 {activeTab === 'signoff' && (
-                  <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6 border border-slate-200">
+                  <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6 border border-slate-200 pb-10">
                      <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Homeowner Sign-Off</h2>
                      <div className="bg-amber-50 p-4 rounded-xl space-y-3">
                         <h4 className="font-black text-[10px] text-amber-800 uppercase">🛋️ Window Treatments</h4>
@@ -265,11 +261,14 @@
                            <button onClick={()=>updateSignoff('hasBlinds', 'none')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='none'?'bg-[#1a3a5c] text-white shadow-lg':'bg-white text-slate-400 border border-slate-200'}`}>None</button>
                            <button onClick={()=>updateSignoff('hasBlinds', 'yes')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='yes'?'bg-amber-500 text-white shadow-lg':'bg-white text-slate-400 border border-slate-200'}`}>Has Blinds</button>
                         </div>
+                        {signoffData.hasBlinds === 'yes' && (
+                           <textarea className="input-box h-20 text-xs mt-2" placeholder="Blind details..." onFocus={()=>setActiveField(null)} value={signoffData.blindNotes || ''} onChange={e=>updateSignoff('blindNotes', e.target.value)} />
+                        )}
                      </div>
                      <div className="space-y-2">
                        <div className="flex justify-between items-end px-1"><span className="field-label">Customer Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear Pad</button></div>
                        <canvas ref={canvasRef} className="sig-canvas industrial-shadow" width="350" height="150"></canvas>
-                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4" placeholder="Print Full Name" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full" placeholder="Print Full Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
                      </div>
                   </div>
                 )}
@@ -277,18 +276,21 @@
             )}
           </main>
 
-          {activeTab === 'measure' && activeJob.data.length > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 z-[100]">
-               <div className="grid grid-cols-7 gap-1.5 mb-3">
-                  {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}
-               </div>
-               <div className="grid grid-cols-3 gap-2">
-                  {[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (
-                    <button key={n} onClick={() => handleKeyPress(n)} className={`keypad-btn ${n==='CLR'?'text-red-500':n==='DEL'?'text-orange-500':''}`}>{n}</button>
-                  ))}
-               </div>
-            </div>
-          )}
+          {/* NUMERICAL KEYPAD ONLY */}
+          <div className={`keypad-container bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 ${activeField ? 'keypad-open' : ''}`}>
+             <div className="flex justify-between items-center px-4 mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Measurements & Qty</span>
+                <button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button>
+             </div>
+             <div className="grid grid-cols-7 gap-1.5 mb-3">
+                {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}
+             </div>
+             <div className="grid grid-cols-3 gap-2">
+                {[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (
+                  <button key={n} onClick={() => handleKeyPress(n)} className={`keypad-btn ${n==='CLR'?'text-red-500':n==='DEL'?'text-orange-500':''}`}>{n}</button>
+                ))}
+             </div>
+          </div>
         </div>
       );
     }
