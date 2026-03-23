@@ -548,34 +548,30 @@ function rCard(ev){
     card.appendChild(det);
   }
 
- var acts=el('div',{C:'cc-acts'});
+var acts=el('div',{C:'cc-acts'});
   var fm=el('button',{C:'ca p',t:'\uD83D\uDCCB FM Sheet',click:function(){
-    // 1. Ensure job is in memory
     var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-    var exists = eJobs.some(function(j){return j.customer === ev.customer;});
-    if(!exists){
-      eJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime||'Scheduled', data: []});
+    var targetId = ev.id;
+    
+    // 1. Check if we already have this customer in memory
+    for(var i=0; i<eJobs.length; i++) {
+      if(eJobs[i].customer === ev.customer) { 
+        targetId = eJobs[i].id; // Grab the existing ID!
+        break; 
+      }
+    }
+    
+    // 2. If they are brand new, add them to memory
+    if(targetId === ev.id) {
+      eJobs.unshift({id: targetId, customer: ev.customer, time: ev.startTime||'Scheduled', data: []});
       localStorage.setItem('visionaireJobs', JSON.stringify(eJobs));
     }
     
-    // 2. Tell the next page EXACTLY which customer to open
-    localStorage.setItem('activeJobId', JSON.stringify(ev.id));
-    
-    // 3. Send the user to the actual Measure Sheet file
+    // 3. Tell the Measure app EXACTLY which ID to open
+    localStorage.setItem('activeJobId', JSON.stringify(targetId));
     window.location.href = 'measure.html';
   }});
   acts.appendChild(fm);
-    // Redirect seamlessly to Field Command
-    window.location.href = 'index.html';
-  }});
-  acts.appendChild(fm);
-  var ca=el('button',{C:'ca',t:'\uD83D\uDCC5 Event',click:function(){if(ev.htmlLink)window.open(ev.htmlLink,'_blank');}});
-  acts.appendChild(ca);
-  var exp=el('button',{C:'ca',t:isExp?'\u25B2 Less':'\u25BC Details',click:function(){expandId=isExp?null:ev.id;render();}});
-  acts.appendChild(exp);
-  card.appendChild(acts);return card;
-}
-
 // ── UTILITY ───────────────────────────────────────────────────────────────
 function el(tag,props){
   var e=document.createElement(tag);
