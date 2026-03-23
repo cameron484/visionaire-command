@@ -6,464 +6,536 @@
   <title>Visionaire — Customer Hub</title>
   <style>
     :root {
-      --navy: #1a3a5c;
-      --navy-dark: #0f2236;
-      --navy-mid: #2d5a8e;
-      --navy-light: #e8f0f8;
-      --emerald: #064e3b;
-      --emerald-mid: #065f46;
-      --emerald-light: #ecfdf5;
-      --amber: #f59e0b;
-      --amber-dark: #d97706;
-      --amber-light: #fef3c7;
-      --slate-50: #f8fafc;
-      --slate-100: #f1f5f9;
-      --slate-200: #e2e8f0;
-      --slate-300: #cbd5e1;
-      --slate-400: #94a3b8;
-      --slate-500: #64748b;
-      --slate-600: #475569;
-      --slate-700: #334155;
-      --slate-800: #1e293b;
-      --red: #dc2626;
-      --red-light: #fef2f2;
-      --green: #16a34a;
-      --border: #e2e8f0;
+      --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
+      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
+      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
+      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
+      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
+      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
     }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
 
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    /* HEADER */
+    .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
+    .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
+    .hdr-logo{display:flex;flex-direction:column}
+    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
+    .hdr-sub{font-size:0.48rem;font-weight:800;letter-spacing:0.35em;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-top:3px}
+    .hdr-right{display:flex;align-items:center;gap:7px}
+    .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
+    .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
+    .acct-dot.off{background:var(--s400)}
+    .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .hdr-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.8);border-radius:8px;padding:6px 9px;font-size:0.65rem;font-weight:700;cursor:pointer;letter-spacing:0.04em}
+    .hdr-btn:active{background:rgba(255,255,255,0.22)}
+    .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
+    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
+    .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
 
-    body {
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--slate-100);
-      overscroll-behavior-y: contain;
-      min-height: 100vh;
-    }
+    /* MAIN */
+    .main{padding:14px 12px 100px}
+    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
 
-    .app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: white; box-shadow: 0 0 60px rgba(26,58,92,0.15); }
+    /* SETUP */
+    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
+    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px}
+    .sc-icon{font-size:2rem;margin-bottom:8px}
+    .sc-title{font-size:1.05rem;font-weight:900;color:white;text-transform:uppercase;letter-spacing:-0.01em}
+    .sc-sub{font-size:0.73rem;color:rgba(255,255,255,0.6);margin-top:4px;line-height:1.45}
+    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
+    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;color:var(--s800);background:var(--s50);outline:none;transition:border-color 0.15s,box-shadow 0.15s}
+    .inp:focus{border-color:var(--navy);background:white;box-shadow:0 0 0 3px rgba(26,58,92,0.1)}
+    .mono{font-family:'Courier New',monospace;font-size:0.78rem}
+    .hint{background:var(--amber-light);border:1px solid #fde68a;border-radius:10px;padding:11px 13px;font-size:0.74rem;color:#92400e;line-height:1.55}
+    .hint strong{font-weight:800}
+    .hint a{color:#92400e;font-weight:700}
 
-    /* ── HEADER ── */
-    .header {
-      background: var(--navy);
-      padding: 14px 16px 0;
-      border-bottom: 4px solid var(--amber);
-      position: sticky; top: 0; z-index: 200;
-    }
-    .header-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
-    .header-logo { display: flex; flex-direction: column; }
-    .header-title { font-size: 1.25rem; font-weight: 900; font-style: italic; letter-spacing: -0.03em; color: white; text-transform: uppercase; line-height: 1; }
-    .header-sub { font-size: 0.48rem; font-weight: 800; letter-spacing: 0.35em; color: rgba(255,255,255,0.45); text-transform: uppercase; margin-top: 3px; }
-    .header-right { display: flex; align-items: center; gap: 8px; }
-    .hdr-acct { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 5px 10px; }
-    .hdr-acct-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
-    .hdr-acct-dot.off { background: var(--slate-400); }
-    .hdr-acct-txt { font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,0.75); letter-spacing: 0.04em; }
-    .hdr-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.8); border-radius: 8px; padding: 6px 10px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
-    .hdr-btn:active { background: rgba(255,255,255,0.2); }
+    /* GOOGLE BUTTON */
+    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .g-btn:active{background:var(--s50);transform:scale(0.98)}
+    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
+    .g-logo{width:20px;height:20px;flex-shrink:0}
+    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all 0.15s;box-shadow:0 4px 14px rgba(26,58,92,0.25)}
+    .btn-p:active{transform:scale(0.98);background:var(--navy-dark)}
+    .btn-p:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+    .btn-disc{width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:var(--redl);color:var(--red);font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
 
-    /* ── VIEW TABS ── */
-    .view-tabs { display: flex; border-top: 1px solid rgba(255,255,255,0.08); }
-    .view-tab { flex: 1; padding: 10px 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.4); border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; }
-    .view-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+    /* SYNC BAR */
+    .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .sync-l{display:flex;align-items:center;gap:9px}
+    .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
+    .sync-sub{font-size:0.61rem;color:var(--s500);margin-top:1px}
+    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.12s}
+    .sync-btn:active{transform:scale(0.95)}
+    .sync-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+    .err{background:var(--redl);border:1.5px solid #fca5a5;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:0.75rem;font-weight:700;color:var(--red);line-height:1.4}
 
-    /* ── MAIN ── */
-    .main { padding: 14px 12px 100px; }
+    /* DATE STRIP */
+    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:14px}
+    .dstrip::-webkit-scrollbar{display:none}
+    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;transition:all 0.15s;min-width:50px}
+    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
+    .dchip.ev{border-color:var(--amber)}
+    .dc-d{font-size:0.57rem;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400)}
+    .dchip.on .dc-d{color:rgba(255,255,255,0.6)}
+    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700);line-height:1;margin-top:2px}
+    .dchip.on .dc-n{color:white}
+    .dc-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);margin-top:3px}
 
-    /* ── SETUP SCREEN ── */
-    .setup-card {
-      background: white; border-radius: 18px; border: 1.5px solid var(--border);
-      overflow: hidden; box-shadow: 0 4px 20px rgba(26,58,92,0.08);
-      margin-bottom: 12px;
-    }
-    .setup-head {
-      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
-      padding: 18px 18px 16px;
-    }
-    .setup-head-icon { font-size: 1.8rem; margin-bottom: 8px; }
-    .setup-head-title { font-size: 1.05rem; font-weight: 900; color: white; text-transform: uppercase; letter-spacing: -0.01em; }
-    .setup-head-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: 3px; line-height: 1.4; }
-    .setup-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    /* SECTION */
+    .sec-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .sec-lbl{font-size:0.62rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);display:flex;align-items:center;gap:7px}
+    .sec-lbl::after{content:'';width:28px;height:1px;background:var(--border)}
+    .sec-ct{font-size:0.65rem;font-weight:800;color:var(--s400)}
 
-    .field-wrap { display: flex; flex-direction: column; gap: 5px; }
-    .lbl { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--slate-500); }
-    .inp {
-      width: 100%; border: 1.5px solid var(--slate-200); border-radius: 9px;
-      padding: 10px 12px; font-size: 0.85rem; font-family: inherit;
-      color: var(--slate-800); background: var(--slate-50); outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .inp:focus { border-color: var(--navy); background: white; box-shadow: 0 0 0 3px rgba(26,58,92,0.1); }
-    .inp-mono { font-family: 'Courier New', monospace; font-size: 0.78rem; letter-spacing: 0.03em; }
+    /* CUSTOMER CARD */
+    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .cc-head{display:flex;align-items:stretch}
+    .cc-bar{width:8px;flex-shrink:0}
+    .cc-bar.win{background:linear-gradient(180deg,var(--navy) 0%,var(--navy-mid) 100%)}
+    .cc-bar.door{background:linear-gradient(180deg,var(--emerald) 0%,var(--emerald-mid) 100%)}
+    .cc-bar.both{background:linear-gradient(180deg,var(--navy) 0%,var(--emerald) 100%)}
+    .cc-bar.gen{background:linear-gradient(180deg,var(--amber) 0%,var(--amber-dark) 100%)}
+    .cc-body{flex:1;padding:12px 12px 12px 10px}
+    .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
+    .cc-name{font-size:1rem;font-weight:900;color:var(--s800);text-transform:uppercase;letter-spacing:-0.01em;line-height:1.15;flex:1;margin-right:8px}
+    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;flex-shrink:0;letter-spacing:0.03em}
+    .cc-time.soon{background:var(--amber)}
+    .cc-time.past{background:var(--s400)}
+    .cc-addr{font-size:0.74rem;color:var(--s500);margin-bottom:8px;line-height:1.35}
+    .cc-pills{display:flex;flex-wrap:wrap;gap:5px}
+    .pill{font-size:0.62rem;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--border);color:var(--s600);background:var(--s50)}
+    .pill.win{background:var(--navy-light);border-color:#bfdbfe;color:var(--navy)}
+    .pill.door{background:var(--emerald-light);border-color:#a7f3d0;color:var(--emerald)}
+    .pill.rep{background:var(--amber-light);border-color:#fde68a;color:#92400e}
+    .cc-acts{display:flex;border-top:1px solid var(--border)}
+    .ca{flex:1;padding:10px 4px;border:none;background:transparent;font-size:0.63rem;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--s500);cursor:pointer;transition:background 0.1s;display:flex;align-items:center;justify-content:center;gap:3px}
+    .ca:not(:last-child){border-right:1px solid var(--border)}
+    .ca:active{background:var(--s50)}
+    .ca.p{color:var(--navy)}
 
-    .setup-hint {
-      background: var(--amber-light); border: 1px solid #fde68a; border-radius: 10px;
-      padding: 11px 13px; font-size: 0.75rem; color: #92400e; line-height: 1.5;
-    }
-    .setup-hint strong { font-weight: 800; }
+    /* DETAIL */
+    .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
+    .d2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .df{display:flex;flex-direction:column;gap:3px}
+    .dv{font-size:0.82rem;font-weight:700;color:var(--s700)}
+    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:0.76rem;color:var(--s600);line-height:1.5}
 
-    .btn-primary {
-      width: 100%; background: var(--navy); color: white; border: none;
-      border-radius: 12px; padding: 14px; font-size: 0.82rem; font-weight: 800;
-      letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
-      transition: all 0.15s; box-shadow: 0 4px 14px rgba(26,58,92,0.25);
-    }
-    .btn-primary:active { transform: scale(0.98); background: var(--navy-dark); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* GEMINI */
+    .gi{background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px}
+    .gi-head{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+    .gi-badge{background:linear-gradient(135deg,#4285f4,#34a853);color:white;font-size:0.58rem;font-weight:800;padding:2px 7px;border-radius:99px;letter-spacing:0.05em}
+    .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
+    .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
 
-    /* ── DATE STRIP ── */
-    .date-strip {
-      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
-      scrollbar-width: none; margin-bottom: 14px;
-    }
-    .date-strip::-webkit-scrollbar { display: none; }
-    .date-chip {
-      flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
-      padding: 8px 12px; border-radius: 12px; border: 1.5px solid var(--border);
-      background: white; cursor: pointer; transition: all 0.15s; min-width: 52px;
-    }
-    .date-chip.active { background: var(--navy); border-color: var(--navy); box-shadow: 0 4px 12px rgba(26,58,92,0.25); }
-    .date-chip.has-events { border-color: var(--amber); }
-    .date-chip.active.has-events { background: var(--navy); }
-    .date-chip-day { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--slate-400); }
-    .date-chip.active .date-chip-day { color: rgba(255,255,255,0.6); }
-    .date-chip-num { font-size: 1.1rem; font-weight: 900; color: var(--slate-700); line-height: 1; margin-top: 1px; }
-    .date-chip.active .date-chip-num { color: white; }
-    .date-chip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); margin-top: 3px; }
+    /* SCHEDULE */
+    .wlbl{font-size:0.6rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+    .wlbl::before,.wlbl::after{content:'';flex:1;height:1px;background:var(--border)}
 
-    /* ── SECTION HEADER ── */
-    .sec-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .sec-lbl {
-      font-size: 0.62rem; font-weight: 800; letter-spacing: 0.15em;
-      text-transform: uppercase; color: var(--slate-400);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .sec-lbl::after { content: ''; width: 30px; height: 1px; background: var(--border); }
-    .sec-count { font-size: 0.65rem; font-weight: 800; color: var(--slate-400); }
+    /* LOADING / EMPTY */
+    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
+    .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    .ltxt{font-size:0.78rem;font-weight:700;color:var(--s500);letter-spacing:0.04em}
+    .empty{text-align:center;padding:48px 24px}
+    .e-icon{font-size:2.8rem;margin-bottom:10px;opacity:0.38}
+    .e-title{font-size:0.88rem;font-weight:800;color:var(--s500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px}
+    .e-sub{font-size:0.76rem;color:var(--s400);line-height:1.5}
 
-    /* ── CUSTOMER CARD ── */
-    .cust-card {
-      background: white; border-radius: 16px; border: 1.5px solid var(--border);
-      overflow: hidden; margin-bottom: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      transition: box-shadow 0.15s;
-    }
-    .cust-card:active { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    .cust-card-head {
-      display: flex; align-items: stretch; gap: 0;
-    }
-    .cust-card-accent {
-      width: 8px; flex-shrink: 0;
-      background: linear-gradient(180deg, var(--navy) 0%, var(--navy-mid) 100%);
-    }
-    .cust-card-accent.door { background: linear-gradient(180deg, var(--emerald) 0%, var(--emerald-mid) 100%); }
-    .cust-card-accent.both { background: linear-gradient(180deg, var(--navy) 0%, var(--emerald) 100%); }
-    .cust-card-main { flex: 1; padding: 12px 12px 12px 10px; }
-    .cust-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
-    .cust-card-name { font-size: 1rem; font-weight: 900; color: var(--slate-800); text-transform: uppercase; letter-spacing: -0.01em; line-height: 1.1; }
-    .cust-card-time {
-      font-size: 0.65rem; font-weight: 800; color: white;
-      background: var(--navy); border-radius: 6px; padding: 3px 7px;
-      letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; margin-left: 8px;
-    }
-    .cust-card-time.soon { background: var(--amber); }
-    .cust-card-time.past { background: var(--slate-400); }
-    .cust-card-addr { font-size: 0.75rem; color: var(--slate-500); margin-bottom: 8px; line-height: 1.3; }
-    .cust-card-meta { display: flex; flex-wrap: wrap; gap: 5px; }
-    .meta-pill {
-      font-size: 0.62rem; font-weight: 700; padding: 3px 8px;
-      border-radius: 6px; border: 1px solid var(--border);
-      color: var(--slate-600); background: var(--slate-50);
-    }
-    .meta-pill.win { background: var(--navy-light); border-color: #bfdbfe; color: var(--navy); }
-    .meta-pill.door { background: var(--emerald-light); border-color: #a7f3d0; color: var(--emerald); }
-    .meta-pill.consultant { background: var(--amber-light); border-color: #fde68a; color: #92400e; }
-
-    /* Card action row */
-    .cust-card-actions {
-      display: flex; border-top: 1px solid var(--border);
-    }
-    .card-action-btn {
-      flex: 1; padding: 10px 6px; border: none; background: transparent;
-      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--slate-500); cursor: pointer;
-      transition: background 0.12s; display: flex; align-items: center;
-      justify-content: center; gap: 4px;
-    }
-    .card-action-btn:not(:last-child) { border-right: 1px solid var(--border); }
-    .card-action-btn:active { background: var(--slate-50); }
-    .card-action-btn.primary { color: var(--navy); }
-    .card-action-btn.door-primary { color: var(--emerald); }
-
-    /* ── EXPANDED CARD DETAIL ── */
-    .card-detail { padding: 12px; border-top: 1px solid var(--border); background: var(--slate-50); }
-    .detail-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-    .detail-field { display: flex; flex-direction: column; gap: 3px; }
-    .detail-val { font-size: 0.82rem; font-weight: 700; color: var(--slate-700); }
-    .detail-notes {
-      background: white; border: 1.5px solid var(--border); border-radius: 8px;
-      padding: 9px 10px; font-size: 0.78rem; color: var(--slate-600);
-      line-height: 1.5; font-style: italic; min-height: 48px;
-    }
-
-    /* ── EMPTY STATE ── */
-    .empty-state { text-align: center; padding: 50px 20px; }
-    .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
-    .empty-title { font-size: 0.9rem; font-weight: 800; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-    .empty-sub { font-size: 0.78rem; color: var(--slate-400); line-height: 1.5; }
-
-    /* ── LOADING ── */
-    .loading-row { display: flex; align-items: center; gap: 10px; padding: 20px; justify-content: center; }
-    .spinner { width: 18px; height: 18px; border: 2.5px solid var(--slate-200); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-txt { font-size: 0.78rem; font-weight: 700; color: var(--slate-500); letter-spacing: 0.05em; }
-
-    /* ── SYNC BAR ── */
-    .sync-bar {
-      background: var(--navy-light); border: 1px solid #bfdbfe; border-radius: 10px;
-      padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .sync-bar-left { display: flex; align-items: center; gap: 8px; }
-    .sync-bar-txt { font-size: 0.72rem; font-weight: 700; color: var(--navy); }
-    .sync-bar-sub { font-size: 0.62rem; color: var(--slate-500); margin-top: 1px; }
-    .sync-btn {
-      background: var(--navy); color: white; border: none; border-radius: 8px;
-      padding: 6px 12px; font-size: 0.65rem; font-weight: 800;
-      letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
-      transition: all 0.12s;
-    }
-    .sync-btn:active { transform: scale(0.96); }
-
-    /* ── SCHEDULE VIEW ── */
-    .sched-week-label {
-      font-size: 0.62rem; font-weight: 800; letter-spacing: 0.15em;
-      text-transform: uppercase; color: var(--slate-400); margin-bottom: 8px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .sched-week-label::before, .sched-week-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-    /* Animations */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .cust-card { animation: fadeUp 0.2s ease both; }
-    .cust-card:nth-child(1) { animation-delay: 0.03s; }
-    .cust-card:nth-child(2) { animation-delay: 0.06s; }
-    .cust-card:nth-child(3) { animation-delay: 0.09s; }
-    .cust-card:nth-child(4) { animation-delay: 0.12s; }
-    .cust-card:nth-child(5) { animation-delay: 0.15s; }
+    @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .cc{animation:fu 0.18s ease both}
+    .cc:nth-child(1){animation-delay:0.03s}.cc:nth-child(2){animation-delay:0.06s}
+    .cc:nth-child(3){animation-delay:0.09s}.cc:nth-child(4){animation-delay:0.12s}
+    .cc:nth-child(5){animation-delay:0.15s}
   </style>
 </head>
 <body>
-<div class="app" id="app"></div>
-
+<div id="root"></div>
 <script>
-// ─── STORAGE ──────────────────────────────────────────────────────────────────
-var HUB_KEY = 'vhub_v1';
+var STORAGE_KEY = 'vhub_v2';
+var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly';
 
-function loadPrefs() {
-  try { return JSON.parse(localStorage.getItem(HUB_KEY)) || {}; } catch(e) { return {}; }
-}
-function savePrefs(p) {
-  try { localStorage.setItem(HUB_KEY, JSON.stringify(p)); } catch(e) {}
-}
-
-// ─── STATE ────────────────────────────────────────────────────────────────────
+// ── STATE ──────────────────────────────────────────────────────────────────
 var prefs        = loadPrefs();
-var activeView   = 'hub';       // 'hub' | 'schedule' | 'setup'
-var calEvents    = [];           // parsed Final Measure events
+var view         = prefs.accessToken ? 'hub' : 'setup';
+var calEvents    = [];
 var loading      = false;
-var lastSynced   = prefs.lastSynced || null;
-var selectedDate = todayStr();
-var expandedCard = null;         // event id of expanded card
-var syncError    = null;
+var loadTxt      = 'Loading\u2026';
+var lastSync     = prefs.lastSync   || null;
+var selDate      = todayStr();
+var expandId     = null;
+var syncErr      = null;
+var accessToken  = prefs.accessToken || null;
+var userEmail    = prefs.userEmail   || null;
+var geminiKey    = prefs.geminiKey   || '';
+var insights     = {};
+var clientId     = prefs.clientId   || '';
 
-function todayStr() {
-  return new Date().toISOString().slice(0,10);
+function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
+function save(){
+  prefs.accessToken=accessToken; prefs.userEmail=userEmail;
+  prefs.geminiKey=geminiKey; prefs.clientId=clientId;
+  prefs.lastSync=lastSync; prefs.searchTerm=prefs.searchTerm||'Final Measure';
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));}catch(e){}
+}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+
+// ── GOOGLE OAUTH (GIS Implicit/Token flow) ────────────────────────────────
+function loadGIS(cb){
+  if(window.google&&window.google.accounts){cb();return;}
+  var s=document.createElement('script');
+  s.src='https://accounts.google.com/gsi/client';
+  s.onload=cb;
+  s.onerror=function(){syncErr='Could not load Google Sign-In library. Check connection.';render();};
+  document.head.appendChild(s);
 }
 
-// ─── GOOGLE CALENDAR API ─────────────────────────────────────────────────────
-// Uses Google Calendar API v3 directly with an API key + calendar ID
-// For read-only public/shared calendars; for private calendars user needs OAuth token
-// We support both: API key (read-only) or OAuth access token (full)
-
-function buildCalUrl(params) {
-  var base = 'https://www.googleapis.com/calendar/v3/calendars/';
-  var calId = encodeURIComponent(prefs.calendarId || 'primary');
-  var url = base + calId + '/events?';
-  var parts = [];
-  for (var k in params) parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
-  // auth
-  if (prefs.accessToken) {
-    parts.push('access_token=' + encodeURIComponent(prefs.accessToken));
-  } else if (prefs.apiKey) {
-    parts.push('key=' + encodeURIComponent(prefs.apiKey));
-  }
-  return url + parts.join('&');
-}
-
-function syncCalendar() {
-  if (!prefs.calendarId && !prefs.apiKey && !prefs.accessToken) {
-    activeView = 'setup'; render(); return;
-  }
-  loading = true; syncError = null; render();
-
-  // Fetch 60 days out
-  var now = new Date();
-  var past = new Date(now); past.setDate(past.getDate() - 7);
-  var future = new Date(now); future.setDate(future.getDate() + 60);
-
-  var url = buildCalUrl({
-    timeMin: past.toISOString(),
-    timeMax: future.toISOString(),
-    maxResults: 250,
-    singleEvents: 'true',
-    orderBy: 'startTime',
-    q: prefs.searchTerm || 'Final Measure'
+function signIn(){
+  if(!clientId){syncErr='Enter your Google OAuth Client ID in Setup first.';render();return;}
+  loadGIS(function(){
+    var client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:GCAL_SCOPE,
+      callback:function(resp){
+        if(resp.error){syncErr='Google sign-in failed: '+resp.error;render();return;}
+        accessToken=resp.access_token;
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
+          .then(function(r){return r.json();})
+          .then(function(info){userEmail=info.email||'Connected';save();syncCalendar();})
+          .catch(function(){userEmail='Connected';save();syncCalendar();});
+      }
+    });
+    client.requestAccessToken({prompt:'select_account'});
   });
+}
 
-  var headers = {};
-  if (prefs.accessToken) headers['Authorization'] = 'Bearer ' + prefs.accessToken;
+function signOut(){
+  accessToken=null;userEmail=null;calEvents=[];
+  prefs.accessToken=null;prefs.userEmail=null;save();view='setup';render();
+}
 
-  fetch(url, { headers: headers })
-    .then(function(r) {
-      if (!r.ok) return r.json().then(function(e) { throw new Error(e.error ? e.error.message : 'HTTP ' + r.status); });
+// ── CALENDAR SYNC ─────────────────────────────────────────────────────────
+function syncCalendar(){
+  if(!accessToken){syncErr='Sign in with Google first.';render();return;}
+  loading=true;loadTxt='Pulling Final Measures\u2026';syncErr=null;render();
+  var now=new Date();
+  var past=new Date(now);past.setDate(past.getDate()-7);
+  var future=new Date(now);future.setDate(future.getDate()+60);
+  var term=encodeURIComponent(prefs.searchTerm||'Final Measure');
+  var url='https://www.googleapis.com/calendar/v3/calendars/primary/events'
+    +'?timeMin='+encodeURIComponent(past.toISOString())
+    +'&timeMax='+encodeURIComponent(future.toISOString())
+    +'&maxResults=250&singleEvents=true&orderBy=startTime&q='+term;
+  fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
+    .then(function(r){
+      if(r.status===401){accessToken=null;prefs.accessToken=null;save();throw new Error('Session expired \u2014 please sign in again.');}
+      if(!r.ok)return r.json().then(function(e){throw new Error((e.error&&e.error.message)||'HTTP '+r.status);});
       return r.json();
     })
-    .then(function(data) {
-      calEvents = (data.items || []).map(parseEvent);
-      loading = false;
-      lastSynced = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-      prefs.lastSynced = lastSynced;
-      savePrefs(prefs);
-      // Default select today or first event date
-      var dates = getEventDates();
-      if (dates.length && dates.indexOf(selectedDate) < 0) selectedDate = dates[0];
+    .then(function(data){
+      calEvents=(data.items||[]).map(parseEv);
+      loading=false;
+      lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      save();
+      var dates=evDates();
+      if(dates.length&&dates.indexOf(selDate)<0)selDate=dates[0];
       render();
     })
-    .catch(function(err) {
-      loading = false;
-      syncError = err.message || 'Failed to sync. Check credentials.';
-      render();
-    });
+    .catch(function(err){loading=false;syncErr=err.message||'Sync failed.';render();});
 }
 
-function parseEvent(ev) {
-  var start = ev.start && (ev.start.dateTime || ev.start.date) || '';
-  var end   = ev.end   && (ev.end.dateTime   || ev.end.date)   || '';
-  var desc  = ev.description || '';
-  var title = ev.summary || '';
-
-  // Extract customer name — try to pull from title after "Final Measure –" or "Final Measure:"
-  var customer = title
-    .replace(/final\s*measure[\s\-–:]+/i, '')
-    .replace(/fm[\s\-–:]+/i, '')
-    .trim() || 'Customer';
-
-  // Try to extract address from location or description
-  var address = ev.location || extractField(desc, 'address') || extractField(desc, 'addr') || '';
-
-  // Try to parse consultant from description
-  var consultant = extractField(desc, 'consultant') || extractField(desc, 'rep') || extractField(desc, 'salesperson') || '';
-
-  // Window/door hints from description
-  var hasWin  = /window/i.test(desc + title);
-  var hasDoor = /door/i.test(desc + title);
-
-  // Date/time display
-  var startDate = start ? start.slice(0,10) : '';
-  var startTime = '';
-  if (start && start.indexOf('T') > -1) {
-    var d = new Date(start);
-    startTime = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  }
-
-  return {
-    id: ev.id,
-    title: title,
-    customer: customer,
-    address: address,
-    consultant: consultant,
-    startRaw: start,
-    endRaw: end,
-    startDate: startDate,
-    startTime: startTime,
-    description: desc,
-    hasWin: hasWin,
-    hasDoor: hasDoor,
-    htmlLink: ev.htmlLink || ''
+function parseEv(ev){
+  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
+  var title=ev.summary||'';
+  var desc=(ev.description||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').trim();
+  var loc=ev.location||'';
+  var customer=title.replace(/final\s*measure[\s\-\u2013:]+/i,'').replace(/\bfm\b[\s\-\u2013:]+/i,'').trim()||title||'Unnamed';
+  var address=loc||xf(desc,['address','addr','location'])||'';
+  var consultant=xf(desc,['consultant','rep','salesperson','sales rep','advisor'])||'';
+  var startDate=start?start.slice(0,10):'';
+  var startTime='';
+  if(start&&start.indexOf('T')>=0)startTime=new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  var lc=(title+' '+desc).toLowerCase();
+  return{
+    id:ev.id,title:title,customer:customer,address:address,consultant:consultant,
+    notes:desc,startRaw:start,startDate:startDate,startTime:startTime,
+    hasWin:/window/i.test(lc),hasDoor:/door/i.test(lc),htmlLink:ev.htmlLink||''
   };
 }
+function xf(text,keys){
+  for(var i=0;i<keys.length;i++){
+    var m=text.match(new RegExp(keys[i]+'\\s*[:\\-]\\s*([^\\n\\r,]+)','i'));
+    if(m)return m[1].trim();
+  }return'';
+}
+function evDates(){var s={};var o=[];calEvents.forEach(function(e){if(e.startDate&&!s[e.startDate]){s[e.startDate]=1;o.push(e.startDate);}});return o.sort();}
+function evsFor(d){return calEvents.filter(function(e){return e.startDate===d;});}
+function isToday(d){return d===todayStr();}
+function ddiff(a,b){return(new Date(a+'T12:00:00')-new Date(b+'T12:00:00'))/86400000;}
+function isSoon(ev){if(!ev.startRaw||ev.startRaw.indexOf('T')<0)return false;var d=new Date(ev.startRaw).getTime()-Date.now();return d>0&&d<3600000;}
+function isPast(ev){if(!ev.startRaw||ev.startRaw.indexOf('T')<0)return false;return new Date(ev.startRaw).getTime()<Date.now();}
 
-function extractField(text, field) {
-  var re = new RegExp(field + '[:\\s]+([^\\n\\r,]+)', 'i');
-  var m = text.match(re);
-  return m ? m[1].trim() : '';
+// ── GEMINI ────────────────────────────────────────────────────────────────
+function geminiInsight(ev){
+  if(!geminiKey)return;
+  if(insights[ev.id]){render();return;}
+  insights[ev.id]='...';render();
+  var prompt='You are a field measure prep assistant for Visionaire Windows. Write a single practical 1-2 sentence prep note for the measurer heading to this appointment. Be specific.\n\nCustomer: '+ev.customer+'\nAddress: '+ev.address+'\nNotes: '+ev.notes+'\n\nRespond with 1-2 sentences only.';
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+geminiKey,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:120}})
+  }).then(function(r){return r.json();})
+  .then(function(d){
+    var t='';try{t=d.candidates[0].content.parts[0].text.trim();}catch(e){}
+    insights[ev.id]=t||'No insight available.';render();
+  }).catch(function(){insights[ev.id]='Could not load insight.';render();});
 }
 
-function getEventDates() {
-  var seen = {};
-  var dates = [];
-  for (var i = 0; i < calEvents.length; i++) {
-    var d = calEvents[i].startDate;
-    if (d && !seen[d]) { seen[d] = true; dates.push(d); }
-  }
-  dates.sort();
-  return dates;
+// ── RENDER ────────────────────────────────────────────────────────────────
+function render(){
+  var root=document.getElementById('root');if(!root)return;
+  root.innerHTML='';
+  var wrap=el('div',{C:'app'});
+  wrap.appendChild(rHeader());
+  var main=el('div',{C:'main'});
+  if(view==='setup')rSetup(main);
+  else if(view==='hub')rHub(main);
+  else if(view==='sched')rSched(main);
+  wrap.appendChild(main);root.appendChild(wrap);
 }
 
-function eventsForDate(date) {
-  return calEvents.filter(function(e) { return e.startDate === date; });
-}
-
-function isToday(dateStr) { return dateStr === todayStr(); }
-function isSoon(ev) {
-  if (!ev.startRaw) return false;
-  var now = Date.now();
-  var t = new Date(ev.startRaw).getTime();
-  return t > now && t - now < 3600000; // within 1 hour
-}
-function isPast(ev) {
-  if (!ev.startRaw) return false;
-  return new Date(ev.startRaw).getTime() < Date.now();
-}
-
-// ─── RENDER ───────────────────────────────────────────────────────────────────
-function render() {
-  var app = document.getElementById('app');
-  if (!app) return;
-  app.innerHTML = '';
-
-  var wrap = el('div', {className:'app'});
-
-  // HEADER
-  wrap.appendChild(renderHeader());
-
-  var main = el('div', {className:'main'});
-
-  if (activeView === 'setup') {
-    renderSetup(main);
-  } else if (activeView === 'hub') {
-    renderHub(main);
-  } else if (activeView === 'schedule') {
-    renderSchedule(main);
-  }
-
-  wrap.appendChild(main);
-  app.appendChild(wrap);
-}
-
-// ── HEADER ────────────────────────────────────────────────────────────────────
-function renderHeader() {
-  var hdr = el('div', {className:'header'});
-  var top = el('div', {className:'header-top'});
-
-  var logo = el('div', {className:'header-logo'});
-  logo.appendChild(el('span', {className:'header-title', textContent:'Visionaire'}));
-  logo.appendChild(el('span', {className:'header-sub', textContent:'Customer Hub'}));
+function rHeader(){
+  var h=el('div',{C:'hdr'});
+  var top=el('div',{C:'hdr-top'});
+  var logo=el('div',{C:'hdr-logo'});
+  logo.appendChild(el('span',{C:'hdr-title',t:'Visionaire'}));
+  logo.appendChild(el('span',{C:'hdr-sub',t:'Customer Hub'}));
   top.appendChild(logo);
+  var right=el('div',{C:'hdr-right'});
+  var badge=el('div',{C:'acct-badge'});
+  badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
+  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||'Not signed in'}));
+  right.appendChild(badge);
+  var sb=el('button',{C:'hdr-btn',t:'\u2699',click:function(){view='setup';render();}});
+  right.appendChild(sb);top.appendChild(right);h.appendChild(top);
+  var tabs=el('div',{C:'vtabs'});
+  [['hub','\uD83D\uDCCB Today'],['sched','\uD83D\uDCC5 Schedule'],['setup','\u2699 Setup']].forEach(function(t){
+    var tab=el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:function(v){return function(){view=v;render();};}(t[0])});
+    tabs.appendChild(tab);
+  });
+  h.appendChild(tabs);return h;
+}
 
-  var right = el('div', {className:'header-right'});
+function rSetup(main){
+  var card=el('div',{C:'sc'});
+  var head=el('div',{C:'sc-head'});
+  head.appendChild(el('div',{C:'sc-icon',t:'\uD83D\uDD11'}));
+  head.appendChild(el('div',{C:'sc-title',t:'Connect Visionaire Calendar'}));
+  head.appendChild(el('div',{C:'sc-sub',t:'Your Visionaire Google account \u2014 separate from THS'}));
+  card.appendChild(head);
+  var body=el('div',{C:'sc-body'});
 
-  // Ac
+  // Client ID
+  body.appendChild(el('span',{C:'lbl',t:'Step 1 \u2014 Google OAuth Client ID'}));
+  var ci=el('input',{C:'inp mono',type:'text',value:clientId,placeholder:'123456789-abc\u2026.apps.googleusercontent.com'});
+  ci.addEventListener('input',function(){clientId=this.value.trim();prefs.clientId=clientId;save();});
+  body.appendChild(ci);
+  var h1=el('div',{C:'hint'});
+  h1.innerHTML='<strong>Get Client ID:</strong> <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> \u2192 New Project \u2192 Enable <b>Google Calendar API</b> \u2192 Credentials \u2192 OAuth 2.0 Client ID \u2192 Web application \u2192 Add <b>this file\u2019s URL</b> as an Authorized JavaScript Origin.';
+  body.appendChild(h1);
+
+  // Google Sign-In
+  body.appendChild(el('span',{C:'lbl',t:'Step 2 \u2014 Sign In With Your Visionaire Account'}));
+  if(accessToken&&userEmail){
+    var cb=el('button',{C:'g-btn conn',t:'\u2713 Connected as '+userEmail,click:function(){if(confirm('Sign out of '+userEmail+'?'))signOut();}});
+    body.appendChild(cb);
+  } else {
+    var gb=el('button',{C:'g-btn',click:signIn});
+    var img=document.createElement('img');img.className='g-logo';
+    img.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjIuNTYgMTIuMjVjMC0uNzgtLjA3LTEuNTMtLjItMi4yNUgxMnY0LjI2aDUuOTJjLS4yNiAxLjM3LTEuMDQgMi41My0yLjIxIDMuMzF2Mi43N2gzLjU3YzIuMDgtMS45MiAzLjI4LTQuNzQgMy4yOC04LjA5eiIgZmlsbD0iIzQyODVGNCIvPjxwYXRoIGQ9Ik0xMiAyM2MyLjk3IDAgNS40Ni0uOTggNy4yOC0yLjY2bC0zLjU3LTIuNzdjLS45OC42Ni0yLjIzIDEuMDYtMy43MSAxLjA2LTIuODYgMC01LjI5LTEuOTMtNi4xNi00LjUzSDIuMThsMy42NiAyLjgzQzUuNTUgMjAuNjIgOC41NiAyMyAxMiAyM3oiIGZpbGw9IiMzNEE4NTMiLz48cGF0aCBkPSJNNS44NCAxNC4wOWMtLjIyLS42Ni0uMzUtMS4zNi0uMzUtMi4wOXMuMTMtMS40My4zNS0yLjA5VjcuMDdIMi4xOEExMC45NiAxMC45NiAwIDAgMCAxIDEyYzAgMS43Ny40MiAzLjQ0IDEuMTggNC45M2wzLjY2LTIuODR6IiBmaWxsPSIjRkJCQzA1Ii8+PHBhdGggZD0iTTEyIDUuMzhjMS42MiAwIDMuMDYuNTYgNC4yMSAxLjY0bDMuMTUtMy4xNUMxNy40NSAyLjA5IDE0Ljk3IDEgMTIgMSA4LjU2IDEgNS41NSAzLjM4IDMuODQgNi44M2wzLjY2IDIuODRDOC43MSA3LjMxIDExLjE0IDUuMzggMTIgNS4zOHoiIGZpbGw9IiNFQTQzMzUiLz48L3N2Zz4=';
+    gb.appendChild(img);gb.appendChild(el('span',{t:'Sign in with Google (Visionaire)'}));
+    body.appendChild(gb);
+  }
+
+  // Gemini key
+  body.appendChild(el('span',{C:'lbl',t:'Step 3 \u2014 Gemini API Key (AI Prep Notes)'}));
+  var gk=el('input',{C:'inp mono',type:'password',value:geminiKey,placeholder:'AIza\u2026'});
+  gk.addEventListener('input',function(){geminiKey=this.value.trim();prefs.geminiKey=geminiKey;save();});
+  body.appendChild(gk);
+
+  // Search term
+  body.appendChild(el('span',{C:'lbl',t:'Calendar Search Term'}));
+  var st=el('input',{C:'inp',type:'text',value:prefs.searchTerm||'Final Measure',placeholder:'Final Measure'});
+  st.addEventListener('input',function(){prefs.searchTerm=this.value.trim();save();});
+  body.appendChild(st);
+
+  var sv=el('button',{C:'btn-p',t:accessToken?'\u21BB Re-sync Calendar':'Save Settings',click:function(){save();if(accessToken){view='hub';syncCalendar();}else{view='hub';render();}}});
+  body.appendChild(sv);
+  if(accessToken){
+    var disc=el('button',{C:'btn-disc',t:'Sign Out / Disconnect',click:signOut});
+    body.appendChild(disc);
+  }
+  card.appendChild(body);main.appendChild(card);
+}
+
+function rHub(main){
+  if(!accessToken){rNoAuth(main);return;}
+  // Sync bar
+  var sb=el('div',{C:'sync-bar'});
+  var sbl=el('div',{C:'sync-l'});
+  sbl.appendChild(el('span',{t:'\uD83D\uDCC5',style:'font-size:1.1rem'}));
+  var si=el('div');
+  si.appendChild(el('div',{C:'sync-title',t:userEmail||'Visionaire Calendar'}));
+  si.appendChild(el('div',{C:'sync-sub',t:lastSync?'Synced '+lastSync:'Not yet synced'}));
+  sbl.appendChild(si);sb.appendChild(sbl);
+  var syn=el('button',{C:'sync-btn',t:loading?'\u2026':'\u21BB Sync',click:syncCalendar});
+  syn.disabled=loading;sb.appendChild(syn);main.appendChild(sb);
+  if(syncErr)main.appendChild(el('div',{C:'err',t:'\u26A0 '+syncErr}));
+  if(loading){var lr=el('div',{C:'lrow'});lr.appendChild(el('div',{C:'spin'}));lr.appendChild(el('div',{C:'ltxt',t:loadTxt}));main.appendChild(lr);return;}
+  if(!calEvents.length&&!syncErr){
+    var es=el('div',{C:'empty'});es.appendChild(el('div',{C:'e-icon',t:'\uD83D\uDCCB'}));
+    es.appendChild(el('div',{C:'e-title',t:'No Final Measures Found'}));
+    es.appendChild(el('div',{C:'e-sub',t:'Tap Sync or check the search term in Setup.'}));
+    main.appendChild(es);return;
+  }
+  rDateStrip(main);
+  var dayEvs=evsFor(selDate);
+  var sr=el('div',{C:'sec-row'});
+  sr.appendChild(el('div',{C:'sec-lbl',t:fmtDate(selDate)}));
+  sr.appendChild(el('div',{C:'sec-ct',t:dayEvs.length+' job'+(dayEvs.length===1?'':'s')}));
+  main.appendChild(sr);
+  if(!dayEvs.length){
+    var nd=el('div',{C:'empty',style:'padding:24px 20px'});
+    nd.appendChild(el('div',{C:'e-icon',t:'\u2713'}));
+    nd.appendChild(el('div',{C:'e-title',t:'No measures this day'}));
+    main.appendChild(nd);
+  } else {dayEvs.forEach(function(ev){main.appendChild(rCard(ev));});}
+}
+
+function rNoAuth(main){
+  var es=el('div',{C:'empty'});es.appendChild(el('div',{C:'e-icon',t:'\uD83D\uDD11'}));
+  es.appendChild(el('div',{C:'e-title',t:'Sign In to Connect'}));
+  es.appendChild(el('div',{C:'e-sub',t:'Go to Setup, enter your OAuth Client ID, then sign in with your Visionaire Google account.'}));
+  var btn=el('button',{C:'btn-p',t:'\u2699 Open Setup',style:'margin-top:20px',click:function(){view='setup';render();}});
+  es.appendChild(btn);main.appendChild(es);
+}
+
+function rDateStrip(main){
+  var strip=el('div',{C:'dstrip'});
+  var evd=evDates();var evs={};evd.forEach(function(d){evs[d]=1;});
+  var base=new Date();base.setHours(0,0,0,0);
+  var days=[];
+  for(var i=-1;i<=28;i++){var d=new Date(base);d.setDate(d.getDate()+i);days.push(d.toISOString().slice(0,10));}
+  evd.forEach(function(d){if(days.indexOf(d)<0)days.push(d);});
+  days.sort();
+  var shown=days.filter(function(d){return evs[d]||Math.abs(ddiff(d,todayStr()))<=1;});
+  shown.forEach(function(ds){
+    var d=new Date(ds+'T12:00:00');var active=ds===selDate;var hasEv=!!evs[ds];
+    var chip=el('div',{C:'dchip'+(active?' on':'')+(hasEv?' ev':''),click:function(s){return function(){selDate=s;render();};}(ds)});
+    var dnames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    chip.appendChild(el('div',{C:'dc-d',t:isToday(ds)?'Today':dnames[d.getDay()]}));
+    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+    if(hasEv&&!active)chip.appendChild(el('div',{C:'dc-dot'}));
+    strip.appendChild(chip);
+  });
+  main.appendChild(strip);
+}
+
+function fmtDate(ds){
+  if(isToday(ds))return'Today';
+  var diff=Math.round(ddiff(ds,todayStr()));
+  if(diff===1)return'Tomorrow';if(diff===-1)return'Yesterday';
+  return new Date(ds+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+}
+
+function rCard(ev){
+  var card=el('div',{C:'cc'});var isExp=expandId===ev.id;
+  var head=el('div',{C:'cc-head'});
+  var bc=ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':ev.hasWin?'win':'gen';
+  head.appendChild(el('div',{C:'cc-bar '+bc}));
+  var body=el('div',{C:'cc-body'});
+  var top=el('div',{C:'cc-top'});
+  top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
+  if(ev.startTime){var tc='cc-time'+(isSoon(ev)?' soon':isPast(ev)?' past':'');top.appendChild(el('span',{C:tc,t:ev.startTime}));}
+  body.appendChild(top);
+  if(ev.address)body.appendChild(el('div',{C:'cc-addr',t:'\uD83D\uDCCD '+ev.address}));
+  var pills=el('div',{C:'cc-pills'});
+  if(ev.hasWin)pills.appendChild(el('span',{C:'pill win',t:'\uD83E\uDE9F Windows'}));
+  if(ev.hasDoor)pills.appendChild(el('span',{C:'pill door',t:'\uD83D\uDEAA Doors'}));
+  if(ev.consultant)pills.appendChild(el('span',{C:'pill rep',t:'\uD83D\uDC64 '+ev.consultant}));
+  if(!ev.hasWin&&!ev.hasDoor)pills.appendChild(el('span',{C:'pill',t:'Final Measure'}));
+  body.appendChild(pills);head.appendChild(body);card.appendChild(head);
+
+  if(isExp){
+    var det=el('div',{C:'cc-det'});
+    var cols=el('div',{C:'d2'});
+    if(ev.startTime){var tf=el('div',{C:'df'});tf.appendChild(el('span',{C:'lbl',t:'Time'}));tf.appendChild(el('div',{C:'dv',t:ev.startTime}));cols.appendChild(tf);}
+    if(ev.consultant){var cf=el('div',{C:'df'});cf.appendChild(el('span',{C:'lbl',t:'Consultant'}));cf.appendChild(el('div',{C:'dv',t:ev.consultant}));cols.appendChild(cf);}
+    if(cols.childNodes.length)det.appendChild(cols);
+    if(ev.notes&&ev.notes.trim()){det.appendChild(el('span',{C:'lbl',t:'Event Notes'}));det.appendChild(el('div',{C:'dnotes',t:ev.notes.trim()}));}
+    if(geminiKey){
+      var gi=el('div',{C:'gi'});
+      var gih=el('div',{C:'gi-head'});
+      gih.appendChild(el('span',{C:'gi-badge',t:'\u2736 Gemini'}));
+      gih.appendChild(el('span',{style:'font-size:0.68rem;font-weight:700;color:var(--s600)',t:'AI Prep Note'}));
+      gi.appendChild(gih);
+      var ins=insights[ev.id];
+      if(!ins){var tap=el('button',{C:'gi-tap',t:'Tap to generate prep note\u2026',click:function(e){return function(){geminiInsight(e);};}(ev)});gi.appendChild(tap);}
+      else if(ins==='...'){var sr2=el('div',{C:'lrow',style:'padding:6px 0;justify-content:flex-start'});sr2.appendChild(el('div',{C:'spin'}));sr2.appendChild(el('span',{C:'ltxt',t:'Gemini is thinking\u2026'}));gi.appendChild(sr2);}
+      else{gi.appendChild(el('div',{C:'gi-txt',t:ins}));}
+      det.appendChild(gi);
+    }
+    card.appendChild(det);
+  }
+
+  var acts=el('div',{C:'cc-acts'});
+  var fm=el('button',{C:'ca p',t:'\uD83D\uDCCB FM Sheet',click:function(){
+    try{localStorage.setItem('vfc_prefill',JSON.stringify({customer:ev.customer,address:ev.address,consultant:ev.consultant,measureDate:ev.startDate}));}catch(e){}
+    alert('Ready! Open Field Command \u2014 customer is pre-filled.');
+  }});
+  acts.appendChild(fm);
+  var ca=el('button',{C:'ca',t:'\uD83D\uDCC5 Event',click:function(){if(ev.htmlLink)window.open(ev.htmlLink,'_blank');}});
+  acts.appendChild(ca);
+  var exp=el('button',{C:'ca',t:isExp?'\u25B2 Less':'\u25BC Details',click:function(){expandId=isExp?null:ev.id;render();}});
+  acts.appendChild(exp);
+  card.appendChild(acts);return card;
+}
+
+function rSched(main){
+  if(!accessToken){rNoAuth(main);return;}
+  if(!calEvents.length){
+    var es=el('div',{C:'empty'});es.appendChild(el('div',{C:'e-icon',t:'\uD83D\uDCC5'}));
+    es.appendChild(el('div',{C:'e-title',t:'No events loaded'}));
+    es.appendChild(el('div',{C:'e-sub',t:'Go to Today and tap Sync first.'}));
+    main.appendChild(es);return;
+  }
+  evDates().forEach(function(ds){
+    main.appendChild(el('div',{C:'wlbl',t:fmtDate(ds)}));
+    evsFor(ds).forEach(function(ev){main.appendChild(rCard(ev));});
+  });
+}
+
+// ── UTILITY ───────────────────────────────────────────────────────────────
+function el(tag,props){
+  var e=document.createElement(tag);
+  if(!props)return e;
+  for(var k in props){
+    if(k==='C')e.className=props[k];
+    else if(k==='t')e.textContent=props[k];
+    else if(k==='style'&&typeof props[k]==='string')e.style.cssText=props[k];
+    else if(k==='click')e.addEventListener('click',props[k]);
+    else e[k]=props[k];
+  }
+  return e;
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  if(accessToken)syncCalendar();
+  render();
+});
+</script>
+</body>
+</html>
