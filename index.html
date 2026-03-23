@@ -7,426 +7,138 @@
   <style>
     :root {
       --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
-      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
-      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
-      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
-      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
-      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
+      --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s400:#94a3b8; --s500:#64748b; --s700:#334155; --s800:#1e293b; --border:#e2e8f0;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
-    .hdr-logo{display:flex;flex-direction:column}
-    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
-    .hdr-sub{font-size:0.48rem;font-weight:800;letter-spacing:0.35em;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-top:3px}
-    .hdr-right{display:flex;align-items:center;gap:7px}
-    .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
-    .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
-    .acct-dot.off{background:var(--s400)}
-    .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .hdr-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.8);border-radius:8px;padding:6px 9px;font-size:0.65rem;font-weight:700;cursor:pointer;letter-spacing:0.04em}
-    .hdr-btn:active{background:rgba(255,255,255,0.22)}
+    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;color:white;text-transform:uppercase}
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
-    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
+    .vtab{flex:1;padding:12px 4px;font-size:0.68rem;font-weight:700;color:rgba(255,255,255,0.4);background:transparent;border:none;border-bottom:3px solid transparent}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
     .main{padding:14px 12px 100px}
-    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
-    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
-    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px}
-    .sc-icon{font-size:2rem;margin-bottom:8px}
-    .sc-title{font-size:1.05rem;font-weight:900;color:white;text-transform:uppercase;letter-spacing:-0.01em}
-    .sc-sub{font-size:0.73rem;color:rgba(255,255,255,0.6);margin-top:4px;line-height:1.45}
-    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
-    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;color:var(--s800);background:var(--s50);outline:none;transition:border-color 0.15s,box-shadow 0.15s}
-    .inp:focus{border-color:var(--navy);background:white;box-shadow:0 0 0 3px rgba(26,58,92,0.1)}
-    .hint{background:var(--amber-light);border:1px solid #fde68a;border-radius:10px;padding:11px 13px;font-size:0.74rem;color:#92400e;line-height:1.55}
-    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-    .g-btn:active{background:var(--s50);transform:scale(0.98)}
-    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
-    .g-logo{width:20px;height:20px;flex-shrink:0}
-    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all 0.15s;box-shadow:0 4px 14px rgba(26,58,92,0.25)}
-    .btn-disc{width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:var(--redl);color:var(--red);font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-    .sync-l{display:flex;align-items:center;gap:9px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
-    .sync-sub{font-size:0.61rem;color:var(--s500);margin-top:1px}
-    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.12s}
-    .sync-btn:disabled{opacity:0.5;cursor:not-allowed}
-    .sec-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-    .sec-lbl{font-size:0.62rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);display:flex;align-items:center;gap:7px}
-    .sec-lbl::after{content:'';width:28px;height:1px;background:var(--border)}
-    .sec-ct{font-size:0.65rem;font-weight:800;color:var(--s400)}
-    .wlbl{font-size:0.6rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
-    .wlbl::before,.wlbl::after{content:'';flex:1;height:1px;background:var(--border)}
-    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    .cc-head{display:flex;align-items:stretch}
-    .cc-bar{width:8px;flex-shrink:0}
-    .cc-bar.win{background:linear-gradient(180deg,var(--navy) 0%,var(--navy-mid) 100%)}
-    .cc-bar.door{background:linear-gradient(180deg,var(--emerald) 0%,var(--emerald-mid) 100%)}
-    .cc-bar.both{background:linear-gradient(180deg,var(--navy) 0%,var(--emerald) 100%)}
-    .cc-bar.gen{background:linear-gradient(180deg,var(--amber) 0%,var(--amber-dark) 100%)}
-    .cc-body{flex:1;padding:12px 12px 12px 10px}
-    .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
-    .cc-name{font-size:1rem;font-weight:900;color:var(--s800);text-transform:uppercase;letter-spacing:-0.01em;line-height:1.15;flex:1;margin-right:8px}
-    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;flex-shrink:0;letter-spacing:0.03em}
-    .cc-time.soon{background:var(--amber)}
-    .cc-time.past{background:var(--s400)}
-    .cc-addr{font-size:0.74rem;color:var(--s500);margin-bottom:8px;line-height:1.35}
-    .cc-pills{display:flex;flex-wrap:wrap;gap:5px}
-    .pill{font-size:0.62rem;font-weight:700;padding:3px 8px;border-radius:6px;border:1px solid var(--border);color:var(--s600);background:var(--s50)}
-    .pill.win{background:var(--navy-light);border-color:#bfdbfe;color:var(--navy)}
-    .pill.door{background:var(--emerald-light);border-color:#a7f3d0;color:var(--emerald)}
-    .pill.rep{background:var(--amber-light);border-color:#fde68a;color:#92400e}
+    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase}
+    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px}
+    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;min-width:55px}
+    .dchip.on{background:var(--navy);border-color:var(--navy);color:white}
+    .dchip.on .dc-d, .dchip.on .dc-n {color:white}
+    .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
+    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
+    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05);display:flex;flex-direction:column}
+    .cc-head{padding:12px;display:flex;justify-content:space-between;align-items:flex-start}
+    .cc-name{font-size:1rem;font-weight:900;color:var(--s800);text-transform:uppercase}
+    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
-    .ca{flex:1;padding:10px 4px;border:none;background:transparent;font-size:0.63rem;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--s500);cursor:pointer;transition:background 0.1s;display:flex;align-items:center;justify-content:center;gap:3px}
-    .ca:not(:last-child){border-right:1px solid var(--border)}
-    .ca:active{background:var(--s50)}
+    .ca{flex:1;padding:12px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);border-right:1px solid var(--border)}
     .ca.p{color:var(--navy)}
-    .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
-    .d2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .df{display:flex;flex-direction:column;gap:3px}
-    .dv{font-size:0.82rem;font-weight:700;color:var(--s700)}
-    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.8rem;color:var(--s700);line-height:1.6;}
-    .dnotes ul, .dnotes ol { padding-left: 20px; margin: 8px 0; }
-    .dnotes li { margin-bottom: 6px; }
-    .gi{background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px}
-    .gi-head{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-    .gi-badge{background:linear-gradient(135deg,#4285f4,#34a853);color:white;font-size:0.58rem;font-weight:800;padding:2px 7px;border-radius:99px;letter-spacing:0.05em}
-    .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
-    .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
-    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:14px}
-    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;transition:all 0.15s;min-width:50px}
-    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
-    .dc-d{font-size:0.57rem;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400)}
-    .dchip.on .dc-d{color:rgba(255,255,255,0.6)}
-    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700);line-height:1;margin-top:2px}
-    .dchip.on .dc-n{color:white}
-    .dc-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);margin-top:3px}
-    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
-    .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
-    @keyframes sp{to{transform:rotate(360deg)}}
-    .ltxt{font-size:0.78rem;font-weight:700;color:var(--s500);letter-spacing:0.04em}
-    .empty{text-align:center;padding:48px 24px}
-    .e-icon{font-size:2.8rem;margin-bottom:10px;opacity:0.38}
-    .e-title{font-size:0.88rem;font-weight:800;color:var(--s500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px}
-    .e-sub{font-size:0.76rem;color:var(--s400);line-height:1.5}
-    @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    .cc{animation:fu 0.18s ease both}
+    .dnotes{padding:12px;background:var(--s100);font-size:0.75rem;color:var(--s700);line-height:1.5;white-space:pre-wrap}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly';
-var TARGET_FOLDER_ID = '0B69WGNfZx9kuYmFJRFhfcGxWY0k';
+var prefs = JSON.parse(localStorage.getItem(STORAGE_KEY))||{};
+var view = prefs.accessToken ? 'sched' : 'setup';
+var calEvents = prefs.calEvents || [];
+var selDate = new Date().toISOString().slice(0,10);
+var loading = false;
 
-var prefs        = loadPrefs();
-var view         = prefs.accessToken ? 'sched' : 'setup'; 
-var calEvents    = prefs.calEvents || []; 
-var loading      = false;
-var loadTxt      = 'Loading\u2026';
-var lastSync     = prefs.lastSync   || null;
-var selDate      = todayStr();
-var expandId     = null;
-var syncErr      = null;
-var accessToken  = prefs.accessToken || null;
-var userEmail    = prefs.userEmail   || null;
-var geminiKey    = prefs.geminiKey   || '';
-var insights     = {};
-var clientId     = prefs.clientId   || '';
-
-function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
-function save(){
-  prefs.accessToken=accessToken; prefs.userEmail=userEmail;
-  prefs.geminiKey=geminiKey; prefs.clientId=clientId;
-  prefs.lastSync=lastSync; prefs.searchTerm=prefs.searchTerm||'Final Measure';
-  prefs.calEvents=calEvents; 
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));}catch(e){}
-}
-function todayStr(){return new Date().toISOString().slice(0,10);}
-
-function loadGIS(cb){
-  if(window.google&&window.google.accounts){cb();return;}
-  var s=document.createElement('script');
-  s.src='https://accounts.google.com/gsi/client';
-  s.onload=cb;
-  s.onerror=function(){syncErr='Could not load Google Sign-In library.';render();};
-  document.head.appendChild(s);
-}
-
-function signIn(){
-  if(!clientId){syncErr='Enter Google Client ID first.';render();return;}
-  loadGIS(function(){
-    var client=google.accounts.oauth2.initTokenClient({
-      client_id:clientId,
-      scope:GCAL_SCOPE,
-      callback:function(resp){
-        if(resp.error){syncErr='Sign-in failed: '+resp.error;render();return;}
-        accessToken=resp.access_token;
-        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
-          .then(function(r){return r.json();})
-          .then(function(info){userEmail=info.email||'Connected';save();syncCalendar();})
-          .catch(function(){userEmail='Connected';save();syncCalendar();});
-      }
-    });
-    client.requestAccessToken({prompt:'select_account'});
-  });
-}
-
-function signOut(){
-  accessToken=null;userEmail=null;calEvents=[];
-  prefs.accessToken=null;prefs.userEmail=null;save();view='setup';render();
+function save(){ 
+  prefs.calEvents = calEvents; 
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); 
 }
 
 function syncCalendar(){
-  if(!accessToken){syncErr='Sign in with Google first.';render();return;}
-  loading=true;loadTxt='Pulling Calendar\u2026';syncErr=null;render();
-  var now=new Date();
-  var past=new Date(now);past.setDate(past.getDate()-7);
-  var future=new Date(now);future.setDate(future.getDate()+60);
-  var term=encodeURIComponent(prefs.searchTerm||'Final Measure');
-  var url='https://www.googleapis.com/calendar/v3/calendars/primary/events'
-    +'?timeMin='+encodeURIComponent(past.toISOString())
-    +'&timeMax='+encodeURIComponent(future.toISOString())
-    +'&maxResults=250&singleEvents=true&orderBy=startTime&q='+term;
-  fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
-    .then(function(r){
-      if(r.status===401){accessToken=null;prefs.accessToken=null;save();throw new Error('Session expired.');}
-      return r.json();
-    })
-    .then(function(data){
-      calEvents=(data.items||[]).map(parseEv);
-      lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      save();
-      render(); 
-      syncContracts(calEvents, selDate); 
-    })
-    .catch(function(err){loading=false;syncErr=err.message||'Sync failed.';render();});
+  if(!prefs.accessToken) return;
+  loading = true; render();
+  var past = new Date(); past.setDate(past.getDate()-7);
+  var future = new Date(); future.setDate(future.getDate()+30);
+  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q=Final Measure';
+  fetch(url,{headers:{'Authorization':'Bearer '+prefs.accessToken}})
+    .then(r=>r.json()).then(data=>{
+      calEvents = (data.items||[]).map(ev=>({
+        id: ev.id,
+        customer: ev.summary.replace(/final measure/i,'').trim(),
+        startTime: ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : 'Scheduled',
+        startDate: (ev.start.dateTime||ev.start.date).slice(0,10),
+        notes: ev.description || 'No notes.'
+      }));
+      loading = false; save(); render();
+    });
 }
-
-async function syncContracts(events, targetDate) {
-  if(!accessToken || !geminiKey) { loading=false; render(); return; }
-  var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-  var dailyEvents = events.filter(function(e) { return e.startDate === targetDate; });
-
-  for(var i=0; i<dailyEvents.length; i++){
-    var ev = dailyEvents[i];
-    loadTxt = 'Checking ' + ev.customer + '...';
-    render();
-
-    try {
-      let searchName = ev.customer.trim();
-      if (searchName.includes(' ')) { searchName = searchName.split(' ').pop(); }
-      
-      // Connection Strategy: Prioritize "(SOLD)" in PDF name
-      var query = "(fullText contains 'SOLD' or fullText contains 'Agreement' or fullText contains 'Signed') and fullText contains '" + searchName.replace(/'/g, "\\'") + "' and mimeType='application/pdf' and '" + TARGET_FOLDER_ID + "' in parents";
-      var driveUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true';
-      
-      var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
-      var dData = await dRes.json();
-
-      if(dData.files && dData.files.length > 0){
-        var file = dData.files[0];
-        var jIdx = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
-        
-        if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime && existingJobs[jIdx].data && existingJobs[jIdx].data.length > 0) continue;
-
-        loadTxt = 'Reading ' + ev.customer + '...';
-        render();
-
-        var fRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media&supportsAllDrives=true', { headers: {'Authorization': 'Bearer ' + accessToken} });
-        var blob = await fRes.blob();
-        var base64 = await new Promise(function(resolve){
-          var reader = new FileReader();
-          reader.onloadend = function(){ resolve(reader.result.split(',')[1]); };
-          reader.readAsDataURL(blob);
-        });
-
-        var prompt = "Extract all window/door units. Format as JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
-        var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
-        });
-
-        if(!gRes.ok) break; 
-        var gData = await gRes.json();
-        if(!gData.candidates) continue;
-
-        var text = gData.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        var items = JSON.parse(text).map(function(item){ return Object.assign({}, item, {fmWidth:'', fmHeight:''}); });
-
-        var newJob = { id: ev.id, customer: ev.customer, time: ev.startTime || 'Scheduled', data: items, pdfModifiedTime: file.modifiedTime };
-        if(jIdx >= 0) existingJobs[jIdx] = newJob; else existingJobs.unshift(newJob);
-        localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
-        await new Promise(function(resolve){ setTimeout(resolve, 4000); });
-      } else {
-         if(!existingJobs.some(j => j.customer === ev.customer)){
-            existingJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime || 'Scheduled', data: []});
-            localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
-         }
-      }
-    } catch(e) { console.warn(e); }
-  }
-  loading = false;
-  render();
-}
-
-function parseEv(ev){
-  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
-  var title=ev.summary||'';
-  var customer=title.replace(/final\s*measure[\s\-\u2013:]+/i,'').replace(/\bfm\b[\s\-\u2013:]+/i,'').trim()||title||'Unnamed';
-  var plainDesc = (ev.description||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&');
-  return{
-    id:ev.id, customer:customer, address:ev.location||'',
-    consultant:xf(plainDesc,['consultant','rep','salesperson','advisor'])||'',
-    notesRaw:ev.description||'', 
-    startDate:start.slice(0,10), startTime:start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'',
-    hasWin:/window/i.test(title+' '+plainDesc), hasDoor:/door/i.test(title+' '+plainDesc), htmlLink:ev.htmlLink||''
-  };
-}
-function xf(text,keys){
-  for(var i=0;i<keys.length;i++){
-    var m=text.match(new RegExp(keys[i]+'\\s*[:\\-]\\s*([^\\n\\r,]+)','i'));
-    if(m)return m[1].trim();
-  }return'';
-}
-function evDates(){var s={};var o=[];calEvents.forEach(function(e){if(e.startDate&&!s[e.startDate]){s[e.startDate]=1;o.push(e.startDate);}});return o.sort();}
-function evsFor(d){return calEvents.filter(function(e){return e.startDate===d;});}
-function isToday(d){return d===todayStr();}
-function ddiff(a,b){return(new Date(a+'T12:00:00')-new Date(b+'T12:00:00'))/86400000;}
-function isSoon(ev){if(!ev.startRaw||ev.startRaw.indexOf('T')<0)return false;var d=new Date(ev.startRaw).getTime()-Date.now();return d>0&&d<3600000;}
 
 function render(){
-  var root=document.getElementById('root');if(!root)return;
-  root.innerHTML='';
-  var wrap=el('div',{C:'app'});
-  wrap.appendChild(rHeader());
-  var main=el('div',{C:'main'});
-  if(view==='setup')rSetup(main); else if(view==='sched')rSched(main);
-  wrap.appendChild(main);root.appendChild(wrap);
-}
-
-function rHeader(){
-  var h=el('div',{C:'hdr'});
-  var top=el('div',{C:'hdr-top'});
-  var logo=el('div',{C:'hdr-logo'});
-  logo.appendChild(el('span',{C:'hdr-title',t:'Visionaire'}));
-  logo.appendChild(el('span',{C:'hdr-sub',t:'Customer Hub'}));
-  top.appendChild(logo);
-  var right=el('div',{C:'hdr-right'});
-  var badge=el('div',{C:'acct-badge'});
-  badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
-  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||'Not signed in'}));
-  right.appendChild(badge);
-  right.appendChild(el('button',{C:'hdr-btn',t:'\u2699',click:function(){view='setup';render();}}));
-  top.appendChild(right);h.appendChild(top);
-  var tabs=el('div',{C:'vtabs'});
-  [['sched','\uD83D\uDCC5 Schedule'],['manual','\uD83D\uDCDD Manual FM'],['setup','\u2699 Setup']].forEach(function(t){
-    tabs.appendChild(el('button',{
-      C:'vtab'+(view===t[0]?' on':''), t:t[1],
-      click:function(){
-        if(t[0]==='manual'){
-          var n=prompt("Name:"); if(n){
-            var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
-            var id=Date.now(); j.unshift({id:id, customer:n, time:'Manual', data:[]});
-            localStorage.setItem('visionaireJobs',JSON.stringify(j));
-            localStorage.setItem('activeJobId', JSON.stringify(id));
-            window.location.href='measure.html';
-          }
-        }else{view=t[0];render();}
-      }
-    }));
+  var root = document.getElementById('root');
+  root.innerHTML = '';
+  var wrap = el('div',{C:'app'});
+  
+  // Header
+  var h = el('div',{C:'hdr'});
+  var ht = el('div',{C:'hdr-top'});
+  ht.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
+  h.appendChild(ht);
+  var tabs = el('div',{C:'vtabs'});
+  [['sched','Schedule'],['setup','Setup']].forEach(t=>{
+    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:()=>{view=t[0];render();}}));
   });
-  h.appendChild(tabs);return h;
-}
+  h.appendChild(tabs); wrap.appendChild(h);
 
-function rSetup(main){
-  var body=el('div',{C:'sc-body'});
-  body.appendChild(el('span',{C:'lbl',t:'Google OAuth Client ID'}));
-  var ci=el('input',{C:'inp',value:clientId});
-  ci.addEventListener('input',function(){clientId=this.value.trim();save();});
-  body.appendChild(ci);
-  if(accessToken&&userEmail){
-    body.appendChild(el('button',{C:'g-btn conn',t:'\u2713 '+userEmail,click:signOut}));
+  var main = el('div',{C:'main'});
+  if(view==='setup'){
+    main.appendChild(el('div',{t:'Go to Setup to manage Google/Gemini connection.'}));
   } else {
-    var gb=el('button',{C:'g-btn',click:signIn,t:'Sign in with Google'});
-    body.appendChild(gb);
+    var sb = el('div',{C:'sync-bar'});
+    sb.appendChild(el('span',{C:'sync-title',t:'Visionaire Calendar'}));
+    sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
+    main.appendChild(sb);
+
+    // Date Strip
+    var ds = el('div',{C:'dstrip'});
+    for(var i=-1; i<10; i++){
+      var d = new Date(); d.setDate(d.getDate()+i);
+      var iso = d.toISOString().slice(0,10);
+      var chip = el('div',{C:'dchip'+(selDate===iso?' on':''),click:((val)=>{return()=>{selDate=val;render();}})(iso)});
+      chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
+      chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+      ds.appendChild(chip);
+    }
+    main.appendChild(ds);
+
+    calEvents.filter(e=>e.startDate===selDate).forEach(ev=>{
+      var card = el('div',{C:'cc'});
+      var head = el('div',{C:'cc-head'});
+      head.appendChild(el('div',{C:'cc-name',t:ev.customer}));
+      head.appendChild(el('div',{C:'cc-time',t:ev.startTime}));
+      card.appendChild(head);
+      
+      var acts = el('div',{C:'cc-acts'});
+      acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{
+        localStorage.setItem('activeJobId', JSON.stringify(ev.id));
+        var jobs = JSON.parse(localStorage.getItem('visionaireJobs'))||[];
+        if(!jobs.find(j=>j.id===ev.id)) jobs.unshift({id:ev.id, customer:ev.customer, data:[]});
+        localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
+        window.location.href = 'measure.html';
+      }}));
+      card.appendChild(acts);
+      main.appendChild(card);
+    });
   }
-  body.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
-  var gk=el('input',{C:'inp',type:'password',value:geminiKey});
-  gk.addEventListener('input',function(){geminiKey=this.value.trim();save();});
-  body.appendChild(gk);
-  body.appendChild(el('button',{C:'btn-p',t:'Save & Sync',click:function(){save(); if(accessToken){view='sched';syncCalendar();}else{render();}}}));
-  var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'System Config'})); sc.appendChild(body);
-  main.appendChild(sc);
+  wrap.appendChild(main); root.appendChild(wrap);
 }
 
-function rSched(main){
-  if(!accessToken){rNoAuth(main);return;}
-  var sb=el('div',{C:'sync-bar'});
-  var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail})); si.appendChild(el('div',{C:'sync-sub',t:'Synced '+lastSync}));
-  sb.appendChild(si);
-  var syn=el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar});
-  syn.disabled=loading; sb.appendChild(syn); main.appendChild(sb);
-  if(loading){main.appendChild(el('div',{C:'lrow',t:loadTxt}));return;}
-  rDateStrip(main);
-  evsFor(selDate).forEach(function(ev){main.appendChild(rCard(ev));});
-}
-
-function rDateStrip(main){
-  var strip=el('div',{C:'dstrip'});
-  var evd=evDates();
-  var days=[]; for(var i=-1;i<=14;i++){ var d=new Date(); d.setDate(d.getDate()+i); days.push(d.toISOString().slice(0,10)); }
-  days.forEach(function(ds){
-    var chip=el('div',{C:'dchip'+(ds===selDate?' on':'')+(evsFor(ds).length?' ev':''),click:function(){
-      selDate=ds; render(); if(accessToken&&geminiKey&&!loading){loading=true;render();syncContracts(calEvents,selDate);}
-    }});
-    var d=new Date(ds+'T12:00:00');
-    chip.appendChild(el('div',{C:'dc-d',t:isToday(ds)?'TODAY':d.toLocaleDateString([],{weekday:'short'})}));
-    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
-    strip.appendChild(chip);
-  });
-  main.appendChild(strip);
-}
-
-function rCard(ev){
-  var isExp=expandId===ev.id;
-  var card=el('div',{C:'cc'});
-  var head=el('div',{C:'cc-head'});
-  head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
-  var body=el('div',{C:'cc-body'});
-  var top=el('div',{C:'cc-top'}); top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
-  if(ev.startTime)top.appendChild(el('span',{C:'cc-time',t:ev.startTime}));
-  body.appendChild(top); if(ev.address)body.appendChild(el('div',{C:'cc-addr',t:ev.address}));
-  head.appendChild(body); card.appendChild(head);
-  if(isExp){
-    var det=el('div',{C:'cc-det'});
-    det.appendChild(el('div',{C:'dnotes'})).innerHTML = ev.notesRaw; // Clean formatting!
-    card.appendChild(det);
-  }
-  var acts=el('div',{C:'cc-acts'});
-  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:function(){
-    var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
-    if(!j.some(i=>i.customer===ev.customer))j.unshift({id:ev.id, customer:ev.customer, time:ev.startTime, data:[]});
-    localStorage.setItem('visionaireJobs',JSON.stringify(j));
-    localStorage.setItem('activeJobId', JSON.stringify(ev.id));
-    window.location.href='measure.html';
-  }}));
-  acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:function(){expandId=isExp?null:ev.id;render();}}));
-  card.appendChild(acts); return card;
-}
-
-function rNoAuth(main){ var es=el('div',{C:'empty',t:'Please sign in in Setup.'}); main.appendChild(es); }
 function el(tag,props){
-  var e=document.createElement(tag); if(!props)return e;
-  for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else e[k]=props[k]; }
+  var e=document.createElement(tag);
+  for(var k in props){
+    if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else e[k]=props[k];
+  }
   return e;
 }
-document.addEventListener('DOMContentLoaded',render);
+render();
 </script>
 </body>
 </html>
