@@ -86,7 +86,8 @@
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly';
+// Added email scope back so we can see who is logged in!
+var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
 
 var prefs        = loadPrefs();
 var view         = prefs.accessToken ? 'sched' : 'setup'; 
@@ -128,7 +129,8 @@ function signIn(){
         if(resp.error)return;
         accessToken=resp.access_token;
         fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
-          .then(r=>r.json()).then(info=>{userEmail=info.email; save(); syncCalendar();});
+          .then(r=>r.json()).then(info=>{userEmail=info.email||'Connected User'; save(); syncCalendar();})
+          .catch(()=>{userEmail='Connected User'; save(); syncCalendar();});
       }
     });
     client.requestAccessToken({prompt:'select_account'});
@@ -261,7 +263,7 @@ function rHeader(){
   top.appendChild(logo);
   var badge=el('div',{C:'acct-badge'});
   badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
-  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||'Not signed in'}));
+  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Not signed in')}));
   top.appendChild(badge); h.appendChild(top);
   
   var tabs=el('div',{C:'vtabs'});
@@ -291,8 +293,9 @@ function rSetup(main){
   var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
   body.appendChild(ci);
   
-  if(accessToken&&userEmail){
-    body.appendChild(el('button',{C:'g-btn conn',t:'\u2713 Connected as '+userEmail, click: signOut}));
+  // FAILSAFE: Always render the disconnect button if token exists
+  if(accessToken){
+    body.appendChild(el('button',{C:'g-btn conn',t:'\u2713 Signed In (' + (userEmail || 'Account') + ')', click: signOut}));
   } else {
     body.appendChild(el('button',{C:'g-btn',t:'Sign in with Google', click: signIn}));
   }
@@ -300,10 +303,10 @@ function rSetup(main){
   body.appendChild(el('span',{C:'lbl',t:'Gemini Key'}));
   var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
   body.appendChild(gk);
-  body.appendChild(el('button',{C:'btn-p',t:'Save Config',click:()=>{save();syncCalendar();}}));
+  body.appendChild(el('button',{C:'btn-p',t:'Save Config & Sync',click:()=>{save();syncCalendar();}}));
   
   if(accessToken){
-    body.appendChild(el('button',{C:'btn-disc',t:'Sign Out / Disconnect',click:signOut}));
+    body.appendChild(el('button',{C:'btn-disc',t:'Force Sign Out / Disconnect',click:signOut}));
   }
   
   var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'System Config'})); sc.appendChild(body);
@@ -313,7 +316,7 @@ function rSetup(main){
 function rSched(main){
   if(!accessToken){main.appendChild(el('div',{t:'Go to Setup to sign in.'})); return;}
   var sb=el('div',{C:'sync-bar'});
-  var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail})); si.appendChild(el('div',{C:'sync-sub',t:'Last: '+lastSync}));
+  var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail||'Calendar Sync'})); si.appendChild(el('div',{C:'sync-sub',t:'Last: '+lastSync}));
   sb.appendChild(si); sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
   main.appendChild(sb);
   if(loading){main.appendChild(el('div',{C:'lrow',t:'Pulling Calendar...'})); return;}
