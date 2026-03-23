@@ -548,15 +548,23 @@ function rCard(ev){
     card.appendChild(det);
   }
 
-  var acts=el('div',{C:'cc-acts'});
+ var acts=el('div',{C:'cc-acts'});
   var fm=el('button',{C:'ca p',t:'\uD83D\uDCCB FM Sheet',click:function(){
-    // Ensure the job exists in memory before redirecting
+    // 1. Ensure job is in memory
     var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
     var exists = eJobs.some(function(j){return j.customer === ev.customer;});
     if(!exists){
       eJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime||'Scheduled', data: []});
       localStorage.setItem('visionaireJobs', JSON.stringify(eJobs));
     }
+    
+    // 2. Tell the next page EXACTLY which customer to open
+    localStorage.setItem('activeJobId', JSON.stringify(ev.id));
+    
+    // 3. Send the user to the actual Measure Sheet file
+    window.location.href = 'measure.html';
+  }});
+  acts.appendChild(fm);
     // Redirect seamlessly to Field Command
     window.location.href = 'index.html';
   }});
