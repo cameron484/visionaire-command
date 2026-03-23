@@ -156,55 +156,7 @@ function syncCalendar(){
       calEvents=(data.items||[]).map(parseEv);
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       save(); loading=false; render();
-      syncContracts(calEvents, selDate);
     });
-}
-
-async function syncContracts(events, targetDate) {
-  if(!accessToken || !geminiKey) return;
-  var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-  var dailyEvents = events.filter(function(e) { return e.startDate === targetDate; });
-
-  for(var i=0; i<dailyEvents.length; i++){
-    var ev = dailyEvents[i];
-    try {
-      let cleanName = ev.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
-      let nameParts = cleanName.split(/\s+/);
-      let searchTarget = nameParts.reduce((a, b) => a.length > b.length ? a : b); 
-      searchTarget = searchTarget.replace(/'/g, "\\'");
-      
-      var query = `fullText contains '${searchTarget}' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement' or name contains 'Order') and mimeType='application/pdf'`;
-      var driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
-      
-      var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
-      var dData = await dRes.json();
-
-      if(dData.files && dData.files.length > 0){
-        var file = dData.files[0];
-        var jIdx = existingJobs.findIndex(j => j.customer === ev.customer);
-        if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime) continue;
-
-        var fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`, { headers: {'Authorization': 'Bearer ' + accessToken} });
-        var blob = await fRes.blob();
-        var base64 = await new Promise(r => { var rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
-
-        var prompt = "Extract all window/door units. JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
-        var gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
-        });
-        if(!gRes.ok) break; 
-        var gData = await gRes.json();
-        var text = gData.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        var items = JSON.parse(text).map(it => Object.assign({}, it, {fmWidth:'', fmHeight:''}));
-
-        var newJob = { id: ev.id, customer: ev.customer, time: ev.startTime, data: items, pdfModifiedTime: file.modifiedTime };
-        if(jIdx >= 0) existingJobs[jIdx] = newJob; else existingJobs.unshift(newJob);
-        localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
-        await new Promise(r => setTimeout(r, 4000));
-      }
-    } catch(e) { console.warn(e); }
-  }
 }
 
 function geminiInsight(ev){
@@ -340,7 +292,7 @@ function rDateStrip(main){
   var strip=el('div',{C:'dstrip'});
   for(var i=-1; i<=14; i++){
     var d=new Date(); d.setDate(d.getDate()+i); var iso=d.toISOString().slice(0,10);
-    var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),click:()=>{selDate=iso; render(); if(geminiKey&&!loading){syncContracts(calEvents,selDate);}}});
+    var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),click:()=>{selDate=iso; render();}});
     chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
     chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
     strip.appendChild(chip);
