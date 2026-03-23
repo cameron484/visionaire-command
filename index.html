@@ -399,7 +399,7 @@ function rHeader(){
             var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
             eJobs.unshift({id: Date.now(), customer: name, time: 'Manual', data: []});
             localStorage.setItem('visionaireJobs', JSON.stringify(eJobs));
-            window.location.href = 'index.html';
+            window.location.href = 'measure.html';
           }
         } else {
           view = t[0];
@@ -548,7 +548,7 @@ function rCard(ev){
     card.appendChild(det);
   }
 
-var acts=el('div',{C:'cc-acts'});
+  var acts=el('div',{C:'cc-acts'});
   var fm=el('button',{C:'ca p',t:'\uD83D\uDCCB FM Sheet',click:function(){
     var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
     var targetId = ev.id;
@@ -572,6 +572,14 @@ var acts=el('div',{C:'cc-acts'});
     window.location.href = 'measure.html';
   }});
   acts.appendChild(fm);
+  
+  var ca=el('button',{C:'ca',t:'\uD83D\uDCC5 Event',click:function(){if(ev.htmlLink)window.open(ev.htmlLink,'_blank');}});
+  acts.appendChild(ca);
+  var exp=el('button',{C:'ca',t:isExp?'\u25B2 Less':'\u25BC Details',click:function(){expandId=isExp?null:ev.id;render();}});
+  acts.appendChild(exp);
+  card.appendChild(acts);return card;
+}
+
 // ── UTILITY ───────────────────────────────────────────────────────────────
 function el(tag,props){
   var e=document.createElement(tag);
