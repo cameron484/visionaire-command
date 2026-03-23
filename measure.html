@@ -1,143 +1,1056 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire Field Command</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body { overscroll-behavior-y: contain; background: #f1f5f9; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
-    .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 0.4rem; }
-    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; }
-    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Visionaire — Measure Sheet</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<style>
+:root{
+  --navy:#1a3a5c; --navy2:#162d47; --gold:#f59e0b; --green:#059669;
+  --red:#dc2626; --blue:#1e40af; --bluel:#eff6ff; --blueb:#bfdbfe;
+  --bg:#eef1f7; --card:#fff; --border:#dde3ec; --text:#1e293b; --muted:#64748b;
+  --door:#064e3b; --door-border:#6ee7b7; --door-light:#ecfdf5;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;font-family:'Courier New',monospace;background:var(--bg);color:var(--text);font-size:15px}
+.topbar{background:var(--navy);color:white;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.3);position:sticky;top:0;z-index:100}
+.topbar h1{font-size:15px;font-weight:700;letter-spacing:.06em}
+.topbar p{font-size:8px;opacity:.55;letter-spacing:.16em;text-transform:uppercase}
+.cbar{background:var(--navy2);border-bottom:3px solid var(--gold);padding:9px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tabbar{background:var(--navy);display:flex;border-top:1px solid rgba(255,255,255,.1);position:sticky;top:56px;z-index:99}
+.tabbar button{flex:1;border:none;background:transparent;color:rgba(255,255,255,.6);font-family:inherit;font-size:13px;font-weight:700;padding:12px 6px;cursor:pointer;border-bottom:3px solid transparent}
+.tabbar button.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,255,255,.05)}
+.btn{border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;white-space:nowrap;height:52px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center}
+.btn-green{background:var(--green);color:white}
+.btn-blue{background:#1d4ed8;color:white}
+.btn-red{background:var(--red);color:white}
+.card{background:var(--card);border-radius:12px;border:1.5px solid var(--border);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.ch{background:var(--navy);color:white;padding:10px 16px;font-size:13px;font-weight:700;letter-spacing:.07em;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.badge{background:rgba(255,255,255,.18);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700}
+.cb{padding:14px}
+.lbl{display:block;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px}
+input[type=text],textarea,select{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:0 12px;height:52px;font-family:inherit;font-size:15px;color:var(--text);background:white;outline:none;-webkit-appearance:none;appearance:none;box-sizing:border-box}
+input[type=text]:focus,textarea:focus,select:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,58,92,.12)}
+input.mm{border-color:var(--red)!important;background:#fff1f2!important}
+textarea{height:auto;min-height:80px;padding:12px;resize:vertical;line-height:1.5}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%2364748b' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px;cursor:pointer}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.warn{background:#fef3c7;border:1.5px solid var(--gold);border-radius:8px;padding:10px 14px;text-align:center;font-size:12px;font-weight:700;color:#92400e;margin:10px 0}
+/* Group buttons */
+.grp-btn{border-radius:14px;min-height:70px;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;margin-bottom:8px;box-shadow:0 3px 10px rgba(0,0,0,.18);user-select:none;padding:0 20px}
+.grp-btn-navy{background:var(--navy)}
+.grp-btn-door{background:var(--door)}
+.grp-btn-title{color:white;font-size:20px;font-weight:700;letter-spacing:.05em;text-align:center}
+.grp-btn-sub{color:rgba(255,255,255,.6);font-size:12px;margin-top:3px;text-align:center}
+.grp-btn-chev{position:absolute;right:18px;color:rgba(255,255,255,.5);font-size:18px;transition:transform .2s}
+.grp-btn-chev.open{transform:rotate(180deg)}
+/* Expand/collapse bar */
+.exp-bar{display:flex;gap:8px;margin-bottom:8px}
+.exp-bar button{flex:1;border:1.5px solid var(--border);background:white;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.exp-bar button.door-btn{border-color:var(--door-border);color:var(--door)}
+.exp-bar button.plain-btn{color:var(--muted)}
+/* Line cards */
+.line-card{background:white;border:1.5px solid var(--border);border-radius:10px;margin-bottom:6px;overflow:hidden}
+.line-card.door-card{border-color:var(--door-border)}
+.line-summary{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;min-height:58px}
+.line-summary:active{background:#f8fafc}
+.door-card .line-summary{background:#f0fdf4}
+.line-num{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;background:var(--navy);color:white}
+.door-card .line-num{background:var(--door)}
+.sum-info{flex:1;min-width:0}
+.sum-loc{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum-loc.empty{color:var(--muted);font-weight:400;font-style:italic}
+.sum-ct{font-size:10px;color:var(--blue);font-weight:700;margin-top:1px}
+.sum-sz{font-size:11px;color:var(--muted);margin-top:1px}
+.sum-sz.filled{color:var(--green);font-weight:700}
+.sum-sz.mm{color:var(--red);font-weight:700}
+.chev{font-size:14px;color:var(--muted);flex-shrink:0;transition:transform .2s}
+.chev.open{transform:rotate(180deg)}
+.line-body{display:none;padding:12px 14px;flex-direction:column;gap:10px;border-top:1px solid var(--border);background:#fafbfc}
+.line-body.open{display:flex}
+.door-card .line-body{border-top-color:var(--door-border);background:#f0fdf4}
+.size-inp{height:50px;font-size:20px;font-weight:700;text-align:center;border-radius:8px;border:2px solid var(--border);outline:none;background:white;width:100%;font-family:inherit;-webkit-appearance:none}
+.size-inp:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,58,92,.12)}
+.size-inp.mm{border-color:var(--red)!important;background:#fff1f2!important}
+/* section divider */
+.sdiv{display:flex;align-items:center;gap:12px;margin:20px 0 14px}
+.sdiv-line{flex:1;height:3px;border-radius:2px}
+.sdiv-label{background:var(--door);color:white;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:8px 20px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(6,78,59,.3)}
+/* sign-off */
+.so-sec{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;border-bottom:2px solid var(--navy);padding-bottom:5px;margin:16px 0 12px}
+.so-item{border-bottom:1px solid #eef0f4;padding-bottom:14px;margin-bottom:14px}
+.so-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.so-label{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.so-cv{font-size:11px;color:var(--blue);background:var(--bluel);border:1px solid var(--blueb);border-radius:5px;padding:3px 9px;display:inline-block;margin-bottom:4px}
+.conf-btn{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;white-space:nowrap;background:none;border:none;font-family:inherit;padding:8px 0;min-width:130px;justify-content:flex-end}
+.conf-btn input[type=checkbox]{width:24px;height:24px;accent-color:var(--green);cursor:pointer;flex-shrink:0}
+.so-note{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;height:52px;font-family:inherit;margin-top:8px;outline:none}
+.sig-box{border-bottom:2px solid var(--navy);min-height:52px;padding:6px 8px;font-size:26px;font-family:Georgia,serif;color:var(--navy);margin-bottom:6px}
+.info-box{background:var(--bluel);border:1px solid var(--blueb);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blue);margin-bottom:14px;line-height:1.5}
+.qty-box{background:#f1f5f9;border:1.5px solid var(--border);border-radius:10px;padding:10px;text-align:center;flex:1}
+.qty-box input{height:auto;padding:0;border:none;font-size:28px;font-weight:700;color:var(--navy);text-align:center;background:transparent;width:100%;outline:none}
+.qty-box .ql{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.other-inp{margin-top:8px}
+.pill{border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.pill-red{background:var(--red);color:white}
+.pill-green{background:var(--green);color:white}
+#save-ind{position:fixed;bottom:16px;right:16px;background:var(--green);color:white;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:700;opacity:0;transition:opacity .4s;z-index:999;pointer-events:none}
+@media print{.topbar,.cbar,.tabbar,#save-ind,.no-print{display:none!important}.line-body{display:flex!important}body{background:white}.line-card{break-inside:avoid}}
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+<div class="topbar">
+  <div><h1>VISIONAIRE WINDOWS</h1><p>Final Measure Sheet · Offline</p></div>
+  <div style="display:flex;gap:6px">
+    <button class="btn btn-green" onclick="window.print()">🖨</button>
+    <button class="btn btn-red no-print" onclick="resetAll()" style="padding:0 12px">🗑</button>
+  </div>
+</div>
+<div class="cbar">
+  <span style="color:var(--gold);font-weight:700;font-size:12px;white-space:nowrap">📄 CONTRACT</span>
+  <button class="btn btn-blue" id="upbtn" onclick="document.getElementById('fi').click()" style="height:40px;padding:0 14px;font-size:12px">⬆ Upload PDF</button>
+  <input type="file" id="fi" accept=".pdf,application/pdf" style="display:none" onchange="handleUpload(event)"/>
+  <span id="cst" style="font-size:11px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  <label id="showcbl" style="display:none;align-items:center;gap:6px;cursor:pointer;color:white;font-size:12px;white-space:nowrap">
+    <input type="checkbox" id="showcb" style="accent-color:var(--gold);width:16px;height:16px" onchange="toggleShow()"/> Show contract
+  </label>
+  <span id="mmp" style="display:none"></span>
+</div>
+<div class="tabbar">
+  <button id="tab-sheet" class="active" onclick="switchTab('sheet')">📋 Measure Sheet</button>
+  <button id="tab-so" onclick="switchTab('so')">✍️ Sign-Off</button>
+</div>
+<div style="padding:12px 12px 60px" id="content"></div>
+<div id="save-ind">✓ Saved</div>
 
-    function VisionaireApp() {
-      const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
-      const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
-      const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
-      const [activeItemIndex, setActiveItemIndex] = useState(0);
-      const [activeField, setActiveField] = useState('fmWidth');
-      const [loading, setLoading] = useState(false);
+<script>
+// PDF.js — disable worker for mobile compatibility
+if(typeof pdfjsLib !== 'undefined') pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
-      const activeJob = jobs.find(j => j.id === activeJobId);
-      const currentItem = activeJob?.data?.[activeItemIndex] || {};
+// ── Option lists ────────────────────────────────────────────────────────────
+var BRANDS  = ["Aspect","Pella","Simonton","Endure","Aries","EcoLite","NBP","Wood","PVC","Other"];
+var GLASS   = ["Clear / DC","Low-E 2 / DLA","Low-E 3 / DLA-UV","Other"];
+var EXIST   = ["Wood","Metal","Vinyl","Other"];
+var CREW    = ["Retro (Woodout)","Capping"];
+var GRIDS   = ["None","Contour","Flat","SDL","Other"];
+var GLASS_O = ["None","Tempered","Obscure \u2013 Standard","Obscure \u2013 Rain / Aquatex","Obscure \u2013 Flemish","Obscure \u2013 Satin Etch","Obscure \u2013 Granite","Obscure \u2013 Bamboo","Other"];
+var WIN_T   = ["DH","SH","PIC","SL","CT","CTX","AW","C","Other"];
+var DOOR_T  = ["Single","Double / French","Sliding","Single w/ Sidelights","Double w/ Sidelights","Arch Transom","Rect. Transom","Eyebrow Transom","Other"];
+var JAMBS   = ["4-9/16\" (2\u00d74 wall)","6-9/16\" (2\u00d76 wall)","8-9/16\" (2\u00d78 wall)","4-5/8\"","5-1/2\"","6-5/8\"","Custom"];
+var SWINGS  = ["R/in \u2013 Right Hand Inswing","L/in \u2013 Left Hand Inswing","R/out \u2013 Right Hand Outswing","L/out \u2013 Left Hand Outswing","Active/Passive \u2013 Right Active","Active/Passive \u2013 Left Active"];
+var CASINGS = ["356 \u2013 2-1/4\"","366 \u2013 2-1/2\"","376 \u2013 2-1/4\"","444 \u2013 3-1/4\"","445 \u2013 3-1/4\"","351 \u2013 2-1/2\"","327 \u2013 2-1/4\"","412 \u2013 3-1/2\"","S4S 1\u00d74 \u2013 3-1/2\"","S4S 1\u00d76 \u2013 5-1/2\"","RB3 \u2013 3-1/2\"","Other"];
 
-      useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
+function mkW(n){ return {lineNum:n,width:"",height:"",qty:"",type:"DH",location:"",grids:"None",glass:"None",glassOther:"",notes:"",_ctOpenW:"",_ctOpenH:"",_ctUnitW:"",_ctUnitH:"",_verified:false}; }
+function mkD(){ return {doorType:"",doorTypeOther:"",osj:false,osbm:false,width:"",height:"",doorStyle:"",jambDepth:"",jambCustom:"",swing:"",casing:"",casingOther:"",color:"",notes:"",_ctUnitW:"",_ctUnitH:"",_ctCustomSize:false}; }
+function mkSO(label){ return {label:label,contracted:"",confirmed:false,note:""}; }
 
-      const goBackToHub = () => { window.location.href = 'index.html'; };
+var S = {
+  tab:"sheet",
+  exp:{},
+  header:{customerName:"",consultant:"",date:"",
+    winQty:"",doorQty:"",installCrew:"",windowBrand:"",windowBrandOther:"",
+    glassType:"",glassTypeOther:"",existingType:"",existingTypeOther:"",homeownerInitials:""},
+  wins:  (function(){ var a=[]; for(var i=0;i<40;i++) a.push(mkW(i+1)); return a; })(),
+  doors: (function(){ var a=[]; for(var i=0;i<8;i++) a.push(mkD()); return a; })(),
+  custNotes:"",
+  so:{
+    alarm:    mkSO("Alarm contacts reviewed & signed off"),
+    photos:   mkSO("Photos taken \u2014 all sides from exterior"),
+    mfr:      mkSO("Window manufacturer / brand"),
+    glass:    mkSO("Glass type"),
+    grids:    mkSO("Grid style"),
+    intColor: mkSO("Interior window color"),
+    extColor: mkSO("Exterior window color"),
+    capping:  mkSO("Capping color"),
+    doorColor:mkSO("Door color"),
+    doorSwing:mkSO("Door swing direction(s)"),
+    jamb:     mkSO("Jamb depth"),
+    custom:   mkSO("Additional items reviewed"),
+  },
+  sigHO:"",sigRep:"",sigDate:new Date().toLocaleDateString(),
+  contract:null,showContract:false,
+};
 
-      const updateItem = (key, value) => {
-        setJobs(prev => prev.map(job => {
-          if (job.id === activeJobId) {
-            const newData = [...job.data];
-            newData[activeItemIndex] = { ...newData[activeItemIndex], [key]: value };
-            return { ...job, data: newData };
-          }
-          return job;
-        }));
-      };
+try {
+  var sv = localStorage.getItem("vm_v1");
+  if(sv) {
+    var p = JSON.parse(sv);
+    S = {exp:{},contract:null,showContract:false};
+    S.tab = p.tab||"sheet";
+    S.exp = p.exp||{};
+    S.header = Object.assign({customerName:"",consultant:"",date:new Date().toLocaleDateString(),winQty:"",doorQty:"",installCrew:"",windowBrand:"",windowBrandOther:"",glassType:"",glassTypeOther:"",existingType:"",existingTypeOther:"",homeownerInitials:""}, p.header||{});
+    // Date is stamped at contract upload time
+    S.wins = p.wins || (function(){ var a=[]; for(var i=0;i<40;i++) a.push(mkW(i+1)); return a; })();
+    S.doors = p.doors || (function(){ var a=[]; for(var i=0;i<8;i++) a.push(mkD()); return a; })();
+    S.custNotes = p.custNotes||"";
+    var soKeys = ["alarm","photos","mfr","glass","grids","intColor","extColor","capping","doorColor","doorSwing","jamb","custom"];
+    S.so = {};
+    soKeys.forEach(function(k){ S.so[k] = Object.assign(mkSO(""), p.so&&p.so[k]||{}); });
+    S.sigHO = p.sigHO||""; S.sigRep = p.sigRep||""; S.sigDate = p.sigDate||new Date().toLocaleDateString();
+    S.contract = p.contract||null; S.showContract = p.showContract||false;
+  }
+} catch(e){}
 
-      const handleKeyPress = (val) => {
-        let cur = currentItem[activeField] || '';
-        if (val === 'DEL') cur = cur.slice(0, -1);
-        else if (val === 'CLR') cur = '';
-        else cur += (cur.length > 0 && val.includes('/') ? ' ' : '') + val;
-        updateItem(activeField, cur);
-      };
+var svt = null;
+function save(){
+  clearTimeout(svt);
+  svt = setTimeout(function(){
+    try { localStorage.setItem("vm_v1", JSON.stringify(S)); } catch(e){}
+    var el = document.getElementById("save-ind");
+    if(el){ el.style.opacity="1"; setTimeout(function(){ el.style.opacity="0"; }, 1400); }
+  }, 600);
+}
+function resetAll(){
+  if(!confirm("Start new job? All data will be cleared.")) return;
+  localStorage.removeItem("vm_v1");
+  location.reload();
+}
 
-      const autoLoadContract = async (job) => {
-        const token = prefs.accessToken;
-        const apiKey = prefs.geminiKey;
-        if (!token || !apiKey) return alert("System not fully configured in Hub.");
-        setLoading(true);
-        try {
-          // SMART NAME EXTRACTION
-          let cleanName = job.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
-          let nameParts = cleanName.split(/\s+/);
-          // Find the longest word in their name (the most unique identifier)
-          let searchTarget = nameParts.reduce((a, b) => a.length > b.length ? a : b); 
-          searchTarget = searchTarget.replace(/'/g, "\\'");
-          
-          // BULLETPROOF SEARCH: Looks in file contents AND filename for the unique name + any contract keyword
-          const query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement' or name contains 'SOLD' or name contains 'Order') and mimeType='application/pdf'`;
-          const driveUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`;
-          
-          const driveRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
-          const driveData = await driveRes.json();
-          if (!driveData.files?.length) { setLoading(false); return alert(`No signed contract found containing "${searchTarget}".`); }
-
-          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
-          const blob = await fileRes.blob();
-          const reader = new FileReader();
-          reader.readAsDataURL(blob);
-          reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            const promptText = `Extract units as JSON: [{"line":"1","itemType":"Window","location":"","style":"","contractSize":"","color":"","hardware":"","extras":"","qty":"1"}]`;
-            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
+// ── PDF extraction ──────────────────────────────────────────────────────────
+function extractPDFText(file, cb){
+  var fr = new FileReader();
+  fr.onerror = function(){ cb(new Error("Could not read file"), null); };
+  fr.onload = function(e){
+    var buf = new Uint8Array(e.target.result);
+    if(typeof pdfjsLib === "undefined"){ cb(new Error("PDF library unavailable \u2014 need internet"), null); return; }
+    pdfjsLib.getDocument({data:buf, disableWorker:true}).promise.then(function(pdf){
+      var text = ""; var pageNum = 1;
+      function nextPage(){
+        if(pageNum > pdf.numPages){ cb(null, text); return; }
+        pdf.getPage(pageNum).then(function(page){
+          page.getTextContent().then(function(tc){
+            var byY = {};
+            tc.items.forEach(function(item){
+              var y = Math.round(item.transform[5]);
+              if(!byY[y]) byY[y] = [];
+              byY[y].push({x:item.transform[4], str:item.str});
             });
-            if (!geminiRes.ok) { setLoading(false); return alert("AI limit hit. Wait 60 seconds."); }
-            const result = await geminiRes.json();
-            const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const items = JSON.parse(text).map(i => ({ ...i, fmWidth: '', fmHeight: '' }));
-            setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items } : j));
-            setLoading(false);
-          };
-        } catch (e) { setLoading(false); console.error(e); }
-      };
+            var ys = Object.keys(byY).map(Number).sort(function(a,b){ return b-a; });
+            ys.forEach(function(y){
+              var line = byY[y].sort(function(a,b){ return a.x-b.x; }).map(function(i){ return i.str; }).join(" ").trim();
+              if(line) text += line + "\n";
+            });
+            text += "\n";
+            pageNum++;
+            nextPage();
+          });
+        });
+      }
+      nextPage();
+    }).catch(function(err){ cb(err, null); });
+  };
+  fr.readAsArrayBuffer(file);
+}
 
-      return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col shadow-xl">
-          <header className="bg-[#1a3a5c] text-white p-5 border-b-4 border-[#f59e0b] flex justify-between items-center">
-            <h1 className="font-black italic text-xl uppercase">Visionaire Field Command</h1>
-            <button onClick={goBackToHub} className="text-[#f59e0b] font-black text-[10px] uppercase">Close</button>
-          </header>
-          <main className="p-4 flex-1 pb-32 bg-slate-100">
-            <div className="space-y-6">
-              <h3 className="font-black text-2xl uppercase text-slate-800">{activeJob?.customer}</h3>
-              {loading ? <div className="p-20 text-center animate-pulse">SEARCHING FILES & ANALYZING...</div> : 
-               !activeJob?.data?.length ? <button onClick={() => autoLoadContract(activeJob)} className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase shadow-lg">Scan PDF Contract 📄</button> :
-               <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
-                  <div className="flex justify-between items-center"><span className="font-bold text-xs uppercase">Item {activeItemIndex + 1} of {activeJob.data.length}</span><span className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white">{currentItem.itemType}</span></div>
-                  <div><span className="field-label">Location</span><h2 className="text-2xl font-black text-slate-800 uppercase">{currentItem.location || 'Unknown'}</h2></div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    {['Grids', 'Glass'].map(type => (
-                      <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
-                    ))}
-                  </div>
-                  <div><span className="field-label">Contract Specs / Extras</span><div className="bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">{currentItem.style} | {currentItem.color} | {currentItem.hardware} <br/> {currentItem.extras}</div></div>
+// ── Fraction helper ─────────────────────────────────────────────────────────
+function frac(s){
+  if(!s) return null;
+  s = String(s).trim().replace(/['"]/g,"").replace(/\s+/g," ");
+  var m = s.match(/^(\d+) (\d+)\/(\d+)$/); if(m) return +m[1]+parseInt(m[2])/parseInt(m[3]);
+  m = s.match(/^(\d+)\/(\d+)$/); if(m) return parseInt(m[1])/parseInt(m[2]);
+  m = s.match(/^(\d+)-(\d+)\/(\d+)$/); if(m) return +m[1]+parseInt(m[2])/parseInt(m[3]);
+  if(/^\d+\.?\d*$/.test(s)) return parseFloat(s);
+  return null;
+}
+function dispSize(n){
+  if(n===null||n===undefined||n==="") return "";
+  n = parseFloat(n);
+  var w = Math.floor(n), rem = Math.round((n-w)*8);
+  var fracs = ["","1/8","1/4","3/8","1/2","5/8","3/4","7/8"];
+  if(rem===0) return String(w);
+  if(w===0) return fracs[rem];
+  return w+" "+fracs[rem];
+}
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
-                      <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
-                  </div>
-               </div>}
-              {!loading && activeJob?.data?.length > 0 && <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs">{f}</button>)}</div>
-                <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className="bg-white p-5 rounded-2xl font-black text-2xl text-slate-700">{n}</button>)}</div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
-                  <button onClick={() => setActiveItemIndex(p => Math.min(p + 1, activeJob.data.length - 1))} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Next Unit ➔</button>
-                </div>
-              </div>}
-            </div>
-          </main>
-        </div>
-      );
+// ── Contract parser ─────────────────────────────────────────────────────────
+function parseContract(T){
+  var ct = {header:{}, items:[]};
+  var h = ct.header;
+  // Normalize PDF extraction artifacts: ligatures, spaced letters, smart quotes
+  T = T.replace(/O\s+ffi\s+ce/g,"Office")
+       .replace(/o\s+ffi\s+ce/g,"office")
+       .replace(/ffi/g,"ffi")
+       .replace(/\u201c|\u201d/g,'"')
+       .replace(/\u2018|\u2019/g,"'")
+       .replace(/\u00d7/g,"x");
+  var TN = T.replace(/\s+/g," ");
+
+  // Header
+  var m = T.match(/Prepared\s+for\s*:\s*\n\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*\n/);
+  if(m) h.customerName = m[1].trim();
+  if(!h.customerName){ m=T.match(/Agreement\s*\n+([A-Z][a-z]+ [A-Z][a-z]+)\n/); if(m&&!m[1].includes("Window")) h.customerName=m[1].trim(); }
+  m = T.match(/Prepared\s+by\s*:\s*\n\s*([A-Z][^\n(]+?)\s*\n/); if(m) h.consultant=m[1].trim();
+  if(!h.consultant){ m=T.match(/Sales\s+Rep\s*\n\s*([A-Z][^\n]+?)\s*\n/i); if(m) h.consultant=m[1].trim(); }
+  if(!h.consultant){ m=T.match(/Rep:\s*([A-Z][^\n]+)/i); if(m) h.consultant=m[1].trim(); }
+  m = T.match(/Date\s+Agreement\s*\n\s*(\d{2}\/\d{2}\/\d{4})/i)||T.match(/Date:\s*(\d{2}\/\d{2}\/\d{4})/i)||T.match(/(\d{2}\/\d{2}\/\d{4})/);
+  if(m) h.date=m[1];
+
+  var brandMap = [[/\bsimonton\b/i,"Simonton"],[/aspect.*AP[0-9]/i,"Aspect"],[/\baspect\b/i,"Aspect"],[/\bendure\b/i,"Endure"],[/\bpella\b/i,"Pella"],[/\baries\b/i,"Aries"],[/legacy.*door|provia/i,"ProVia"],[/ecolite/i,"EcoLite"]];
+  for(var bi=0;bi<brandMap.length;bi++){ if(brandMap[bi][0].test(T)){ h.windowBrand=brandMap[bi][1]; break; } }
+
+  if(/DLA-UV|ComforTech DLA-UV|LowE\s*3|Low-E\s*3/i.test(T))  h.glassType="Low-E 3 / DLA-UV";
+  else if(/\bDLA\b|LowE\s*2|Low-E\s*2/i.test(T))               h.glassType="Low-E 2 / DLA";
+  else                                                            h.glassType="Clear / DC";
+
+  // Only set hasCapping from an explicit "Capping Color" product line — NOT from boilerplate mentions
+  m = T.match(/Capping\s+Color\s+\*{0,2}([A-Za-z][^\n*]{0,20})\*{0,2}/i);
+  if(m){ h.cappingColor=m[1].trim(); h.hasCapping=true; }
+  // Also check for a capping product line item (not just the word in boilerplate)
+  else if(/\bCapping\s+Color\b.*\n/i.test(T)) h.hasCapping=true;
+
+  if(/white\s+inside\s+and\s+outside|Snow\s+Mist\s+White/i.test(T)){ h.interiorColor="White"; h.exteriorColor="White"; }
+  else if(/\bwhite\b/i.test(T)){ h.interiorColor="White"; h.exteriorColor="White"; }
+  var dcm = T.match(/Snow\s+Mist\s+White/i)||T.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s+Inside\s+and\s+Outside/i);
+  if(dcm) h.doorColor=dcm[0].replace(/\s+Inside.*$/i,"").trim();
+  if(/metal.*tear.?out/i.test(T)) h.tearOutType="Metal";
+  else if(/vinyl.*tear.?out/i.test(T)) h.tearOutType="Vinyl";
+  else h.tearOutType="Wood"; // no tearout charge = wood existing windows
+  h.existingWindowType=h.hasCapping?(h.tearOutType||"Wood"):h.tearOutType||"Wood";
+  h.installCrew=h.hasCapping?"Capping":"Retro (Woodout)";
+
+  // Find all Unit Size blocks in document order
+  // Also build a map of Opening Size by position so we can use the explicit value
+  var openingSizes = {};
+  var openRx2 = /Opening\s+Size\s*:\s*([\d][\d\s\/'"]*?)\s*[xX\u00d7]\s*([\d][\d\s\/'"]*)(?=\s|$)/gi;
+  var om2;
+  while((om2=openRx2.exec(TN))!==null){
+    var ow2=frac(om2[1]), oh2=frac(om2[2]);
+    if(ow2&&oh2) openingSizes[om2.index]={ow:ow2, oh:oh2, pos:om2.index};
+  }
+  // Helper: find nearest preceding opening size for a given unit size position
+  function nearestOpening(unitPos){
+    var best=null, bestDist=9999;
+    Object.keys(openingSizes).forEach(function(k){
+      var op=openingSizes[k];
+      var dist=unitPos-op.pos;
+      if(dist>0&&dist<800&&dist<bestDist){ bestDist=dist; best=op; }
+    });
+    return best;
+  }
+
+  // ── BLOCK-BASED PARSING ──────────────────────────────────────────────────
+  // Split on product type labels (VINYL WINDOW, FRENCH DOOR, etc.)
+  // Each block is entirely self-contained — zero bleeding between products
+  var productLabelRx = /(?:^|\n)(VINYL\s+WINDOW|FRENCH\s+DOOR|EXTERIOR\s+DOOR|ENTRY\s+DOOR|STEEL\s+DOOR|FIBERGLASS\s+DOOR|SLIDING\s+DOOR|DOOR\s+UNIT)/gi;
+  var productLabelRx = /(?:^|\n)(VINYL\s+WINDOW|WINDOW\s+UNIT|FRENCH\s+DOOR|EXTERIOR\s+DOOR|ENTRY\s+DOOR|STEEL\s+DOOR|FIBERGLASS\s+DOOR|SLIDING\s+DOOR|DOOR\s+UNIT)/gi;
+  var blocks = [];
+  var labelMatch;
+
+  // Find all product label positions
+  var labelPositions = [];
+  while((labelMatch = productLabelRx.exec(T)) !== null){
+    labelPositions.push({pos: labelMatch.index, label: labelMatch[1].trim()});
+  }
+
+  // Build blocks: each block = text from one label to the next
+  for(var li = 0; li < labelPositions.length; li++){
+    var start = labelPositions[li].pos;
+    var end   = li+1 < labelPositions.length ? labelPositions[li+1].pos : T.length;
+    blocks.push({label: labelPositions[li].label, text: T.substring(start, end)});
+  }
+
+  // Fallback: if no product labels found try Unit Size scanning (Simonton etc.)
+  if(blocks.length === 0){
+    var unitRx = /Unit\s+Size\s*:\s*([\d][\d\s\/]*?)\s*[""]?\s*[xX\u00d7]\s*([\d][\d\s\/]*?)\s*[""]?(?=\s)/gi;
+    var um;
+    while((um=unitRx.exec(TN))!==null){
+      var uw=frac(um[1]), uh=frac(um[2]);
+      if(!uw||!uh) continue;
+      var ctxB=TN.substring(Math.max(0,um.index-400),um.index);
+      var ctxA=TN.substring(um.index,um.index+400);
+      blocks.push({label:"VINYL WINDOW", text:ctxB+ctxA, isFallback:true, unitW:uw, unitH:uh});
     }
-    const root = ReactDOM.createRoot(document.getElementById('root')); root.render(<VisionaireApp />);
-  </script>
+  }
+
+  // Parse each block
+  blocks.forEach(function(block){
+    var B = block.text;
+    var BN = B.replace(/\s+/g," ");
+
+    // Is this a door?
+    var doorSignals = [/french\s+door/i,/exterior\s+door/i,/entry\s+door/i,/steel\s+door/i,/fiberglass\s+door/i,/legacy\s+french/i,/frame\s+depth/i,/left\s+hand\s+in\s*swing|right\s+hand\s+in\s*swing/i,/left\s+hand\s+out\s*swing|right\s+hand\s+out\s*swing/i,/ISLO|ISRO|OSLO|OSRO/,/astragal/i,/brickmold/i,/door\s+pair/i];
+    var isDoor = /door/i.test(block.label) || doorSignals.some(function(rx){ return rx.test(BN); });
+
+    if(!isDoor){
+      // ── WINDOW ──
+      // Get unit size from block
+      var unitW=block.unitW||null, unitH=block.unitH||null;
+      if(!unitW){
+        var um2=BN.match(/Unit\s+Size\s*:\s*([\d][\d\s\/]*?)\s*[""]?\s*[xX\u00d7]\s*([\d][\d\s\/]*?)\s*[""]?(?=\s)/i);
+        if(um2){ unitW=frac(um2[1]); unitH=frac(um2[2]); }
+      }
+      if(!unitW) return; // no size found, skip
+
+      // Get opening size — prefer explicit "Opening Size:" line in the block
+      var openW=null, openH=null;
+      var opM=BN.match(/Opening\s+Size\s*:\s*([\d][\d\s\/'"]*?)\s*[xX\u00d7]\s*([\d][\d\s\/'"]*)(?=\s|$)/i);
+      if(opM){ openW=frac(opM[1]); openH=frac(opM[2]); }
+      if(!openW){ openW=unitW+0.5; openH=unitH+0.5; }
+
+      // Type — the block contains exactly this product, so just search the whole block
+      var type="DH";
+      if(/\bCTX\b/i.test(BN))                                    type="CTX";
+      else if(/circle.?top/i.test(BN))                           type="CT";
+      else if(/picture.*window|509\b|\bpic\b/i.test(BN))         type="PIC";
+      else if(/single.?hung|501\b/i.test(BN))                    type="SH";
+      else if(/sliding/i.test(BN)&&!/door/i.test(BN))            type="SL";
+      else if(/casement/i.test(BN))                               type="C";
+      else if(/awning/i.test(BN))                                 type="AW";
+
+      // Qty
+      var qtyM=BN.match(/(\d+)\s+ea\b/i);
+
+      // Location from Tag #
+      // Location — handle Tag #:, Tag:, Tag#: all with optional space/hash
+      var tagM=B.match(/Tag\s*[#:]?\s*[:#]\s*([A-Za-z][^\n]{1,40}?)(?:\n|$)/im);
+      if(!tagM) tagM=B.match(/Tag\s+[#:]\s*([A-Za-z][^\n]{1,40}?)(?:\n|$)/im);
+      if(!tagM) tagM=BN.match(/Tag\s*[#:]\s*([A-Za-z0-9][^\n]{1,40}?)(?:\s{2,}|$)/i);
+      var location="";
+      if(tagM) location=tagM[1].trim().replace(/\s*(Visionaire|Agreement|Page\s*\d).*$/i,"").trim();
+
+      // Glass — entire block is just this product so safe to check all of it
+      var glass="None";
+      if(/tempered/i.test(BN))      glass="Tempered";
+      else if(/obscure/i.test(BN))  glass="Obscure \u2013 Standard";
+
+      // Grids
+      var grids="None";
+      if(/contour/i.test(BN))       grids="Contour";
+      else if(/\bsdl\b/i.test(BN))  grids="SDL";
+      else if(/flat\s+grid/i.test(BN)) grids="Flat";
+
+      ct.items.push({itemType:"window", unitW:unitW, unitH:unitH,
+        openW:dispSize(openW), openH:dispSize(openH),
+        qty:qtyM?qtyM[1]:"1", type:type, location:location,
+        glass:glass, grids:grids, notes:""});
+
+    } else {
+      // ── DOOR ──
+      var unitW3=null, unitH3=null;
+      var um3=BN.match(/Unit\s+Size\s*:\s*([\d][\d\s\/]*?)\s*[""]?\s*[xX\u00d7]\s*([\d][\d\s\/]*?)\s*[""]?(?=\s)/i);
+      if(um3){ unitW3=frac(um3[1]); unitH3=frac(um3[2]); }
+      // ProVia custom size format
+      var cwm=BN.match(/([\d]+ [\d]+\/[\d]+|[\d]+\.[\d]+)\s*["']?\s*Custom\s+Unit\s+Width/i);
+      var chm=BN.match(/([\d]+ [\d]+\/[\d]+|[\d]+\.[\d]+)\s*["']?\s*Custom\s+Unit\s+Height/i);
+      if(!unitW3&&cwm&&chm){ unitW3=frac(cwm[1]); unitH3=frac(chm[1]); }
+      if(!unitW3) return;
+
+      var doorType="Single";
+      if(/french\s*door|door\s*pair|double\s*door/i.test(BN)) doorType="Double / French";
+      if(/sidelit|sidelite/i.test(BN)) doorType+=" w/ Sidelights";
+      var doorStyle="";
+      if(/french/i.test(BN)) doorStyle="French";
+      else if(/fiberglass.*mahogany/i.test(BN)) doorStyle="Fiberglass Mahogany";
+      else if(/fiberglass/i.test(BN)) doorStyle="Fiberglass";
+      else if(/steel\s+door/i.test(BN)) doorStyle="Steel";
+      var jambDepth="", jambCustom="";
+      var jambRxs=[/Frame\s+Depth\s*:\s*([\d]+\s*[-]\s*[\d]+\/[\d]+|[\d]+ [\d]+\/[\d]+)/i,/Jamb\s+Depth\s*:\s*([\d]+\s*[-]\s*[\d]+\/[\d]+|[\d]+ [\d]+\/[\d]+)/i,/([\d]+)[-]([\d]+\/[\d]+)\s*["']?\s*(?:PF|FRAME|JAMB)/i,/\b(4[-\s]9\/16)\b/,/\b(6[-\s]9\/16)\b/,/\b(8[-\s]9\/16)\b/,/\b(4[-\s]5\/8)\b/];
+      for(var ji=0;ji<jambRxs.length;ji++){
+        var jm=BN.match(jambRxs[ji]); if(!jm) continue;
+        var raw=jm[1]&&jm[2]?jm[1]+"-"+jm[2]:jm[1]||jm[0].trim();
+        raw=raw.replace(/^(\d+)\s+(\d+\/\d+)$/,"$1-$2").replace(/\s+/g,"");
+        if(raw.includes("4-9/16")||raw.includes("4 9/16"))      jambDepth="4-9/16\" (2\u00d74 wall)";
+        else if(raw.includes("6-9/16")||raw.includes("6 9/16")) jambDepth="6-9/16\" (2\u00d76 wall)";
+        else if(raw.includes("8-9/16")||raw.includes("8 9/16")) jambDepth="8-9/16\" (2\u00d78 wall)";
+        else if(raw.includes("4-5/8")||raw.includes("4 5/8"))   jambDepth="4-5/8\"";
+        else { jambDepth="Custom"; jambCustom=raw; }
+        break;
+      }
+      var swing="";
+      if(/left\s*hand\s*in\s*swing|ISLO|LHI\b/i.test(BN))   swing="L/in \u2013 Left Hand Inswing";
+      if(/right\s*hand\s*in\s*swing|ISRO|RHI\b/i.test(BN))  swing="R/in \u2013 Right Hand Inswing";
+      if(/left\s*hand\s*out\s*swing|OSLO|LHO\b/i.test(BN))  swing="L/out \u2013 Left Hand Outswing";
+      if(/right\s*hand\s*out\s*swing|OSRO|RHO\b/i.test(BN)) swing="R/out \u2013 Right Hand Outswing";
+      if(!swing&&/inswing/i.test(BN))  swing="L/in \u2013 Left Hand Inswing";
+      if(!swing&&/outswing/i.test(BN)) swing="R/out \u2013 Right Hand Outswing";
+      var color3="";
+      var dcm3=BN.match(/Snow\s+Mist\s+White/i)||BN.match(/([A-Z][a-z]+(?: [A-Z][a-z]+){1,2}) Inside and Outside/i);
+      if(dcm3) color3=dcm3[0].replace(/ Inside.*$/i,"").trim();
+      var tagM3=B.match(/Tag\s*[#:]?\s*[:#]\s*([A-Za-z][^\n]{1,40}?)(?:\n|$)/im);
+      if(!tagM3) tagM3=BN.match(/Tag\s*[#:]\s*([A-Za-z0-9][^\n]{1,40}?)(?:\s{2,}|$)/i);
+      var qtyM3=BN.match(/(\d+)\s+ea\b/i);
+      var notes3=[];
+      if(/sizing.*verified.*remeasure/i.test(BN)) notes3.push("\u26a0 Verify at remeasure");
+      if(/frosted.*privacy/i.test(BN)) notes3.push("Frosted Privacy Glass");
+      if(tagM3) notes3.push(tagM3[1].trim().replace(/\s*(Visionaire|Agreement|Page\s*\d).*$/i,"").trim());
+      var isCustom3=!!(cwm||(/Custom\s+Unit\s+Width/i.test(BN)));
+      ct.items.push({itemType:"door", unitW:dispSize(unitW3), unitH:dispSize(unitH3),
+        qty:qtyM3?qtyM3[1]:"1", doorType:doorType, doorStyle:doorStyle,
+        jambDepth:jambDepth, jambCustom:jambCustom, swing:swing, color:color3,
+        notes:notes3.join(" \u00b7 "), isCustomSize:isCustom3});
+    }
+  });
+
+  // Simonton "Openings:" fallback — if nothing parsed yet
+  if(ct.items.length === 0){
+    var openRx = /Openings?\s*:\s*(?:(?:Left|Right|Back|Front|Rear)\s*:\s*)?([^(]+?)\s*\((\d+\.?\d*)\s*[xX]\s*(\d+\.?\d*)\)/gi;
+    var um4;
+    while((um4=openRx.exec(TN))!==null){
+      var openW4=parseFloat(um4[2]), openH4=parseFloat(um4[3]);
+      var loc4=um4[1].replace(/^(Left|Right|Back|Front|Rear):\s*/i,"").replace(/DH.*|triple.*|twin.*/i,"").trim().replace(/[-,\s]+$/,"").trim();
+      var ctx4=TN.substring(Math.max(0,um4.index-200),um4.index+200);
+      var qtyM4=ctx4.match(/(\d+)\s+ea\b/i);
+      ct.items.push({itemType:"window", unitW:openW4-0.5, unitH:openH4-0.5, openW:dispSize(openW4), openH:dispSize(openH4), qty:qtyM4?qtyM4[1]:"1", type:"DH", location:loc4, glass:"None", grids:"None", notes:""});
+    }
+  }
+
+
+  // Dedup doors by same unit size
+  var seenDoors = {};
+  ct.items = ct.items.filter(function(item){
+    if(item.itemType !== "door") return true;
+    var key = item.unitW + "x" + item.unitH;
+    if(seenDoors[key]) return false;
+    seenDoors[key] = true;
+    return true;
+  });
+
+  return ct;
+}
+
+// ── Apply contract ──────────────────────────────────────────────────────────
+function applyContract(ct){
+  var ch=ct.header, h=S.header;
+  if(!h.customerName&&ch.customerName) h.customerName=ch.customerName;
+  if(!h.consultant&&ch.consultant)     h.consultant=ch.consultant;
+  // Date stays as form generation date — do not overwrite from contract
+  if(!h.installCrew&&ch.installCrew)   h.installCrew=ch.installCrew;
+  if(!h.windowBrand&&ch.windowBrand){
+    var bm=BRANDS.filter(function(b){ return b.toLowerCase().includes(ch.windowBrand.toLowerCase())||ch.windowBrand.toLowerCase().includes(b.toLowerCase()); })[0];
+    h.windowBrand=bm||ch.windowBrand;
+  }
+  if(!h.glassType&&ch.glassType) h.glassType=ch.glassType;
+  if(!h.existingType&&ch.existingWindowType){
+    var em=EXIST.filter(function(t){ return ch.existingWindowType.toLowerCase().includes(t.toLowerCase()); })[0];
+    h.existingType=em||ch.existingWindowType;
+  }
+
+  var wi=0, di=0;
+  ct.items.forEach(function(item){
+    if(item.itemType==="window"&&wi<40){
+      var r=S.wins[wi];
+      r._ctOpenW=item.openW||""; r._ctOpenH=item.openH||"";
+      r._ctUnitW=String(item.unitW||""); r._ctUnitH=String(item.unitH||"");
+      if(!r.location&&item.location) r.location=item.location;
+      if(!r.qty&&item.qty) r.qty=item.qty;
+      if(item.type) r.type=item.type;
+      if(item.glass&&item.glass!=="None"&&r.glass==="None") r.glass=item.glass;
+      if(item.grids&&item.grids!=="None"&&r.grids==="None") r.grids=item.grids;
+      if(!r.notes&&item.notes) r.notes=item.notes;
+      S.exp["w"+wi]=true;
+      wi++;
+    } else if(item.itemType==="door"&&di<8){
+      var r2=S.doors[di];
+      r2._ctUnitW=item.unitW||""; r2._ctUnitH=item.unitH||""; r2._ctCustomSize=!!item.isCustomSize;
+      if(!r2.doorType&&item.doorType){ var dm=DOOR_T.filter(function(t){ return item.doorType.toLowerCase().includes(t.split("/")[0].trim().toLowerCase()); })[0]; r2.doorType=dm||item.doorType; }
+      if(!r2.jambDepth&&item.jambDepth) r2.jambDepth=item.jambDepth;
+      if(!r2.jambCustom&&item.jambCustom) r2.jambCustom=item.jambCustom;
+      if(!r2.swing&&item.swing) r2.swing=item.swing;
+      if(!r2.color&&item.color) r2.color=item.color;
+      if(!r2.doorStyle&&item.doorStyle) r2.doorStyle=item.doorStyle;
+      if(!r2.notes&&item.notes) r2.notes=item.notes;
+      S.exp["d"+di]=true;
+      di++;
+    }
+  });
+
+  var so=S.so, doors=ct.items.filter(function(i){ return i.itemType==="door"; });
+  var wins2=ct.items.filter(function(i){ return i.itemType==="window"; });
+  // Auto-populate qty counts from contract
+  S.header.winQty  = String(wins2.length  || "");
+  S.header.doorQty = String(doors.length || "");
+  so.mfr.contracted      = ch.windowBrand||"";
+  so.glass.contracted    = ch.glassType||"";
+  so.intColor.contracted = ch.interiorColor||"";
+  so.extColor.contracted = ch.exteriorColor||"";
+  so.capping.contracted  = ch.cappingColor||(ch.hasCapping?"Capping":"No capping");
+  so.doorColor.contracted= ch.doorColor||"";
+  so.doorSwing.contracted= doors.map(function(d){ return d.swing?d.swing.split("\u2013")[0].trim():""; }).filter(Boolean).join("; ");
+  so.jamb.contracted     = doors.map(function(d){ return d.jambDepth; }).filter(Boolean).join("; ");
+}
+
+function handleUpload(e){
+  var file=e.target.files[0]; if(!file) return;
+  var st=document.getElementById("cst"), btn=document.getElementById("upbtn");
+  st.textContent="\u23f3 Reading PDF\u2026"; st.style.color="#fcd34d"; btn.disabled=true;
+  extractPDFText(file, function(err, text){
+    btn.disabled=false; if(e.target) e.target.value="";
+    if(err){ st.textContent="\u26a0 "+err.message; st.style.color="#fca5a5"; return; }
+    if(!text||text.trim().length<20){ st.textContent="\u26a0 No text found \u2014 scanned image?"; st.style.color="#fca5a5"; return; }
+    var ct=parseContract(text);
+    S.contract=ct; S.showContract=true;
+    // Stamp the date this contract was uploaded — this becomes the measure date
+    S.header.date=new Date().toLocaleDateString();
+    applyContract(ct); save();
+    var wins=ct.items.filter(function(i){ return i.itemType==="window"; }).length;
+    var drs=ct.items.filter(function(i){ return i.itemType==="door"; }).length;
+    st.textContent="\u2705 "+(ct.header.customerName||"parsed")+" \u00b7 "+wins+" win \u00b7 "+drs+" door";
+    st.style.color="#6ee7b7";
+    document.getElementById("showcbl").style.display="flex";
+    document.getElementById("showcb").checked=true;
+    document.getElementById("mmp").style.display="inline";
+    renderAll();
+  });
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function dif(a,b){ if(!a||!String(a).trim()) return false; if(!b) return false; return String(a).trim().toLowerCase()!==String(b).trim().toLowerCase(); }
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function opt(list, val){ return list.map(function(o){ return '<option value="'+esc(o)+'"'+(val===o?' selected':'')+'>'+esc(o)+'</option>'; }).join(""); }
+
+function mmCount(){
+  if(!S.contract||!S.showContract) return 0;
+  var n=0;
+  S.wins.forEach(function(r){ if(!r._verified&&dif(r.width,r._ctOpenW)) n++; if(!r._verified&&dif(r.height,r._ctOpenH)) n++; });
+  S.doors.forEach(function(r){ if(dif(r.width,r._ctUnitW)) n++; if(dif(r.height,r._ctUnitH)) n++; });
+  return n;
+}
+function refreshMM(){
+  var mm=mmCount(), el=document.getElementById("mmp"); if(!el) return;
+  if(S.contract&&S.showContract){ el.style.display="inline"; el.className="pill "+(mm>0?"pill-red":"pill-green"); el.textContent=mm>0?("\u26a0 "+mm+" mismatch"+(mm!==1?"es":"")):"✓ sizes match"; }
+  else el.style.display="none";
+}
+function refreshSO(){
+  var keys=Object.keys(S.so), conf=keys.filter(function(k){ return S.so[k].confirmed; }).length, pct=Math.round(conf/keys.length*100);
+  var f=document.getElementById("pfill"), t=document.getElementById("ptxt"), b=document.getElementById("tab-so");
+  if(f){ f.style.width=pct+"%"; f.style.background=conf===keys.length?"#059669":"#f59e0b"; }
+  if(t) t.textContent=pct+"%";
+  if(b) b.textContent="\u270d\ufe0f Sign-Off ("+conf+"/"+keys.length+")";
+}
+function toggleShow(){ S.showContract=document.getElementById("showcb").checked; save(); renderAll(); }
+function upd(id){
+  var el=document.getElementById(id); if(!el) return;
+  var val=el.value, p=id.split(".");
+  if(p[0]==="h") S.header[p[1]]=val;
+  else if(p[0]==="w") S.wins[+p[1]][p[2]]=val;
+  else if(p[0]==="d") S.doors[+p[1]][p[2]]=val;
+  else if(p[0]==="so") S.so[p[1]][p[2]]=val;
+  else if(p[0]==="sig") S[p[1]]=val;
+  else if(id==="custNotes") S.custNotes=val;
+  save(); refreshMM();
+  // Live update summary
+  if(p[0]==="w"&&(p[2]==="width"||p[2]==="height"||p[2]==="location")) liveSummary("w",+p[1]);
+  if(p[0]==="d"&&(p[2]==="width"||p[2]==="height"||p[2]==="doorType")) liveSummary("d",+p[1]);
+}
+function setVerified(idx, checked){
+  S.wins[idx]._verified=checked; save();
+  // Sync the collapsed summary checkbox
+  liveSummary("w",idx);
+  // Sync the expanded card body — rebuild just the ctBadge area
+  var bodyEl=document.getElementById("body-w"+idx);
+  if(bodyEl){
+    // Re-render the full card body by doing a targeted renderAll
+    // (card may be open or closed — use renderAll for simplicity since verify is infrequent)
+    renderAll();
+  }
+}
+function liveSummary(type, idx){
+  var key=type+idx;
+  var el=document.getElementById("sum-inner-"+key); if(!el) return;
+  var r=type==="w"?S.wins[idx]:S.doors[idx];
+  el.innerHTML=buildSummaryHTML(type,idx,r,S.showContract&&!!S.contract);
+  var openEl=document.getElementById("sum-open-"+key);
+  if(openEl){
+    var locText=type==="w"?(r.location||""):(r.doorType||"");
+    var typeText=type==="w"?(r.type||""):"";
+    openEl.innerHTML='<div style="font-size:15px;text-align:center;font-weight:700">'+esc(locText||"Empty")
+      +(typeText?' <span style="background:var(--navy);color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">'+esc(typeText)+'</span>':"")
+      +'</div>';
+  }
+}
+function switchTab(t){
+  S.tab=t; save();
+  document.getElementById("tab-sheet").className=t==="sheet"?"active":"";
+  document.getElementById("tab-so").className=t==="so"?"active":"";
+  renderAll();
+}
+function toggleCard(key){
+  S.exp[key]=!S.exp[key]; save();
+  var body=document.getElementById("body-"+key);
+  var chev=document.getElementById("chev-"+key);
+  var inner=document.getElementById("sum-inner-"+key);
+  var openLabel=document.getElementById("sum-open-"+key);
+  var isOpen=S.exp[key];
+  if(body) body.className="line-body"+(isOpen?" open":"");
+  if(chev) chev.className="chev"+(isOpen?" open":"");
+  // When open: hide the summary details, show just location
+  // When closed: show full summary with sizes
+  if(inner) inner.style.display=isOpen?"none":"block";
+  if(openLabel) openLabel.style.display=isOpen?"block":"none";
+}
+function toggleGroup(gk){ S.exp["g_"+gk]=!S.exp["g_"+gk]; save(); renderAll(); }
+function toggleGroupDoors(){ S.exp["g_doors"]=!S.exp["g_doors"]; save(); renderAll(); }
+function expandGroup(gk){
+  S.exp["g_"+gk]=true;
+  var s=gk==="w1"?0:20, e=gk==="w1"?20:40;
+  for(var i=s;i<e;i++) S.exp["w"+i]=true;
+  save(); renderAll();
+}
+function collapseGroup(gk){
+  S.exp["g_"+gk]=true;
+  var s=gk==="w1"?0:20, e=gk==="w1"?20:40;
+  for(var i=s;i<e;i++) S.exp["w"+i]=false;
+  save(); renderAll();
+}
+function expandGroupDoors(){ S.exp["g_doors"]=true; for(var i=0;i<8;i++) S.exp["d"+i]=true; save(); renderAll(); }
+function collapseGroupDoors(){ S.exp["g_doors"]=true; for(var i=0;i<8;i++) S.exp["d"+i]=false; save(); renderAll(); }
+
+// ── Summary row HTML ────────────────────────────────────────────────────────
+function buildSummaryHTML(type, idx, r, sc){
+  var isW=(type==="w");
+  var wM=false, hM=false;
+  if(isW){ wM=sc&&dif(r.width,r._ctOpenW); hM=sc&&dif(r.height,r._ctOpenH); }
+  else    { wM=sc&&dif(r.width,r._ctUnitW); hM=sc&&dif(r.height,r._ctUnitH); }
+  var hasMM=wM||hM;
+  var verified=isW&&r._verified;
+
+  var locText=isW?(r.location||""):(r.doorType||"");
+  var typeText=isW?(r.type||"DH"):"";
+  var qtyText=(r.qty&&r.qty!=="1"&&r.qty!=="")?r.qty:"";
+  var hasSizes=r.width||r.height;
+
+  var ctSize="";
+  if(sc){
+    if(isW&&(r._ctOpenW||r._ctOpenH))
+      ctSize=esc(r._ctOpenW||"??")+'" \u00d7 '+esc(r._ctOpenH||"??")+'"';
+    else if(!isW&&(r._ctUnitW||r._ctUnitH))
+      ctSize=esc(r._ctUnitW||"??")+'" \u00d7 '+esc(r._ctUnitH||"??")+'"'+(r._ctCustomSize?" \u26a0":"");
+  }
+
+  var locLine=(locText?'<span style="font-weight:700">'+esc(locText)+'</span>':
+               '<span style="color:var(--muted);font-style:italic">Empty</span>')
+             +(typeText?' <span style="background:var(--navy);color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:middle">'+esc(typeText)+'</span>':"")
+             +(qtyText?' <span style="background:#f1f5f9;color:var(--muted);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;vertical-align:middle">qty '+esc(qtyText)+'</span>':"");
+
+  var sizeLine='';
+  if(hasMM&&hasSizes){
+    // Mismatch state
+    var ctColor=verified?"var(--red)":"var(--blue)";
+    var fmColor=verified?"var(--green)":"var(--red)";
+    var fmWeight=verified?"700":"400";
+    if(ctSize) sizeLine+='<span style="color:'+ctColor+';font-size:11px;font-weight:700">\ud83d\udccb '+ctSize+'</span>';
+    sizeLine+=' <span style="color:var(--muted);font-size:11px">\u2192</span> ';
+    sizeLine+='<span style="color:'+fmColor+';font-size:12px;font-weight:'+fmWeight+'">'+(verified?'FM: ':'')+(r.width||"\u2014")+'" \u00d7 '+(r.height||"\u2014")+'"</span>';
+    if(isW){
+      sizeLine+=' <label onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-left:6px;'+(verified?'color:var(--green)':'color:var(--muted)')+';font-size:11px;font-weight:700;white-space:nowrap">'
+        +'<input type="checkbox"'+(verified?' checked':'')
+        +' onchange="setVerified('+idx+',this.checked)" style="width:16px;height:16px;accent-color:var(--green);cursor:pointer"/>'
+        +(verified?'\u2713 Verified':'Verify')
+        +'</label>';
+    }
+  } else {
+    if(ctSize) sizeLine+='<span style="color:var(--blue);font-size:11px;font-weight:700">\ud83d\udccb '+ctSize+(isW?" opening":" unit")+'</span>';
+    if(hasSizes){
+      var fmCls=(wM||hM)?"sum-sz mm":"sum-sz filled";
+      sizeLine+=(ctSize?' <span style="color:var(--muted);font-size:11px">\u2192</span> ':'')
+               +'<span class="'+fmCls+'" style="font-size:12px">'+(r.width||"\u2014")+'" \u00d7 '+(r.height||"\u2014")+'"</span>';
+    } else if(!ctSize) {
+      sizeLine='<span class="sum-sz" style="font-size:11px">Tap to measure</span>';
+    }
+  }
+
+  return '<div style="font-size:15px;text-align:center;line-height:1.4">'+locLine+'</div>'
+       +'<div style="text-align:center;margin-top:2px">'+sizeLine+'</div>';
+}
+
+// ── Render header ───────────────────────────────────────────────────────────
+function renderHeader(){
+  var h=S.header, ch=(S.contract&&S.contract.header)||{}, sc=S.showContract&&!!S.contract;
+  return '<div class="card">'
+    +'<div style="background:var(--navy);color:white;padding:14px 16px">'
+    +'<div style="font-size:10px;opacity:.6;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Customer</div>'
+    +'<input type="text" id="h.customerName" value="'+esc(h.customerName)+'" placeholder="Customer name\u2026" oninput="upd(\'h.customerName\')"'
+    +' style="background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.3);color:white;font-size:20px;font-weight:700;height:56px;border-radius:10px;padding:0 14px;width:100%"/>'
+    +'</div>'
+    +'<div class="cb">'
+    +'<div class="g2" style="margin-bottom:10px">'
+    +'<div><label class="lbl">Project Consultant</label><input type="text" id="h.consultant" value="'+esc(h.consultant)+'" placeholder="Name\u2026" oninput="upd(\'h.consultant\')"/></div>'
+    +'<div><label class="lbl">Measure Date</label><input type="text" id="h.date" value="'+esc(h.date)+'" placeholder="Set on upload\u2026" readonly style="background:#f1f5f9;color:var(--muted);cursor:default" oninput="upd(\'h.date\')"/></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:12px">'
+    +'<div class="qty-box"><div class="ql">Windows</div><input type="text" inputmode="numeric" pattern="[0-9]*" id="h.winQty" value="'+esc(h.winQty)+'" placeholder="\u2014" oninput="upd(\'h.winQty\')"/></div>'
+    +'<div class="qty-box"><div class="ql">Doors</div><input type="text" inputmode="numeric" pattern="[0-9]*" id="h.doorQty" value="'+esc(h.doorQty)+'" placeholder="\u2014" oninput="upd(\'h.doorQty\')"/></div>'
+    +'</div>'
+    +'<div class="warn">\u26a0\ufe0f TAKE PHOTOS ALL SIDES FROM EXTERIOR \u2014 SIGN OFF ON ALARMS</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">'
+    +'<div><label class="lbl">Install Crew</label><select id="h.installCrew" onchange="upd(\'h.installCrew\')"><option value="">— Select —</option>'+opt(CREW,h.installCrew)+'</select></div>'
+    +'<div><label class="lbl">Window Brand</label>'
+    +'<select id="h.windowBrand" onchange="upd(\'h.windowBrand\');document.getElementById(\'bO\').style.display=this.value===\'Other\'?\'block\':\'none\'"><option value="">— Select —</option>'+opt(BRANDS,h.windowBrand)+'</select>'
+    +'<input type="text" id="bO" class="other-inp" value="'+esc(h.windowBrandOther)+'" placeholder="Specify\u2026" style="display:'+(h.windowBrand==="Other"?"block":"none")+'" oninput="upd(\'h.windowBrandOther\')"/>'
+    +'</div>'
+    +'<div><label class="lbl">Glass Type</label>'
+    +'<select id="h.glassType" onchange="upd(\'h.glassType\');document.getElementById(\'gO\').style.display=this.value===\'Other\'?\'block\':\'none\'"><option value="">— Select —</option>'+opt(GLASS,h.glassType)+'</select>'
+    +'<input type="text" id="gO" class="other-inp" value="'+esc(h.glassTypeOther)+'" placeholder="Specify\u2026" style="display:'+(h.glassType==="Other"?"block":"none")+'" oninput="upd(\'h.glassTypeOther\')"/>'
+    +'</div>'
+    +'<div><label class="lbl">Existing Window Type</label>'
+    +'<select id="h.existingType" onchange="upd(\'h.existingType\');document.getElementById(\'eO\').style.display=this.value===\'Other\'?\'block\':\'none\'"><option value="">— Select —</option>'+opt(EXIST,h.existingType)+'</select>'
+    +'<input type="text" id="eO" class="other-inp" value="'+esc(h.existingTypeOther)+'" placeholder="Specify\u2026" style="display:'+(h.existingType==="Other"?"block":"none")+'" oninput="upd(\'h.existingTypeOther\')"/>'
+    +'</div>'
+    +'</div>'
+    +'</div></div>';
+}
+
+// ── Build individual window card ────────────────────────────────────────────
+function buildWinCard(i){
+  var r=S.wins[i], key="w"+i, open=!!S.exp[key], sc=S.showContract&&!!S.contract;
+  var wM=sc&&dif(r.width,r._ctOpenW), hM=sc&&dif(r.height,r._ctOpenH);
+  var hasMM2=wM||hM;
+  var ctBadge="";
+  if(sc&&(r._ctOpenW||r._ctOpenH)){
+    ctBadge='<div style="background:var(--bluel);border:1px solid var(--blueb);border-radius:6px;padding:7px 12px;font-size:11px;color:var(--blue);font-weight:700;margin-bottom:8px">'
+      +'\ud83d\udccb Contract opening: <b style="color:'+(hasMM2&&r._verified?'var(--red)':'var(--blue)')+'">'+esc(r._ctOpenW||"??")+'" \u00d7 '+esc(r._ctOpenH||"??")+'"</b>'
+      +' <span style="font-weight:400;opacity:.7">(unit: '+esc(r._ctUnitW||"??")+' \u00d7 '+esc(r._ctUnitH||"??")+' )</span>'
+      +(hasMM2&&!r._verified?' <span style="color:var(--red);font-weight:700">\u26a0 mismatch</span>':"")
+      +'</div>'
+      +(hasMM2?'<div style="background:'+(r._verified?'#dcfce7':'#fef9c3')+';border:1.5px solid '+(r._verified?'#86efac':'#fde047')+';border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+        +'<div style="font-size:12px;font-weight:700;color:'+(r._verified?'#166534':'#854d0e')+'">'
+        +(r._verified
+          ? '\u2705 Verified \u2014 FM: <span style="color:var(--green);font-size:14px">'+esc(r.width||"??")+'" \u00d7 '+esc(r.height||"??")+'"</span> differs from contract'
+          : '\u26a0 FM size differs from contract opening \u2014 verify measurement')
+        +'</div>'
+        +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:700;color:'+(r._verified?'var(--green)':'var(--muted)')+'">'
+        +'<input type="checkbox"'+(r._verified?' checked':'')
+        +' onchange="setVerified('+i+',this.checked)" style="width:20px;height:20px;accent-color:var(--green);cursor:pointer"/>'
+        +(r._verified?'\u2713 Verified':'Verify')
+        +'</label>'
+        +'</div>':"");
+  }
+  return '<div class="line-card" id="card-'+key+'">'
+    +'<div class="line-summary" onclick="toggleCard(\''+key+'\')"><div class="line-num">'+r.lineNum+'</div>'
+    +'<div class="sum-info" id="sum-'+key+'">'
+    // Summary info hidden when card is open — visible only when collapsed
+    +'<div id="sum-inner-'+key+'" style="display:'+(open?"none":"block")+'">'+buildSummaryHTML("w",i,r,sc)+'</div>'
+    +'<div id="sum-open-'+key+'" style="display:'+(open?"block":"none")+'"><div style="font-size:15px;text-align:center;font-weight:700">'+esc(r.location||"Empty")+(r.type?' <span style="background:var(--navy);color:white;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">'+ esc(r.type)+'</span>':"")+ '</div></div>'
+    +'</div>'
+    +'<div class="chev'+(open?" open":"")+'" id="chev-'+key+'">\u25bc</div></div>'
+    +'<div class="line-body'+(open?" open":"")+'" id="body-'+key+'">'
+    +ctBadge
+    +'<div style="display:grid;grid-template-columns:1fr 24px 1fr 56px;gap:6px;align-items:end">'
+    +'<div><label class="lbl">Width</label><input type="text" inputmode="decimal" pattern="[0-9.]*" id="w.'+i+'.width" value="'+esc(r.width)+'" placeholder=\'W"\' class="size-inp'+(wM?" mm":"")+'" oninput="upd(\'w.'+i+'.width\')"/></div>'
+    +'<div style="text-align:center;font-size:20px;color:var(--muted);padding-bottom:8px">\u00d7</div>'
+    +'<div><label class="lbl">Height</label><input type="text" inputmode="decimal" pattern="[0-9.]*" id="w.'+i+'.height" value="'+esc(r.height)+'" placeholder=\'H"\' class="size-inp'+(hM?" mm":"")+'" oninput="upd(\'w.'+i+'.height\')"/></div>'
+    +'<div><label class="lbl">Qty</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="w.'+i+'.qty" value="'+esc(r.qty)+'" placeholder="1" class="size-inp" style="text-align:center" oninput="upd(\'w.'+i+'.qty\')"/></div>'
+    +'</div>'
+    +'<div class="g2">'
+    +'<div><label class="lbl">Type</label><select id="w.'+i+'.type" onchange="upd(\'w.'+i+'.type\')"><option value="">—</option>'+opt(WIN_T,r.type||"DH")+'</select></div>'
+    +'<div><label class="lbl">Location</label><input type="text" id="w.'+i+'.location" value="'+esc(r.location)+'" placeholder="Front / Left\u2026" style="'+(r.location?"font-weight:700;border-color:var(--gold)":"")+'" oninput="upd(\'w.'+i+'.location\')"/></div>'
+    +'</div>'
+    +'<div class="g2">'
+    +'<div><label class="lbl">Grids</label><select id="w.'+i+'.grids" onchange="upd(\'w.'+i+'.grids\')">'+opt(GRIDS,r.grids||"None")+'</select></div>'
+    +'<div><label class="lbl">Glass / Obscure</label>'
+    +'<select id="w.'+i+'.glass" onchange="upd(\'w.'+i+'.glass\');document.getElementById(\'gO'+i+'\').style.display=this.value===\'Other\'?\'block\':\'none\'">'+opt(GLASS_O,r.glass||"None")+'</select>'
+    +'<input type="text" id="gO'+i+'" class="other-inp" value="'+esc(r.glassOther||"")+'" placeholder="Specify\u2026" style="display:'+(r.glass==="Other"?"block":"none")+'" oninput="S.wins['+i+'].glassOther=this.value;save()"/>'
+    +'</div>'
+    +'</div>'
+    +'<div><label class="lbl">Notes</label><input type="text" id="w.'+i+'.notes" value="'+esc(r.notes)+'" placeholder="Trim / notes\u2026" oninput="upd(\'w.'+i+'.notes\')"/></div>'
+    +'</div></div>';
+}
+
+// ── Build individual door card ──────────────────────────────────────────────
+function buildDoorCard(i){
+  var r=S.doors[i], key="d"+i, open=!!S.exp[key], sc=S.showContract&&!!S.contract;
+  var wM=sc&&dif(r.width,r._ctUnitW), hM=sc&&dif(r.height,r._ctUnitH);
+  var ctBadge="";
+  if(sc&&(r._ctUnitW||r._ctUnitH)){
+    ctBadge='<div style="background:var(--door-light);border:1px solid var(--door-border);border-radius:6px;padding:7px 12px;font-size:11px;color:#065f46;font-weight:700;margin-bottom:8px">'
+      +'\ud83d\udccb Contract unit: <b>'+esc(r._ctUnitW||"??")+'" \u00d7 '+esc(r._ctUnitH||"??")+'"</b>'
+      +(r._ctCustomSize?' <span style="background:#fef9c3;border:1px solid #fde047;color:#854d0e;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;margin-left:6px">\u26a0 CUSTOM SIZE \u2014 verify at remeasure</span>':"")
+      +(wM||hM?' <span style="color:var(--red);font-weight:700;margin-left:6px">\u26a0 mismatch</span>':"")
+      +'</div>';
+  }
+  return '<div class="line-card door-card" id="card-'+key+'">'
+    +'<div class="line-summary" onclick="toggleCard(\''+key+'\')"><div class="line-num">'+( i+1)+'</div>'
+    +'<div class="sum-info" id="sum-'+key+'">'
+    +'<div id="sum-inner-'+key+'" style="display:'+(open?"none":"block")+'">'+buildSummaryHTML("d",i,r,sc)+'</div>'
+    +'<div id="sum-open-'+key+'" style="display:'+(open?"block":"none")+'"><div style="font-size:15px;text-align:center;font-weight:700">'+esc(r.doorType||"Empty")+'</div></div>'
+    +'</div>'
+    +'<div class="chev'+(open?" open":"")+'" id="chev-'+key+'">\u25bc</div></div>'
+    +'<div class="line-body'+(open?" open":"")+'" id="body-'+key+'">'
+    +ctBadge
+    +'<div style="display:grid;grid-template-columns:1fr 24px 1fr auto;gap:6px;align-items:end">'
+    +'<div><label class="lbl">Width</label><input type="text" inputmode="decimal" pattern="[0-9.]*" id="d.'+i+'.width" value="'+esc(r.width)+'" placeholder=\'W"\' class="size-inp'+(wM?" mm":"")+'" oninput="upd(\'d.'+i+'.width\')"/></div>'
+    +'<div style="text-align:center;font-size:20px;color:var(--muted);padding-bottom:8px">\u00d7</div>'
+    +'<div><label class="lbl">Height</label><input type="text" inputmode="decimal" pattern="[0-9.]*" id="d.'+i+'.height" value="'+esc(r.height)+'" placeholder=\'H"\' class="size-inp'+(hM?" mm":"")+'" oninput="upd(\'d.'+i+'.height\')"/></div>'
+    +'<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:2px">'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:#dcfce7;border-radius:6px;padding:5px 9px;white-space:nowrap"><input type="checkbox"'+(r.osj?" checked":"")+'  onchange="S.doors['+i+'].osj=this.checked;save()" style="width:18px;height:18px;accent-color:var(--door)"/> OSJ</label>'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:#dcfce7;border-radius:6px;padding:5px 9px;white-space:nowrap"><input type="checkbox"'+(r.osbm?" checked":"")+'  onchange="S.doors['+i+'].osbm=this.checked;save()" style="width:18px;height:18px;accent-color:var(--door)"/> OSBM</label>'
+    +'</div></div>'
+    +'<div><label class="lbl">Door Type</label>'
+    +'<select id="d.'+i+'.doorType" onchange="upd(\'d.'+i+'.doorType\');document.getElementById(\'dtO'+i+'\').style.display=this.value===\'Other\'?\'block\':\'none\'"><option value="">— Select —</option>'+opt(DOOR_T,r.doorType)+'</select>'
+    +'<input type="text" id="dtO'+i+'" class="other-inp" value="'+esc(r.doorTypeOther)+'" placeholder="Specify type\u2026" style="display:'+(r.doorType==="Other"?"block":"none")+'" oninput="S.doors['+i+'].doorTypeOther=this.value;save()"/>'
+    +'</div>'
+    +'<div><label class="lbl">Swing</label>'
+    +'<select id="d.'+i+'.swing" onchange="upd(\'d.'+i+'.swing\')" style="height:56px;font-size:15px;font-weight:600"><option value="">— Select swing —</option>'+opt(SWINGS,r.swing)+'</select>'
+    +'</div>'
+    +'<div><label class="lbl">Jamb Depth</label>'
+    +'<select id="d.'+i+'.jambDepth" onchange="upd(\'d.'+i+'.jambDepth\');document.getElementById(\'jC'+i+'\').style.display=this.value===\'Custom\'?\'block\':\'none\'"><option value="">— Select —</option>'+opt(JAMBS,r.jambDepth)+'</select>'
+    +'<input type="text" inputmode="decimal" id="jC'+i+'" class="other-inp" value="'+esc(r.jambCustom)+'" placeholder="Custom depth\u2026" style="display:'+(r.jambDepth==="Custom"?"block":"none")+'" oninput="S.doors['+i+'].jambCustom=this.value;save()"/>'
+    +'</div>'
+    +'<div class="g2">'
+    +'<div><label class="lbl">Casing</label>'
+    +'<select id="d.'+i+'.casing" onchange="upd(\'d.'+i+'.casing\');document.getElementById(\'cO'+i+'\').style.display=this.value===\'Other\'?\'block\':\'none\'"><option value="">— Select —</option>'+opt(CASINGS,r.casing)+'</select>'
+    +'<input type="text" id="cO'+i+'" class="other-inp" value="'+esc(r.casingOther)+'" placeholder="Specify\u2026" style="display:'+(r.casing==="Other"?"block":"none")+'" oninput="S.doors['+i+'].casingOther=this.value;save()"/>'
+    +'</div>'
+    +'<div><label class="lbl">Color</label><input type="text" id="d.'+i+'.color" value="'+esc(r.color)+'" placeholder="Color\u2026" oninput="upd(\'d.'+i+'.color\')"/></div>'
+    +'</div>'
+    +'<div><label class="lbl">Door Style</label><input type="text" id="d.'+i+'.doorStyle" value="'+esc(r.doorStyle)+'" placeholder="Style\u2026" oninput="upd(\'d.'+i+'.doorStyle\')"/></div>'
+    +'<div><label class="lbl">Notes</label><input type="text" id="d.'+i+'.notes" value="'+esc(r.notes)+'" placeholder="Notes\u2026" oninput="upd(\'d.'+i+'.notes\')"/></div>'
+    +'</div></div>';
+}
+
+// ── Render group buttons ────────────────────────────────────────────────────
+function renderWinGroup(gk, label, s, e){
+  var sc=S.showContract&&!!S.contract, open=!!S.exp["g_"+gk];
+  var filled=0, mm=0;
+  for(var i=s;i<e;i++){
+    var r=S.wins[i];
+    if(r.width||r.location||r.qty) filled++;
+    if(sc){ if(!r._verified&&dif(r.width,r._ctOpenW)) mm++; if(!r._verified&&dif(r.height,r._ctOpenH)) mm++; }
+  }
+  var sub="Tap to "+(open?"hide":"show");
+  if(filled>0) sub+=' \u2022 '+filled+' filled';
+  if(sc&&mm>0) sub+=' \u2022 \u26a0 '+mm+' mismatch'+(mm!==1?"es":"");
+  var cards="";
+  if(open){ for(var i=s;i<e;i++) cards+=buildWinCard(i); }
+  return '<div class="grp-btn grp-btn-navy" onclick="toggleGroup(\''+gk+'\')"><div><div class="grp-btn-title">WINDOWS '+label+'</div><div class="grp-btn-sub">'+esc(sub)+'</div></div><div class="grp-btn-chev'+(open?" open":"")+'">▼</div></div>'
+    +(open
+      ?'<div class="exp-bar"><button class="plain-btn" onclick="expandGroup(\''+gk+'\')">↕ Expand All</button><button class="plain-btn" onclick="collapseGroup(\''+gk+'\')">↕ Collapse All</button></div>'
+       +(sc?'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 12px;font-size:11px;color:#92400e;margin-bottom:8px">\ud83d\udccb Blue = contract <b>opening</b> size</div>':"")
+       +cards
+      :"");
+}
+
+function renderWins(){
+  return renderWinGroup("w1","1\u201320",0,20)+renderWinGroup("w2","21\u201340",20,40);
+}
+
+function renderDoors(){
+  var sc=S.showContract&&!!S.contract, open=!!S.exp["g_doors"];
+  var filled=0, mm=0;
+  S.doors.forEach(function(r){
+    if(r.width||r.doorType) filled++;
+    if(sc){ if(dif(r.width,r._ctUnitW)) mm++; if(dif(r.height,r._ctUnitH)) mm++; }
+  });
+  var sub="Tap to "+(open?"hide":"show");
+  if(filled>0) sub+=' \u2022 '+filled+' filled';
+  if(sc&&mm>0) sub+=' \u2022 \u26a0 '+mm+' mismatch'+(mm!==1?"es":"");
+  var cards="";
+  if(open){ for(var i=0;i<8;i++) cards+=buildDoorCard(i); }
+  return '<div class="sdiv"><div class="sdiv-line" style="background:linear-gradient(to right,transparent,var(--door))"></div><div class="sdiv-label">\ud83d\udeaa DOORS</div><div class="sdiv-line" style="background:linear-gradient(to left,transparent,var(--door))"></div></div>'
+    +'<div class="grp-btn grp-btn-door" onclick="toggleGroupDoors()"><div><div class="grp-btn-title">DOORS 1\u20138</div><div class="grp-btn-sub">'+esc(sub)+'</div></div><div class="grp-btn-chev'+(open?" open":"")+'">▼</div></div>'
+    +(open
+      ?'<div class="exp-bar"><button class="door-btn" onclick="expandGroupDoors()">↕ Expand All</button><button class="plain-btn" onclick="collapseGroupDoors()">↕ Collapse All</button></div>'
+       +(sc?'<div style="background:var(--door-light);border:1px solid var(--door-border);border-radius:8px;padding:7px 12px;font-size:11px;color:#065f46;margin-bottom:8px">\ud83d\udccb Green = contract <b>unit</b> size</div>':"")
+       +cards
+      :"");
+}
+
+// ── Sign-off ────────────────────────────────────────────────────────────────
+function soItem(key, cur){
+  var s=S.so[key];
+  return '<div class="so-item">'
+    +'<div class="so-row"><div style="flex:1"><div class="so-label">'+esc(s.label)+'</div>'
+    +(s.contracted?'<div class="so-cv">Contract: <b>'+esc(s.contracted)+'</b></div>':"")
+    +(cur?'<div style="font-size:11px;color:var(--muted);margin-top:2px">On sheet: <b>'+esc(cur)+'</b></div>':"")
+    +'</div>'
+    +'<label class="conf-btn" style="color:'+(s.confirmed?"var(--green)":"var(--muted)")+'">'
+    +'<input type="checkbox"'+(s.confirmed?" checked":"")+'  onchange="S.so[\''+key+'\'].confirmed=this.checked;save();refreshSO();renderSO()"/>'
+    +'<span>'+(s.confirmed?"\u2713 Confirmed":"Confirm")+'</span></label></div>'
+    +'<input class="so-note" type="text" id="so.'+key+'.note" value="'+esc(s.note)+'" placeholder="Notes / initials\u2026" oninput="upd(\'so.'+key+'.note\')"/>'
+    +'</div>';
+}
+
+function renderSO(){
+  var h=S.header, dr=S.doors;
+  var keys=Object.keys(S.so), conf=keys.filter(function(k){ return S.so[k].confirmed; }).length, pct=Math.round(conf/keys.length*100);
+  var brandDisplay=h.windowBrand==="Other"?h.windowBrandOther:h.windowBrand;
+  var glassDisplay=h.glassType==="Other"?h.glassTypeOther:h.glassType;
+  var gridsOnSheet=[]; S.wins.forEach(function(w){ if(w.grids&&w.grids!=="None"&&gridsOnSheet.indexOf(w.grids)<0) gridsOnSheet.push(w.grids); });
+  var swingDisplay=dr.map(function(d){ return d.swing?d.swing.split("\u2013")[0].trim():""; }).filter(Boolean).join("; ")||"\u2014";
+  var jambDisplay=dr.map(function(d){ return d.jambDepth==="Custom"?d.jambCustom:d.jambDepth; }).filter(Boolean).join("; ")||"\u2014";
+
+  document.getElementById("content").innerHTML =
+    '<div class="card"><div class="ch">\ud83d\udccb SIGN-OFF CHECKLIST <span class="badge">'+conf+'/'+keys.length+'</span></div>'
+    +'<div class="cb">'
+    +'<div class="info-box">Go through each item with the homeowner. Confirm it matches the contract, check off, add initials. One signature at the bottom completes everything.</div>'
+    +'<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px"><span>Progress</span><span id="ptxt">'+pct+'%</span></div>'
+    +'<div style="height:12px;background:#e2e8f0;border-radius:6px;overflow:hidden"><div id="pfill" style="height:100%;width:'+pct+'%;background:'+(conf===keys.length?"#059669":"#f59e0b")+';border-radius:6px;transition:width .3s"></div></div></div>'
+    +'<div class="so-sec">SITE &amp; ALARMS</div>'
+    +soItem("alarm","")
+    +'<p style="font-size:12px;color:var(--muted);margin-top:-10px;margin-bottom:14px;line-height:1.5">Customer must coordinate with alarm company before install day.</p>'
+    +soItem("photos","")
+    +'<div class="so-sec">WINDOW DETAILS</div>'
+    +soItem("mfr",brandDisplay||"\u2014")
+    +soItem("glass",glassDisplay||"\u2014")
+    +soItem("grids",gridsOnSheet.join(", ")||"\u2014")
+    +'<div class="so-sec">COLORS</div>'
+    +'<div class="g2" style="gap:10px;margin-bottom:12px">'
+    +[["Interior Window Color","intColor"],["Exterior Window Color","extColor"],["Capping Color","capping"],["Door Color","doorColor"]].map(function(x){
+      var l=x[0], k=x[1];
+      return '<div><label class="lbl">'+l+'</label>'
+        +'<input type="text" value="'+esc(S.so[k].note||S.so[k].contracted||"")+'" placeholder="Color\u2026" oninput="S.so[\''+k+'\'].note=this.value;save()"/>'
+        +(S.so[k].contracted?'<div class="so-cv" style="margin-top:4px">ct: <b>'+esc(S.so[k].contracted)+'</b></div>':"")
+        +'</div>';
+    }).join("")
+    +'</div>'
+    +'<div class="so-item"><div class="so-row"><div class="so-label">Colors confirmed with homeowner</div>'
+    +'<label class="conf-btn" style="color:'+(S.so.intColor.confirmed?"var(--green)":"var(--muted)")+'">'
+    +'<input type="checkbox"'+(S.so.intColor.confirmed?" checked":"")+'  onchange="[\'intColor\',\'extColor\',\'capping\',\'doorColor\'].forEach(function(k){S.so[k].confirmed=this.checked;}.bind(this));save();refreshSO();renderSO()"/>'
+    +'<span>'+(S.so.intColor.confirmed?"\u2713 Confirmed":"Confirm")+'</span></label></div></div>'
+    +'<div class="so-sec">DOOR DETAILS</div>'
+    +soItem("doorSwing",swingDisplay)
+    +soItem("jamb",jambDisplay)
+    +'<div class="so-sec">ADDITIONAL</div>'
+    +soItem("custom","")
+    +'<div style="background:#f8fafc;border:2px solid var(--navy);border-radius:12px;padding:18px;margin-top:20px">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px">FINAL SIGN-OFF</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5">Both parties confirm all items reviewed and agreed.'+(conf<keys.length?'<span style="color:var(--red);font-weight:700"> ('+(keys.length-conf)+' not yet confirmed)</span>':"")+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:16px">'
+    +[["Homeowner Signature","sigHO"],["Visionaire Windows Rep","sigRep"]].map(function(x){
+      var l=x[0], f=x[1];
+      return '<div><div class="lbl">'+l+'</div>'
+        +'<div class="sig-box" id="'+f+'d">'+esc(S[f])+'</div>'
+        +'<input type="text" id="sig.'+f+'" value="'+esc(S[f])+'" placeholder="Type name to sign\u2026" oninput="upd(\'sig.'+f+'\');document.getElementById(\''+f+'d\').textContent=this.value"/></div>';
+    }).join("")
+    +'<div><div class="lbl">Date</div>'
+    +'<div class="sig-box" style="font-size:18px;display:flex;align-items:center">'+esc(S.sigDate)+'</div>'
+    +'<input type="text" id="sig.sigDate" value="'+esc(S.sigDate)+'" placeholder="Date\u2026" oninput="upd(\'sig.sigDate\')"/></div>'
+    +'</div>'
+    +(S.sigHO&&S.sigRep?'<div style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:14px;font-size:14px;font-weight:700;color:#166534;text-align:center;margin-top:16px">\u2705 Sign-off complete \u2014 '+conf+'/'+keys.length+' confirmed \u00b7 '+esc(S.sigDate)+'</div>':"")
+    +'</div>'
+    +'</div></div>';
+  refreshSO();
+}
+
+// ── Main render ──────────────────────────────────────────────────────────────
+function renderAll(){
+  refreshMM();
+  if(S.tab==="sheet"){
+    var html=renderHeader()+renderWins()+renderDoors();
+    html+='<div class="card" style="margin-top:16px"><div class="ch">CUSTOMER NOTES</div><div class="cb">'
+      +'<textarea id="custNotes" placeholder="Notes to confirm with customer\u2026" oninput="upd(\'custNotes\')">'+esc(S.custNotes)+'</textarea>'
+      +'</div></div>';
+    document.getElementById("content").innerHTML=html;
+  } else {
+    renderSO();
+  }
+  refreshSO();
+}
+
+renderAll();
+
+if(S.contract){
+  var items=S.contract.items||[];
+  var st=document.getElementById("cst");
+  st.textContent="\u2705 "+(S.contract.header.customerName||"loaded")+" \u00b7 "+items.filter(function(i){ return i.itemType==="window"; }).length+" win \u00b7 "+items.filter(function(i){ return i.itemType==="door"; }).length+" door";
+  st.style.color="#6ee7b7";
+  document.getElementById("showcbl").style.display="flex";
+  document.getElementById("showcb").checked=S.showContract;
+  document.getElementById("mmp").style.display="inline";
+  refreshMM();
+}
+</script>
 </body>
 </html>
