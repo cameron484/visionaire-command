@@ -61,7 +61,6 @@
     .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
     .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1;}
     .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;}
-    .cc-addr{font-size:0.8rem;color:var(--navy-mid);margin-bottom:8px;display: block; text-decoration: underline; font-weight: 600;}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
     .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
     .ca:not(:last-child){border-right:1px solid var(--border)}
@@ -177,23 +176,28 @@ function geminiInsight(ev){
 }
 
 function cleanNotes(html) {
-  if (!html) return "No job notes.";
-  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
-  const labels = ["Category:", "Contact:", "Product:", "Edit event at:", "Address:"];
-  labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'g'), `|||$1`); });
+  if (!html) return "";
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
+  const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
+  labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'gi'), `|||$1`); });
   text = text.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
   return text.split('|||').filter(l => l.trim().length > 3).map(line => {
     let part = line.trim();
-    let label = labels.find(lab => part.startsWith(lab));
-    if (label) return `<span class="note-line"><span class="note-label">${label}</span>${part.replace(label, '').trim()}</span>`;
+    let label = labels.find(lab => part.toLowerCase().startsWith(lab.toLowerCase()));
+    if (label) return `<span class="note-line"><span class="note-label">${label}</span>${part.substring(label.length).trim()}</span>`;
     return `<span class="note-line">${part}</span>`;
   }).join('');
 }
 
 function parseEv(ev){
   var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
+  
+  // STRIP COLONS AND DASHES FROM START OF NAME
+  let rawName = ev.summary.replace(/final\s*measure/i, '').trim();
+  rawName = rawName.replace(/^[\s\-\u2013:]+/, '').trim();
+  
   return {
-    id: ev.id, customer: ev.summary.replace(/final measure/i,'').trim(),
+    id: ev.id, customer: rawName || 'Unnamed',
     address: ev.location || '', startDate: start.slice(0,10),
     startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled',
     notesHtml: ev.description || '',
@@ -306,14 +310,13 @@ function rCard(ev){
   var head=el('div',{C:'cc-head'});
   head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
   var body=el('div',{C:'cc-body'});
-  var top=el('div',{C:'cc-top'}); top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
-  top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); body.appendChild(top);
-  if(ev.address) {
-    var alink = el('a',{C:'cc-addr',t:ev.address});
-    alink.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(ev.address);
-    alink.target = "_blank";
-    body.appendChild(alink);
-  }
+  
+  // RENDER NAME AND TIME (ADDRESS REMOVED FROM HERE)
+  var top=el('div',{C:'cc-top'}); 
+  top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
+  top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); 
+  body.appendChild(top);
+  
   head.appendChild(body); card.appendChild(head);
   if(isExp){
     var det=el('div',{C:'cc-det'});
@@ -331,7 +334,16 @@ function rCard(ev){
       det.appendChild(gi);
     }
 
-    var n = el('div',{C:'dnotes'}); n.innerHTML = cleanNotes(ev.notesHtml);
+    // EXPLICIT ADDRESS BLOCK IN NOTES
+    var n = el('div',{C:'dnotes'}); 
+    let notesHtml = "";
+    if(ev.address) {
+        var addrText = ev.address.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        notesHtml += '<span class="note-line"><span class="note-label">ADDRESS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:700;">' + addrText + '</a></span>';
+    }
+    
+    notesHtml += cleanNotes(ev.notesHtml);
+    n.innerHTML = notesHtml || "No job notes.";
     det.appendChild(n); card.appendChild(det);
   }
   var acts=el('div',{C:'cc-acts'});
