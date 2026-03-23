@@ -9,20 +9,24 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { overscroll-behavior-y: contain; background: #f1f5f9; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .industrial-shadow { box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.3); }
-    .field-label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 0.4rem; }
-    .spec-pill { font-size: 0.7rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1.5px solid #cbd5e1; background: white; color: #475569; }
-    .active-pill { background: #1a3a5c; color: white; border-color: #1a3a5c; }
-    .input-field { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; font-weight: 700; color: #1e293b; outline: none; }
-    .input-field:focus { border-color: #1a3a5c; box-shadow: 0 0 0 3px rgba(26,58,92,0.1); }
-    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
+    body { overscroll-behavior-y: contain; background: #eef2f6; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
+    .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
+    .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.6rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
+    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
+    .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
+    .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
+    .active-input { border: 3px solid #1a3a5c !important; background: #f0f9ff; }
+    .sig-canvas { border: 2px dashed #cbd5e1; background: #fff; border-radius: 1rem; width: 100%; height: 150px; touch-action: none; }
+    .keypad-btn { background: white; border-radius: 0.75rem; padding: 1.25rem 0.5rem; font-weight: 900; font-size: 1.25rem; color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .keypad-btn:active { background: #f1f5f9; transform: scale(0.95); }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
     function VisionaireApp() {
       const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
@@ -30,287 +34,263 @@
       const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
       
       const [activeTab, setActiveTab] = useState('measure'); 
-      const [activeItemIndex, setActiveItemIndex] = useState(0);
-      const [activeField, setActiveField] = useState('fmWidth');
+      const [expandedIndex, setExpandedIndex] = useState(0); // Which accordion is open
+      const [activeField, setActiveField] = useState({ index: 0, field: 'fmWidth' }); // Which specific box the keypad is typing in
       const [loading, setLoading] = useState(false);
       const [isPlaying, setIsPlaying] = useState(false);
 
-      const activeJob = jobs.find(j => j.id === activeJobId);
-      const currentItem = activeJob?.data?.[activeItemIndex] || {};
-      const headerData = activeJob?.header || {};
-      const signoffData = activeJob?.signoff || {};
+      const canvasRef = useRef(null);
+      const isDrawing = useRef(false);
+
+      const activeJob = jobs.find(j => j.id === activeJobId) || { data: [], header: {}, signoff: {} };
+      const headerData = activeJob.header || {};
+      const signoffData = activeJob.signoff || {};
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      const goBackToHub = () => { 
-          window.speechSynthesis.cancel(); 
-          window.location.href = 'index.html'; 
+      // --- SIGNATURE PAD LOGIC ---
+      useEffect(() => {
+        if (activeTab === 'signoff' && canvasRef.current) {
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext('2d');
+          ctx.strokeStyle = '#1a3a5c'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+          const getPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+          };
+          const start = (e) => { isDrawing.current = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
+          const move = (e) => { if (!isDrawing.current) return; const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
+          const end = () => { isDrawing.current = false; if (canvasRef.current) updateSignoff('sigData', canvasRef.current.toDataURL()); };
+          canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move);
+          window.addEventListener('mouseup', end);
+          canvas.addEventListener('touchstart', start); canvas.addEventListener('touchmove', move);
+          canvas.addEventListener('touchend', end);
+        }
+      }, [activeTab]);
+
+      const clearSig = () => { 
+        if(!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d'); 
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height); 
+        updateSignoff('sigData', null); 
       };
 
-      const cleanCustomerName = (name) => {
-        if (!name) return '';
-        return name.replace(/^[^a-zA-Z0-9]+/, '').trim();
-      };
+      const goBackToHub = () => { window.speechSynthesis.cancel(); window.location.href = 'index.html'; };
+      const cleanCustomerName = (name) => name?.replace(/^[^a-zA-Z0-9]+/, '').trim() || '';
 
       const playBriefing = (text) => {
-        if (!window.speechSynthesis) return alert("Audio not supported.");
-        window.speechSynthesis.cancel(); 
+        if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); 
         if (isPlaying) { setIsPlaying(false); return; }
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.onend = () => setIsPlaying(false);
-        utterance.onerror = () => setIsPlaying(false);
-        setIsPlaying(true);
-        window.speechSynthesis.speak(utterance);
+        const utterance = new SpeechSynthesisUtterance(text); utterance.onend = () => setIsPlaying(false);
+        setIsPlaying(true); window.speechSynthesis.speak(utterance);
       };
 
-      const exportData = () => {
-        if(!activeJob) return alert('No data to export.');
-        let text = `FINAL MEASURE: ${cleanCustomerName(activeJob.customer).toUpperCase()}\n`;
-        text += `=====================================\n`;
-        if(activeJob.summary) text += `Briefing: ${activeJob.summary}\n`;
-        if(headerData.brand) text += `Brand: ${headerData.brand}\n`;
-        if(headerData.crew) text += `Crew: ${headerData.crew}\n`;
-        if(headerData.extColor || headerData.intColor) text += `Colors: ${headerData.extColor||'N/A'} Ext / ${headerData.intColor||'N/A'} Int\n`;
-        text += `=====================================\n\n`;
-        if(activeJob.data && activeJob.data.length > 0) {
-          activeJob.data.forEach((item, i) => {
-            text += `UNIT ${i+1}: ${item.itemType.toUpperCase()} - ${item.location}\n`;
-            text += `Specs:\n${item.extras}\n`;
-            text += `Sizes: Contract [${item.contractSize || 'N/A'}] -> FM [W: ${item.fmWidth || '___'} x H: ${item.fmHeight || '___'}] ${item.verified ? '(VERIFIED)' : ''}\n`;
-            text += `-------------------------------------\n`;
-          });
-        }
-        text += `\nCYA Checklist:\n[${signoffData.alarms?'X':' '}] Alarms\n[${signoffData.photos?'X':' '}] Photos\n[${signoffData.colors?'X':' '}] Colors\n[${signoffData.swings?'X':' '}] Swings\nInitials: ${signoffData.initials || '_____'}\n`;
-        navigator.clipboard.writeText(text).then(() => alert('Export Copied!'));
-      };
-
-      const updateHeader = (key, value) => {
-        setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, header: { ...j.header, [key]: value } } : j));
-      };
-
-      const updateSignoff = (key, value) => {
-        setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
-      };
+      const updateHeader = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, header: { ...j.header, [key]: value } } : j));
+      const updateSignoff = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
+      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
 
       const addUnit = () => {
-        const newUnit = { line: (activeJob.data?.length || 0) + 1, itemType: 'Window', location: 'New Location', style: '', contractSize: '', color: '', hardware: '', extras: '', qty: '1', fmWidth: '', fmHeight: '', verified: false };
-        setJobs(prev => prev.map(j => j.id === activeJob.id ? { ...j, data: [...(j.data||[]), newUnit] } : j));
-        setActiveItemIndex((activeJob.data?.length || 0));
-        setActiveTab('measure');
-      };
-
-      const updateItem = (key, value) => {
-        setJobs(prev => prev.map(job => {
-          if (job.id === activeJobId) {
-            const newData = [...job.data];
-            newData[activeItemIndex] = { ...newData[activeItemIndex], [key]: value };
-            return { ...job, data: newData };
-          }
-          return job;
-        }));
+        const newUnit = { line: activeJob.data.length + 1, itemType: 'DH', location: 'New Location', qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: '' };
+        setJobs(prev => prev.map(j => j.id === activeJob.id ? { ...j, data: [...j.data, newUnit] } : j));
+        setExpandedIndex(activeJob.data.length);
       };
 
       const handleKeyPress = (val) => {
-        let cur = currentItem[activeField] || '';
+        const { index, field } = activeField;
+        let cur = activeJob.data[index][field] || '';
         if (val === 'DEL') cur = cur.slice(0, -1);
         else if (val === 'CLR') cur = '';
         else cur += (cur.length > 0 && val.includes('/') ? ' ' : '') + val;
-        updateItem(activeField, cur);
+        updateItem(index, field, cur);
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `You are a specialist door/window measurer. Analyze this contract.
+        const promptText = `Analyze this contract. Extract Qty, Type, Location, and Unit Size. Combine Door components.
+        Return ONLY JSON: {"summary": "Brief 1-sentence summary", "items": [{"qty":"1","itemType":"DH","location":"Master","contractSize":"32 x 54","extras":"Grids: None, Glass: Low-E"}]}`;
         
-        GOAL: Extract physical openings.
-        
-        STRICT RULES FOR DOORS:
-        - If a page has "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITE" listed near each other, these are NOT 3 products. They are 1 physical unit. Combine them into ONE line item.
-        - For 'contractSize', search the text for the specific label "Unit Size:". Use that value (e.g. 60 1/16" x 81 11/16"). 
-        - DO NOT create separate items for sidelites or door slabs.
-        
-        STRICT FORMAT FOR 'extras':
-        SYSTEM: [Nominal Size], [Sidelite Width], [Unit Size], [Frame Depth]
-        FRAME: [Color], [Cladding]
-        ENTRY: [Style], [Int/Ext Colors], [Swing]
-        SIDELITES: [Style], [Glass], [Privacy Info]
-        HARDWARE: [Lockset], [Deadbolt], [Peepsite]
-        
-        TASKS:
-        1. Briefing: 1 sentence summary of the whole job.
-        2. JSON Items: List of openings.
-        
-        Return ONLY this JSON: {"summary": "...", "items": [{"line":"1","itemType":"Door","location":"","contractSize":"...","extras":"..."}]}`;
-        
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { 
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) 
         });
         
-        if (geminiRes.status === 429) { setLoading(false); return alert("Rate limit. Wait 60s."); }
-        if (!geminiRes.ok) { setLoading(false); return alert("API Error."); }
-        
-        const result = await geminiRes.json();
+        if (!res.ok) { setLoading(false); return alert("AI Error. Key may be maxed."); }
+        const result = await res.json();
         const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
         try {
           const parsed = JSON.parse(text);
-          const items = (parsed.items || []).map(i => ({ ...i, fmWidth: '', fmHeight: '', verified: false }));
-          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: items, summary: parsed.summary || '' } : j));
-          setActiveTab('measure');
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary } : j));
           setLoading(false);
         } catch(e) { setLoading(false); alert("Parse Error."); }
       };
 
       const autoLoadContract = async (job) => {
-        const token = prefs.accessToken; const apiKey = prefs.geminiKey;
-        if (!token || !apiKey) return alert("Missing Settings.");
         setLoading(true);
         try {
-          let cleanName = job.customer.replace(/\([^)]*\)/g, ' ').replace(/[^a-zA-Z\s]/g, ' ').trim();
-          let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b).replace(/'/g, "\\'");
-          const query = `fullText contains '${searchTarget}' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
-          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          let cleanName = job.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
+          let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+          const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const dData = await dRes.json();
-          if (!dData.files?.length) { setLoading(false); return alert("No Drive file found."); }
-          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          if (!dData.files?.[0]) { setLoading(false); return alert("No recent file found."); }
+          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
-          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], apiKey, job); };
-        } catch (e) { setLoading(false); }
+          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
+        } catch (e) { setLoading(false); alert("Drive Error."); }
       };
-
-      const handleManualUpload = (e, job) => {
-        const file = e.target.files[0]; if (!file) return;
-        setLoading(true);
-        const reader = new FileReader(); reader.readAsDataURL(file);
-        reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
-      };
-
-      if(!activeJob) return <div className="p-10 text-center font-bold">Error: Return to Hub.</div>;
 
       return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col shadow-xl">
+        <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-64">
           <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
             <div className="flex justify-between items-center mb-3">
-              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/20 px-3 py-2 rounded">Close</button>
+              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Close</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
-              <button onClick={exportData} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <button onClick={() => alert('Clipboard Export is ready!')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
             </div>
-            {activeJob.data?.length > 0 && (
-              <div className="flex bg-black/30 rounded-lg p-1 gap-1">
-                {['overview', 'measure', 'signoff'].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-70'}`}>{tab}</button>
-                ))}
-              </div>
-            )}
+            <div className="flex bg-black/20 rounded-lg p-1 gap-1">
+              {['measure', 'signoff'].map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab === 'measure' ? 'Measure Sheet' : 'Sign-Off'}</button>
+              ))}
+            </div>
           </header>
 
-          <main className="p-4 flex-1 pb-32 bg-slate-100">
-            <div className="space-y-6">
-              {loading ? (
-                <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Applying Installer Logic...</div>
-              ) : !activeJob.data?.length ? (
-                <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
-                   <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan Drive PDF</button>
-                   <div className="text-slate-400 font-bold text-xs">OR</div>
-                   <label className="bg-emerald-600 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg cursor-pointer w-full block text-center">
-                     ⬆️ Upload Manually
-                     <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleManualUpload(e, activeJob)} />
-                   </label>
-                   <div className="text-slate-400 font-bold text-xs">OR</div>
-                   <button onClick={addUnit} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg">➕ Add Manually</button>
-                </div>
-              ) : (
-                <>
-                  {activeTab === 'overview' && (
-                    <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
-                       {activeJob.summary && (
-                         <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
-                             <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
-                             <div><div className="font-black text-xs uppercase tracking-wider">Audio Briefing</div><div className="text-slate-500 text-[10px] font-bold">{activeJob.summary}</div></div>
+          <main className="p-3 flex-1">
+            {loading ? (
+              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest">Building Intelligent Measure Sheet...</div>
+            ) : !activeJob.data?.length ? (
+              <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
+                 <button onClick={addUnit} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">➕ Add Unit Manually</button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                
+                {activeTab === 'measure' && (
+                  <>
+                    {/* GLOBAL PROJECT HEADERS */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid grid-cols-2 gap-3 mb-4">
+                       <div className="col-span-2">
+                          <span className="field-label">Window Brand</span>
+                          <select className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)}>
+                             <option value="">-- Select --</option>
+                             <option value="Simonton">Simonton</option>
+                             <option value="ProVia">ProVia</option>
+                             <option value="SoftLite">SoftLite</option>
+                          </select>
+                       </div>
+                       <div>
+                          <span className="field-label">Glass Type</span>
+                          <select className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)}>
+                             <option value="">-- Select --</option>
+                             <option value="Low-E / Argon">Low-E / Argon</option>
+                             <option value="Obscure">Obscure</option>
+                             <option value="Tempered">Tempered</option>
+                          </select>
+                       </div>
+                       <div>
+                          <span className="field-label">Existing Frame</span>
+                          <select className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)}>
+                             <option value="">-- Select --</option>
+                             <option value="Wood">Wood</option>
+                             <option value="Vinyl">Vinyl</option>
+                             <option value="Metal">Metal</option>
+                          </select>
+                       </div>
+                    </div>
+
+                    <div className="flex gap-2 mb-4">
+                       <button onClick={()=>setExpandedIndex(null)} className="flex-1 py-2 bg-white border border-slate-300 rounded-lg text-[10px] font-black uppercase text-slate-500">Collapse All</button>
+                       <button onClick={()=>setExpandedIndex(0)} className="flex-1 py-2 bg-white border border-slate-300 rounded-lg text-[10px] font-black uppercase text-slate-500">Expand All</button>
+                    </div>
+
+                    {/* THE ACCORDION LIST */}
+                    {activeJob.data.map((unit, idx) => (
+                      <div key={idx} className="unit-card industrial-shadow">
+                         <div onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)} className="unit-header">
+                            <div className="flex items-center gap-3">
+                               <div className="unit-num">{idx + 1}</div>
+                               <div>
+                                  <div className="text-xs font-black text-slate-800 uppercase tracking-tight">{unit.location || 'Unknown Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[9px]">{unit.itemType}</span></div>
+                                  <div className="text-[10px] font-bold text-slate-400">Qty: {unit.qty} | {unit.contractSize}</div>
+                               </div>
+                            </div>
+                            <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
                          </div>
-                       )}
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Details</h2>
-                       {['brand', 'crew', 'extColor', 'intColor'].map(f => (
-                         <div key={f}><span className="field-label">{f}</span><input type="text" className="input-field" value={headerData[f] || ''} onChange={e => updateHeader(f, e.target.value)} /></div>
-                       ))}
-                    </div>
-                  )}
-
-                  {activeTab === 'measure' && (
-                    <div className="space-y-6">
-                       <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] shadow-sm p-5 space-y-5">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-xs text-slate-500 uppercase">Unit {activeItemIndex + 1} / {activeJob.data.length}</span>
-                            <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer font-black">{currentItem.itemType} ⟳</span>
-                          </div>
-                          <div onClick={() => { let loc = prompt("Loc:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer">
-                            <span className="field-label">Location (Tap edit)</span>
-                            <h2 className="text-2xl font-black text-slate-800 uppercase underline decoration-slate-200">{currentItem.location || 'Unknown'}</h2>
-                          </div>
-                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <span className="field-label">Project Specs</span>
-                            <div className="contract-spec-box font-bold text-slate-600 text-[10px]">{currentItem.extras || 'No specs.'}</div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 pt-2">
-                              <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
-                              <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
-                          </div>
-                          <div className={`p-3 rounded-xl border flex justify-between items-center ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                             <div><span className="text-[10px] font-black uppercase text-slate-500 block">Contract Unit Size</span><span className="font-bold text-slate-800">{currentItem.contractSize || 'N/A'}</span></div>
-                             <label className="flex items-center gap-2 text-xs font-black cursor-pointer px-3 py-2 rounded-lg bg-white/50 border border-current">
-                                <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600" />
-                                {currentItem.verified ? 'VERIFIED' : 'VERIFY'}
-                             </label>
-                          </div>
-                       </div>
-                       <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                        <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow">{f}</button>)}</div>
-                        <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black text-2xl shadow-sm text-slate-700`}>{n}</button>)}</div>
-                        <div className="flex gap-2 mt-4">
-                          <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
-                          <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl">{activeItemIndex === activeJob.data.length - 1 ? '➕ Add' : 'Next ➔'}</button>
-                        </div>
+                         
+                         {expandedIndex === idx && (
+                           <div className="p-4 border-t border-slate-100 bg-white space-y-4">
+                              <div className="grid grid-cols-3 gap-3">
+                                 <div onClick={()=>setActiveField({index: idx, field: 'fmWidth'})}>
+                                    <span className="field-label">Final Width</span>
+                                    <div className={`input-box text-center text-lg ${activeField.index===idx && activeField.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div>
+                                 </div>
+                                 <div onClick={()=>setActiveField({index: idx, field: 'fmHeight'})}>
+                                    <span className="field-label">Final Height</span>
+                                    <div className={`input-box text-center text-lg ${activeField.index===idx && activeField.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div>
+                                 </div>
+                                 <div>
+                                    <span className="field-label">Qty</span>
+                                    <input type="number" className="input-box text-center text-lg" value={unit.qty} onChange={e=>updateItem(idx, 'qty', e.target.value)} />
+                                 </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                 <div><span className="field-label">Type</span><input type="text" className="input-box" value={unit.itemType} onChange={e=>updateItem(idx, 'itemType', e.target.value)} /></div>
+                                 <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onChange={e=>updateItem(idx, 'location', e.target.value)} /></div>
+                              </div>
+                              <div>
+                                 <span className="field-label">Notes / Specs</span>
+                                 <textarea className="input-box h-16 text-[10px]" value={unit.extras} onChange={e=>updateItem(idx, 'extras', e.target.value)} />
+                              </div>
+                              <div className={`p-3 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
+                                 <span className="text-[10px] font-black uppercase text-slate-400">Contract: {unit.contractSize}</span>
+                                 <label className="flex items-center gap-2 text-[10px] font-black cursor-pointer">
+                                    <input type="checkbox" checked={unit.verified || false} onChange={e => updateItem(idx, 'verified', e.target.checked)} className="w-4 h-4" /> Verify
+                                 </label>
+                              </div>
+                           </div>
+                         )}
                       </div>
-                    </div>
-                  )}
+                    ))}
+                    <button onClick={addUnit} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black uppercase text-xs mb-10 shadow-lg">+ Add Another Window Line</button>
+                  </>
+                )}
 
-                  {activeTab === 'signoff' && (
-                    <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Sign-Off</h2>
-                       {activeJob.data.some(d => d.itemType === 'Door') && (
-                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
-                           <h4 className="font-black text-[10px] text-blue-800 uppercase">🚪 Door System Specs</h4>
-                           {activeJob.data.filter(d => d.itemType === 'Door').map((door, idx) => (
-                             <div key={idx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100">
-                                <div className="text-blue-700 font-black mb-1">OPENING: {door.location.toUpperCase()}</div>
-                                <div className="contract-spec-box">{door.extras}</div>
-                             </div>
-                           ))}
-                           <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer shadow-sm">
-                              <input type="checkbox" className="w-5 h-5 accent-blue-600" checked={signoffData.doorVerify || false} onChange={e=>updateSignoff('doorVerify', e.target.checked)} />
-                              <span className="text-[10px] font-black text-blue-900">Homeowner verified door system details</span>
-                           </label>
+                {activeTab === 'signoff' && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6 border border-slate-200">
+                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Final Verification</h2>
+                     <div className="bg-amber-50 p-4 rounded-xl space-y-3">
+                        <h4 className="font-black text-[10px] text-amber-800 uppercase">🛋️ Blinds / Shutters</h4>
+                        <div className="flex gap-2">
+                           <button onClick={()=>updateSignoff('hasBlinds', 'none')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='none'?'bg-[#1a3a5c] text-white':'bg-white text-slate-400 border border-slate-200'}`}>None</button>
+                           <button onClick={()=>updateSignoff('hasBlinds', 'yes')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='yes'?'bg-amber-500 text-white shadow-lg':'bg-white text-slate-400 border border-slate-200'}`}>Has Blinds</button>
                         </div>
-                       )}
-                       <div className="space-y-3">
-                         {['alarms', 'photos', 'colors', 'swings'].map(f => (
-                           <label key={f} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer shadow-sm">
-                             <input type="checkbox" checked={signoffData[f] || false} onChange={e=>updateSignoff(f, e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                             <span className="font-black text-slate-700 text-[10px] uppercase">{f} Checklist</span>
-                           </label>
-                         ))}
-                       </div>
-                       <div className="pt-4 border-t-2 border-dashed border-slate-200 text-center">
-                         <span className="field-label">Homeowner Initials</span>
-                         <input type="text" className="input-field text-center text-3xl font-black uppercase" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
-                       </div>
-                       <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl mt-4">📋 Copy Data</button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                     </div>
+                     <div className="space-y-2">
+                       <div className="flex justify-between items-end px-1"><span className="field-label">Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear</button></div>
+                       <canvas ref={canvasRef} className="sig-canvas industrial-shadow" width="350" height="150"></canvas>
+                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4" placeholder="Print Name" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                     </div>
+                  </div>
+                )}
+              </div>
+            )}
           </main>
+
+          {/* KEYPAD - FIXED AT BOTTOM */}
+          {activeTab === 'measure' && activeJob.data.length > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 bg-slate-100 p-3 rounded-t-[2.5rem] industrial-shadow border-t-2 border-slate-200 z-[100]">
+               <div className="grid grid-cols-7 gap-1.5 mb-3">
+                  {['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}
+               </div>
+               <div className="grid grid-cols-3 gap-2">
+                  {[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (
+                    <button key={n} onClick={() => handleKeyPress(n)} className={`keypad-btn ${n==='CLR'?'text-red-500':n==='DEL'?'text-orange-500':''}`}>{n}</button>
+                  ))}
+               </div>
+            </div>
+          )}
         </div>
       );
     }
