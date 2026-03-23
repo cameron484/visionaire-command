@@ -21,12 +21,7 @@
     .keypad-btn { background: white; border-radius: 0.75rem; padding: 1.25rem 0.5rem; font-weight: 900; font-size: 1.25rem; color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .keypad-btn:active { background: #f1f5f9; transform: scale(0.95); }
     .contract-spec-box { white-space: pre-line; line-height: 1.6; }
-    
-    /* Keypad Animation */
-    .keypad-container {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
-      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+    .keypad-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     .keypad-open { transform: translateY(0); }
   </style>
 </head>
@@ -39,13 +34,11 @@
       const [prefs] = useState(() => JSON.parse(localStorage.getItem('vhub_v2')) || {});
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
       const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
-      
       const [activeTab, setActiveTab] = useState('measure'); 
       const [expandedIndex, setExpandedIndex] = useState(0);
-      const [activeField, setActiveField] = useState(null); // { index, field } for numbers only
+      const [activeField, setActiveField] = useState(null); 
       const [loading, setLoading] = useState(false);
       const [isPlaying, setIsPlaying] = useState(false);
-
       const canvasRef = useRef(null);
       const isDrawing = useRef(false);
 
@@ -55,7 +48,6 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      // --- SIGNATURE Logic ---
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
@@ -98,13 +90,30 @@
         }
       };
 
+      // 🛠️ UNIVERSAL INSERT LOGIC: Clones Type/Location/Specs but resets measurements
       const insertLineBelow = (index) => {
         const source = activeJob.data[index];
-        const newUnit = { itemType: source.itemType, location: source.location, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: source.extras, contractSize: source.contractSize };
+        const newUnit = { 
+          itemType: source.itemType, 
+          location: source.location, 
+          qty: '1', 
+          fmWidth: '', 
+          fmHeight: '', 
+          verified: false, 
+          extras: source.extras, 
+          contractSize: source.contractSize 
+        };
         const newData = [...activeJob.data];
         newData.splice(index + 1, 0, newUnit);
         setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
+        setActiveField(null);
         setExpandedIndex(index + 1);
+      };
+
+      const addUnitAtEnd = () => {
+        const newUnit = { itemType: 'DH', location: 'New Opening', qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: '' };
+        setJobs(prev => prev.map(j => j.id === activeJob.id ? { ...j, data: [...j.data, newUnit] } : j));
+        setExpandedIndex(activeJob.data.length);
       };
 
       const handleKeyPress = (val) => {
@@ -118,7 +127,7 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract as a door/window specialist. Extract Qty, Type, Location, and "Unit Size:". Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
+        const promptText = `Analyze this contract as a door/window specialist. 1. Briefing: 1 sentence. 2. Combine Door system components. 3. Extract Qty, Type, Location, Unit Size. 4. Format extras with headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
         if (!res.ok) { setLoading(false); return alert("AI Error."); }
         const result = await res.json();
@@ -143,48 +152,50 @@
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
           reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], prefs.geminiKey, job); };
-        } catch (e) { setLoading(false); alert("Drive Error."); }
+        } catch (e) { setLoading(false); }
       };
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
           <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
             <div className="flex justify-between items-center mb-3">
-              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Close</button>
+              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded shadow-sm">Close</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
-              <button onClick={() => alert('Exporting...')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <button onClick={() => alert('Export Logic remains.')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow-sm">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
+                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow-sm':'text-white opacity-60'}`}>{tab}</button>
               ))}
             </div>
           </header>
 
           <main className="p-3 flex-1">
             {loading ? (
-              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest">Scanning Contract...</div>
+              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Scanning Contract Files...</div>
             ) : !activeJob.data?.length ? (
               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan Drive PDF</button>
+                 <button onClick={addUnitAtEnd} className="bg-slate-800 text-white py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">➕ Add Unit Manually</button>
               </div>
             ) : (
               <div className="space-y-4">
+                
                 {activeTab === 'overview' && (
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
                     {activeJob.summary && (
                        <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
                            <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
-                           <div className="font-black text-xs uppercase text-slate-800">Briefing: <span className="block text-[10px] font-bold text-slate-500">{activeJob.summary}</span></div>
+                           <div className="font-black text-xs uppercase text-slate-800">Briefing: <span className="block text-[10px] font-bold text-slate-500 lowercase">{activeJob.summary}</span></div>
                        </div>
                     )}
-                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Specs</h2>
+                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Project Settings</h2>
                     <div className="grid grid-cols-2 gap-3">
                        <div className="col-span-2"><span className="field-label">Window Brand</span><input className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                        <div><span className="field-label">Glass Type</span><input className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                        <div><span className="field-label">Existing Frame</span><input className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                     </div>
-                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan</button>
+                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan Drive</button>
                   </div>
                 )}
 
@@ -201,7 +212,7 @@
                             <div className="flex items-center gap-3">
                                <div className="unit-num">{idx + 1}</div>
                                <div>
-                                  <div className="text-xs font-black text-slate-800 uppercase">{unit.location || 'Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px]">{unit.itemType}</span></div>
+                                  <div className="text-xs font-black text-slate-800 uppercase">{unit.location || 'Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px] font-black">{unit.itemType}</span></div>
                                   <div className="text-[10px] font-bold text-slate-400">Qty: {unit.qty} | {unit.contractSize}</div>
                                </div>
                             </div>
@@ -211,7 +222,6 @@
                          {expandedIndex === idx && (
                            <div className="p-4 border-t border-slate-100 bg-white space-y-4">
                               <div className="grid grid-cols-3 gap-3">
-                                 {/* NUMERICAL FIELDS: TRIGGERS CUSTOM KEYPAD */}
                                  <div onClick={(e)=>{ e.stopPropagation(); setActiveField({index: idx, field: 'fmWidth'}); }}>
                                     <span className="field-label">Final Width</span>
                                     <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div>
@@ -225,37 +235,56 @@
                                     <div className={`input-box text-center text-lg ${activeField?.index===idx && activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div>
                                  </div>
                               </div>
-
-                              {/* TEXT FIELDS: TRIGGERS NATIVE KEYBOARD AND HIDES CUSTOM ONE */}
                               <div className="grid grid-cols-2 gap-3">
                                  <div><span className="field-label">Type</span><input type="text" className="input-box" value={unit.itemType} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'itemType', e.target.value)} /></div>
                                  <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'location', e.target.value)} /></div>
                               </div>
                               <div>
-                                 <span className="field-label">Notes / Specs</span>
-                                 <textarea className="input-box h-16 text-[10px]" value={unit.extras} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'extras', e.target.value)} />
+                                 <span className="field-label">Project Specs / Details</span>
+                                 <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] border border-slate-100">{unit.extras || 'No specs listed.'}</div>
                               </div>
-
-                              <div className="flex gap-2">
+                              <div className="flex flex-col gap-2">
                                  <div className={`p-3 flex-1 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
                                     <span className="text-[10px] font-black uppercase text-slate-400 tracking-tight">Contract: {unit.contractSize}</span>
-                                    <label className="flex items-center gap-2 text-[10px] font-black cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-current">
+                                    <label className="flex items-center gap-2 text-[10px] font-black cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-current shadow-sm">
                                        <input type="checkbox" checked={unit.verified || false} onChange={e => updateItem(idx, 'verified', e.target.checked)} className="w-4 h-4 accent-green-600" /> Verify
                                     </label>
                                  </div>
-                                 <button onClick={()=>insertLineBelow(idx)} className="p-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[9px] uppercase border border-blue-100">➕ Insert Below</button>
+                                 {/* ➕ INSERT LINE LOGIC: Clones either Door or Window properties */}
+                                 <button onClick={()=>insertLineBelow(idx)} className="w-full py-3 bg-blue-50 text-blue-600 rounded-lg font-black text-[10px] uppercase border border-blue-100 shadow-sm active:scale-95 transition-transform">
+                                    ➕ Insert New {unit.itemType === 'Door' ? 'Door' : 'Unit'} Below
+                                 </button>
                               </div>
                            </div>
                          )}
                       </div>
                     ))}
+                    <button onClick={addUnitAtEnd} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black uppercase text-xs mb-10 shadow-lg">+ Add Manual Opening At Bottom</button>
                   </>
                 )}
 
                 {activeTab === 'signoff' && (
                   <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6 border border-slate-200 pb-10">
-                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Homeowner Sign-Off</h2>
-                     <div className="bg-amber-50 p-4 rounded-xl space-y-3">
+                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Final Verification</h2>
+                     {/* 🚪 DOOR SYSTEM SPEC CHECK FOR SIGN-OFF */}
+                     {activeJob.data.some(d => d.itemType === 'Door') && (
+                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
+                           <h4 className="font-black text-[10px] text-blue-800 uppercase flex items-center gap-2">🚪 Door System Verification</h4>
+                           {activeJob.data.filter(d => d.itemType === 'Door').map((door, dIdx) => (
+                             <div key={dIdx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100 shadow-sm">
+                                <div className="text-blue-700 font-black mb-1">{door.location.toUpperCase()} DOOR SYSTEM</div>
+                                <div className="contract-spec-box">{door.extras}</div>
+                             </div>
+                           ))}
+                           {['Colors (Jamb/Slab/Sidelite)', 'Swing/Handing', 'Glass/Privacy Type'].map(spec => (
+                               <label key={spec} className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer shadow-sm border border-blue-100">
+                                  <input type="checkbox" className="w-5 h-5 accent-blue-600" checked={signoffData['door_'+spec] || false} onChange={e=>updateSignoff('door_'+spec, e.target.checked)} />
+                                  <span className="text-[10px] font-black text-blue-900">{spec} Confirmed Correct</span>
+                               </label>
+                           ))}
+                        </div>
+                     )}
+                     <div className="bg-amber-50 p-4 rounded-xl space-y-3 shadow-sm border border-amber-100">
                         <h4 className="font-black text-[10px] text-amber-800 uppercase">🛋️ Window Treatments</h4>
                         <div className="flex gap-2">
                            <button onClick={()=>updateSignoff('hasBlinds', 'none')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='none'?'bg-[#1a3a5c] text-white shadow-lg':'bg-white text-slate-400 border border-slate-200'}`}>None</button>
@@ -265,10 +294,18 @@
                            <textarea className="input-box h-20 text-xs mt-2" placeholder="Blind details..." onFocus={()=>setActiveField(null)} value={signoffData.blindNotes || ''} onChange={e=>updateSignoff('blindNotes', e.target.value)} />
                         )}
                      </div>
-                     <div className="space-y-2">
-                       <div className="flex justify-between items-end px-1"><span className="field-label">Customer Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear Pad</button></div>
+                     <div className="space-y-3">
+                       {['alarms', 'photos'].map(f => (
+                         <label key={f} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer shadow-sm">
+                           <input type="checkbox" checked={signoffData[f] || false} onChange={e=>updateSignoff(f, e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                           <span className="font-bold text-slate-700 text-[10px] uppercase">{f} Checklist</span>
+                         </label>
+                       ))}
+                     </div>
+                     <div className="space-y-2 pt-4 border-t border-slate-100">
+                       <div className="flex justify-between items-end px-1"><span className="field-label">Customer Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear</button></div>
                        <canvas ref={canvasRef} className="sig-canvas industrial-shadow" width="350" height="150"></canvas>
-                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full" placeholder="Print Full Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full" placeholder="Print Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
                      </div>
                   </div>
                 )}
@@ -276,10 +313,10 @@
             )}
           </main>
 
-          {/* NUMERICAL KEYPAD ONLY */}
+          {/* ON-DEMAND KEYPAD */}
           <div className={`keypad-container bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 ${activeField ? 'keypad-open' : ''}`}>
              <div className="flex justify-between items-center px-4 mb-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Measurements & Qty</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry: {activeField?.field==='qty'?'Quantity':'Dimension'}</span>
                 <button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button>
              </div>
              <div className="grid grid-cols-7 gap-1.5 mb-3">
