@@ -61,6 +61,7 @@
     .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
     .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1;}
     .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;}
+    .cc-addr{font-size:0.8rem;color:var(--navy-mid);margin-bottom:8px;display: block; text-decoration: underline; font-weight: 600;}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
     .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
     .ca:not(:last-child){border-right:1px solid var(--border)}
@@ -109,7 +110,12 @@ function save(){
   prefs.lastSync=lastSync; prefs.calEvents=calEvents; 
   localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));
 }
-function todayStr(){return new Date().toISOString().slice(0,10);}
+
+// BUGFIX: Proper local timezone string generation to prevent date jumping
+function todayStr(){
+  let d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 
 function loadGIS(cb){
   if(window.google&&window.google.accounts){cb();return;}
@@ -177,7 +183,7 @@ function geminiInsight(ev){
 
 function cleanNotes(html) {
   if (!html) return "";
-  let text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
   const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
   labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'gi'), `|||$1`); });
   text = text.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
@@ -191,8 +197,6 @@ function cleanNotes(html) {
 
 function parseEv(ev){
   var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
-  
-  // STRIP COLONS AND DASHES FROM START OF NAME
   let rawName = ev.summary.replace(/final\s*measure/i, '').trim();
   rawName = rawName.replace(/^[\s\-\u2013:]+/, '').trim();
   
@@ -286,17 +290,21 @@ function rSched(main){
   
   var dayEvs = calEvents.filter(e=>e.startDate===selDate);
   if(dayEvs.length === 0) {
-     main.appendChild(el('div', {C: 'empty-state', t: 'No measurements scheduled for ' + new Date(selDate+'T12:00:00').toLocaleDateString() + '.'}));
+     let niceDate = new Date(selDate+'T12:00:00').toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
+     main.appendChild(el('div', {C: 'empty-state', t: 'No measurements scheduled for ' + niceDate + '.'}));
   } else {
      dayEvs.forEach(ev=>main.appendChild(rCard(ev)));
   }
 }
 
+// BUGFIX: Properly locking variable scope using 'let' to fix the jumping click bug
 function rDateStrip(main){
   var strip=el('div',{C:'dstrip'});
-  for(var i=-1; i<=14; i++){
-    var d=new Date(); d.setDate(d.getDate()+i); var iso=d.toISOString().slice(0,10);
-    var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),click:()=>{selDate=iso; render();}});
+  for(let i=-1; i<=14; i++){
+    let d=new Date(); d.setDate(d.getDate()+i); 
+    let iso=d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    
+    let chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''), click:()=>{selDate=iso; render();} });
     chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
     chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
     strip.appendChild(chip);
@@ -311,7 +319,6 @@ function rCard(ev){
   head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
   var body=el('div',{C:'cc-body'});
   
-  // RENDER NAME AND TIME (ADDRESS REMOVED FROM HERE)
   var top=el('div',{C:'cc-top'}); 
   top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
   top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); 
@@ -334,11 +341,10 @@ function rCard(ev){
       det.appendChild(gi);
     }
 
-    // EXPLICIT ADDRESS BLOCK IN NOTES
     var n = el('div',{C:'dnotes'}); 
     let notesHtml = "";
     if(ev.address) {
-        var addrText = ev.address.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        var addrText = ev.address.replace(/</g, "<").replace(/>/g, ">");
         notesHtml += '<span class="note-line"><span class="note-label">ADDRESS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:700;">' + addrText + '</a></span>';
     }
     
