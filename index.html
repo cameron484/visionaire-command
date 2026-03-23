@@ -491,10 +491,32 @@ function rCard(ev){
     card.appendChild(det);
   }
 
-  var acts=el('div',{C:'cc-acts'});
+ var acts=el('div',{C:'cc-acts'});
   var fm=el('button',{C:'ca p',t:'\uD83D\uDCCB FM Sheet',click:function(){
-    try{localStorage.setItem('vfc_prefill',JSON.stringify({customer:ev.customer,address:ev.address,consultant:ev.consultant,measureDate:ev.startDate}));}catch(e){}
-    alert('Ready! Open Field Command \u2014 customer is pre-filled.');
+    try {
+      // 1. Inject the job directly into the Field Command app's memory
+      var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+      var jobExists = false;
+      for(var i=0; i<existingJobs.length; i++) {
+        if(existingJobs[i].customer === ev.customer) { jobExists = true; break; }
+      }
+      
+      if(!jobExists) {
+        existingJobs.unshift({
+          id: Date.now(),
+          customer: ev.customer,
+          time: ev.startTime ? ev.startTime : 'Scheduled',
+          data: []
+        });
+        localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
+      }
+      
+      // 2. Redirect instantly to the Field Command app
+      window.location.href = 'index.html';
+      
+    } catch(e) {
+      alert('Error transferring data to Field Command.');
+    }
   }});
   acts.appendChild(fm);
   var ca=el('button',{C:'ca',t:'\uD83D\uDCC5 Event',click:function(){if(ev.htmlLink)window.open(ev.htmlLink,'_blank');}});
