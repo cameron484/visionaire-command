@@ -120,6 +120,18 @@
     .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
     .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
 
+    /* DATE STRIP */
+    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:14px}
+    .dstrip::-webkit-scrollbar{display:none}
+    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;transition:all 0.15s;min-width:50px}
+    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
+    .dchip.ev{border-color:var(--amber)}
+    .dc-d{font-size:0.57rem;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400)}
+    .dchip.on .dc-d{color:rgba(255,255,255,0.6)}
+    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700);line-height:1;margin-top:2px}
+    .dchip.on .dc-n{color:white}
+    .dc-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);margin-top:3px}
+
     /* LOADING / EMPTY */
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
@@ -146,10 +158,11 @@ var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www
 // ── STATE ──────────────────────────────────────────────────────────────────
 var prefs        = loadPrefs();
 var view         = prefs.accessToken ? 'sched' : 'setup'; 
-var calEvents    = prefs.calEvents || []; // Load memory to prevent auto-refresh!
+var calEvents    = prefs.calEvents || []; 
 var loading      = false;
 var loadTxt      = 'Loading\u2026';
 var lastSync     = prefs.lastSync   || null;
+var selDate      = todayStr(); // Ensure Date Strip logic works
 var expandId     = null;
 var syncErr      = null;
 var accessToken  = prefs.accessToken || null;
@@ -163,7 +176,7 @@ function save(){
   prefs.accessToken=accessToken; prefs.userEmail=userEmail;
   prefs.geminiKey=geminiKey; prefs.clientId=clientId;
   prefs.lastSync=lastSync; prefs.searchTerm=prefs.searchTerm||'Final Measure';
-  prefs.calEvents=calEvents; // Save calendar events so it doesn't refresh when going back
+  prefs.calEvents=calEvents; 
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));}catch(e){}
 }
 function todayStr(){return new Date().toISOString().slice(0,10);}
@@ -205,7 +218,7 @@ function signOut(){
 // ── CALENDAR SYNC & CONTRACT AUTO-PULL ────────────────────────────────────
 function syncCalendar(){
   if(!accessToken){syncErr='Sign in with Google first.';render();return;}
-  loading=true;loadTxt='Pulling Final Measures\u2026';syncErr=null;render();
+  loading=true;loadTxt='Pulling Calendar\u2026';syncErr=null;render();
   var now=new Date();
   var past=new Date(now);past.setDate(past.getDate()-7);
   var future=new Date(now);future.setDate(future.getDate()+60);
@@ -223,26 +236,37 @@ function syncCalendar(){
     .then(function(data){
       calEvents=(data.items||[]).map(parseEv);
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      var dates=evDates();
+      if(dates.length&&dates.indexOf(selDate)<0)selDate=dates[0];
       save();
       render(); 
-      syncContracts(calEvents); 
+      // FIX: Only scan contracts for the date you are currently looking at!
+      syncContracts(calEvents, selDate); 
     })
     .catch(function(err){loading=false;syncErr=err.message||'Sync failed.';render();});
 }
 
-async function syncContracts(events) {
+async function syncContracts(events, targetDate) {
   if(!accessToken || !geminiKey) {
     loading = false; render(); return;
   }
   var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
 
-  for(var i=0; i<events.length; i++){
-    var ev = events[i];
-    loadTxt = 'Checking Drive for ' + ev.customer + '...';
+  // ONLY GRAB THE EVENTS FOR THE DAY WE ARE LOOKING AT
+  var dailyEvents = events.filter(function(e) { return e.startDate === targetDate; });
+
+  for(var i=0; i<dailyEvents.length; i++){
+    var ev = dailyEvents[i];
+    loadTxt = 'Scanning ' + ev.customer + '...';
     render();
 
     try {
-      var query = "name contains '" + ev.customer.replace(/'/g, "\\'") + "' and mimeType='application/pdf'";
+      // FIX: Use fullText and only look for the last name
+      let searchName = ev.customer.trim();
+      if (searchName.includes(' ')) { searchName = searchName.split(' ').pop(); }
+      
+      var query = "fullText contains '" + searchName.replace(/'/g, "\\'") + "' and mimeType='application/pdf'";
+      
       var dRes = await fetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=createdTime desc&pageSize=1', {
         headers: {'Authorization': 'Bearer ' + accessToken}
       });
@@ -271,12 +295,18 @@ async function syncContracts(events) {
             reader.readAsDataURL(blob);
           });
 
-          var prompt = "Extract items. Header: Location. Specs: Color, Hardware, Size. JSON: [{\"line\":\"1\",\"itemType\":\"Window/Door\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+          var prompt = "Extract all window and door items from this contract. Header: Location. Specs: Color, Hardware, Size. JSON EXACT FORMAT: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
           var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
           });
+
+          if(gRes.status === 429) {
+             console.log("Speed Limit Hit. Skipping " + ev.customer);
+             continue; // Skip to next one to avoid hard crash
+          }
+
           var gData = await gRes.json();
           var text = gData.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
           var items = JSON.parse(text).map(function(item){ return Object.assign({}, item, {fmWidth:'', fmHeight:''}); });
@@ -293,6 +323,9 @@ async function syncContracts(events) {
           else existingJobs.unshift(newJob);
 
           localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
+          
+          // CRASH PREVENTION: Wait 4 seconds between AI calls so Google doesn't block you!
+          await new Promise(function(resolve){ setTimeout(resolve, 4000); });
         }
       } else {
          var jIdx2 = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
@@ -479,10 +512,47 @@ function rSched(main){
     main.appendChild(es);return;
   }
   
-  evDates().forEach(function(ds){
-    main.appendChild(el('div',{C:'wlbl',t:fmtDate(ds)}));
-    evsFor(ds).forEach(function(ev){main.appendChild(rCard(ev));});
+  rDateStrip(main);
+  var dayEvs=evsFor(selDate);
+  var sr=el('div',{C:'sec-row'});
+  sr.appendChild(el('div',{C:'sec-lbl',t:fmtDate(selDate)}));
+  sr.appendChild(el('div',{C:'sec-ct',t:dayEvs.length+' job'+(dayEvs.length===1?'':'s')}));
+  main.appendChild(sr);
+  if(!dayEvs.length){
+    var nd=el('div',{C:'empty',style:'padding:24px 20px'});
+    nd.appendChild(el('div',{C:'e-icon',t:'\u2713'}));
+    nd.appendChild(el('div',{C:'e-title',t:'No measures this day'}));
+    main.appendChild(nd);
+  } else {dayEvs.forEach(function(ev){main.appendChild(rCard(ev));});}
+}
+
+function rDateStrip(main){
+  var strip=el('div',{C:'dstrip'});
+  var evd=evDates();var evs={};evd.forEach(function(d){evs[d]=1;});
+  var base=new Date();base.setHours(0,0,0,0);
+  var days=[];
+  for(var i=-1;i<=28;i++){var d=new Date(base);d.setDate(d.getDate()+i);days.push(d.toISOString().slice(0,10));}
+  evd.forEach(function(d){if(days.indexOf(d)<0)days.push(d);});
+  days.sort();
+  var shown=days.filter(function(d){return evs[d]||Math.abs(ddiff(d,todayStr()))<=1;});
+  shown.forEach(function(ds){
+    var d=new Date(ds+'T12:00:00');var active=ds===selDate;var hasEv=!!evs[ds];
+    var chip=el('div',{C:'dchip'+(active?' on':'')+(hasEv?' ev':''),click:function(s){return function(){
+      selDate=s;
+      render();
+      if(accessToken && geminiKey && !loading) {
+         loading = true;
+         render();
+         syncContracts(calEvents, selDate); // Auto-scan when switching days!
+      }
+    };}(ds)});
+    var dnames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    chip.appendChild(el('div',{C:'dc-d',t:isToday(ds)?'Today':dnames[d.getDay()]}));
+    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+    if(hasEv&&!active)chip.appendChild(el('div',{C:'dc-dot'}));
+    strip.appendChild(chip);
   });
+  main.appendChild(strip);
 }
 
 function rNoAuth(main){
@@ -583,7 +653,7 @@ function el(tag,props){
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  render(); // NO MORE AUTO-SYNC HERE! Just draw the page from memory.
+  render(); 
 });
 </script>
 </body>
