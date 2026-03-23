@@ -16,8 +16,6 @@
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
-
-    /* HEADER */
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
     .hdr-logo{display:flex;flex-direction:column}
@@ -29,39 +27,26 @@
     .acct-dot.off{background:var(--s400)}
     .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .hdr-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.8);border-radius:8px;padding:6px 9px;font-size:0.65rem;font-weight:700;cursor:pointer;letter-spacing:0.04em}
-    .hdr-btn:active{background:rgba(255,255,255,0.22)}
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
     .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
-
-    /* MAIN */
     .main{padding:14px 12px 100px}
     .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
-
-    /* SETUP CARD */
     .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
-    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;}
+    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase;}
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
     .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
-
-    /* SYNC BAR */
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
-    .sync-sub{font-size:0.61rem;color:var(--s500);margin-top:1px}
     .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase;cursor:pointer}
-
-    /* DATE STRIP */
     .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px; scrollbar-width: none;}
     .dstrip::-webkit-scrollbar { display: none; }
     .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;min-width:55px}
     .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
-    .dchip.ev{border-color:var(--amber)}
     .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
     .dchip.on .dc-d, .dchip.on .dc-n {color:white}
     .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
-
-    /* CUSTOMER CARDS */
     .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
     .cc-head{display:flex;align-items:stretch}
     .cc-bar{width:8px;flex-shrink:0}
@@ -70,20 +55,19 @@
     .cc-bar.both{background:linear-gradient(180deg,var(--navy) 0%,var(--emerald) 100%)}
     .cc-body{flex:1;padding:12px 12px 12px 10px}
     .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
-    .cc-name{font-size:1rem;font-weight:900;color:var(--s800);text-transform:uppercase;letter-spacing:-0.01em;line-height:1.15;flex:1;}
+    .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1;}
     .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;}
-    .cc-addr{font-size:0.74rem;color:var(--s500);margin-bottom:8px;line-height:1.35; display: block;}
+    .cc-addr{font-size:0.8rem;color:var(--navy-mid);margin-bottom:8px;display: block; text-decoration: underline; font-weight: 600;}
     .cc-acts{display:flex;border-top:1px solid var(--border)}
-    .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.63rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
+    .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
     .ca:not(:last-child){border-right:1px solid var(--border)}
     .ca.p{color:var(--navy)}
-
-    /* EXPANDED NOTES */
     .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
-    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.8rem;color:var(--s700);line-height:1.6;}
-    .dnotes ul { padding-left: 20px; margin: 8px 0; }
-    .dnotes li { margin-bottom: 6px; }
-
+    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--s700);line-height:1.7;}
+    .note-line { display: block; padding-bottom: 6px; border-bottom: 1px dashed var(--s200); margin-bottom: 6px; }
+    .note-line:last-child { border-bottom: none; }
+    .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 1px; }
+    .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
     @keyframes sp{to{transform:rotate(360deg)}}
@@ -100,7 +84,6 @@ var prefs        = loadPrefs();
 var view         = prefs.accessToken ? 'sched' : 'setup'; 
 var calEvents    = prefs.calEvents || []; 
 var loading      = false;
-var loadTxt      = 'Loading\u2026';
 var lastSync     = prefs.lastSync   || null;
 var selDate      = todayStr();
 var expandId     = null;
@@ -145,7 +128,7 @@ function signIn(){
 
 function syncCalendar(){
   if(!accessToken) return;
-  loading=true; loadTxt='Pulling Calendar...'; render();
+  loading=true; render();
   var past = new Date(); past.setDate(past.getDate()-7);
   var future = new Date(); future.setDate(future.getDate()+30);
   var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q=Final Measure';
@@ -165,14 +148,10 @@ async function syncContracts(events, targetDate) {
 
   for(var i=0; i<dailyEvents.length; i++){
     var ev = dailyEvents[i];
-    loadTxt = 'Checking ' + ev.customer + '...'; render();
-
     try {
       let lastName = ev.customer.trim().split(' ').pop();
-      // Connection Strategy: Look for SOLD or Signed + Last Name in folder tree
       var query = "fullText contains '" + lastName.replace(/'/g, "\\'") + "' and (name contains 'SOLD' or name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'";
       var driveUrl = 'https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true';
-      
       var dRes = await fetch(driveUrl, { headers: {'Authorization': 'Bearer ' + accessToken} });
       var dData = await dRes.json();
 
@@ -181,12 +160,11 @@ async function syncContracts(events, targetDate) {
         var jIdx = existingJobs.findIndex(j => j.customer === ev.customer);
         if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime) continue;
 
-        loadTxt = 'Extracting SOLD data for ' + ev.customer + '...'; render();
         var fRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media&supportsAllDrives=true', { headers: {'Authorization': 'Bearer ' + accessToken} });
         var blob = await fRes.blob();
         var base64 = await new Promise(r => { var rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
 
-        var prompt = "Extract all window/door units. JSON EXACT FORMAT: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+        var prompt = "Extract all window/door units. JSON: [{\"line\":\"1\",\"itemType\":\"Window\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
         var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
@@ -200,26 +178,44 @@ async function syncContracts(events, targetDate) {
         if(jIdx >= 0) existingJobs[jIdx] = newJob; else existingJobs.unshift(newJob);
         localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
         await new Promise(r => setTimeout(r, 4000));
-      } else {
-        if(!existingJobs.some(j => j.customer === ev.customer)){
-          existingJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime, data: []});
-          localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
-        }
       }
     } catch(e) { console.warn(e); }
   }
-  loading = false; render();
+}
+
+function cleanNotes(html) {
+  if (!html) return "No job notes.";
+  // Remove basic HTML junk
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
+  
+  // Smart Splitter: Find labels like "Category:", "Contact:", "Edit event at:"
+  const labels = ["Category:", "Contact:", "Product:", "Edit event at:", "Address:"];
+  labels.forEach(label => {
+    text = text.replace(new RegExp(`(${label})`, 'g'), `|||$1`);
+  });
+
+  // Convert Phone Numbers to clickable links
+  text = text.replace(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g, '<a href="tel:$1" class="tel-link">$1</a>');
+
+  // Map each line to a clean styled block
+  return text.split('|||').filter(l => l.trim().length > 3).map(line => {
+    let part = line.trim();
+    let label = labels.find(lab => part.startsWith(lab));
+    if (label) {
+      return `<span class="note-line"><span class="note-label">${label}</span>${part.replace(label, '').trim()}</span>`;
+    }
+    return `<span class="note-line">${part}</span>`;
+  }).join('');
 }
 
 function parseEv(ev){
   var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
-  var plainDesc = (ev.description||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&');
   return {
     id: ev.id, customer: ev.summary.replace(/final measure/i,'').trim(),
     address: ev.location || '', startDate: start.slice(0,10),
     startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled',
-    notesRaw: ev.description || 'No job notes.',
-    hasWin: /window/i.test(ev.summary + plainDesc), hasDoor: /door/i.test(ev.summary + plainDesc)
+    notesHtml: ev.description || '',
+    hasWin: /window/i.test(ev.summary + ev.description), hasDoor: /door/i.test(ev.summary + ev.description)
   };
 }
 
@@ -236,8 +232,7 @@ function rHeader(){
   var h=el('div',{C:'hdr'});
   var top=el('div',{C:'hdr-top'});
   var logo=el('div',{C:'hdr-logo'});
-  logo.appendChild(el('span',{C:'hdr-title',t:'Visionaire'}));
-  logo.appendChild(el('span',{C:'hdr-sub',t:'Customer Hub'}));
+  logo.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
   top.appendChild(logo);
   var badge=el('div',{C:'acct-badge'});
   badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
@@ -270,7 +265,7 @@ function rSched(main){
   var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail})); si.appendChild(el('div',{C:'sync-sub',t:'Last: '+lastSync}));
   sb.appendChild(si); sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
   main.appendChild(sb);
-  if(loading){main.appendChild(el('div',{C:'lrow',t:loadTxt})); return;}
+  if(loading){main.appendChild(el('div',{C:'lrow',t:'Pulling Calendar...'})); return;}
   rDateStrip(main);
   calEvents.filter(e=>e.startDate===selDate).forEach(ev=>main.appendChild(rCard(ev)));
 }
@@ -279,7 +274,7 @@ function rDateStrip(main){
   var strip=el('div',{C:'dstrip'});
   for(var i=-1; i<=14; i++){
     var d=new Date(); d.setDate(d.getDate()+i); var iso=d.toISOString().slice(0,10);
-    var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),click:()=>{selDate=iso; render(); if(geminiKey&&!loading){loading=true;render();syncContracts(calEvents,selDate);}}});
+    var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),click:()=>{selDate=iso; render(); if(geminiKey&&!loading){syncContracts(calEvents,selDate);}}});
     chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
     chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
     strip.appendChild(chip);
@@ -295,19 +290,28 @@ function rCard(ev){
   var body=el('div',{C:'cc-body'});
   var top=el('div',{C:'cc-top'}); top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
   top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); body.appendChild(top);
-  if(ev.address) body.appendChild(el('span',{C:'cc-addr',t:ev.address}));
+  
+  // ADDRESS LINK
+  if(ev.address) {
+    var alink = el('a',{C:'cc-addr',t:ev.address});
+    alink.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(ev.address);
+    alink.target = "_blank";
+    body.appendChild(alink);
+  }
+  
   head.appendChild(body); card.appendChild(head);
   if(isExp){
     var det=el('div',{C:'cc-det'});
-    det.appendChild(el('div',{C:'dnotes'})).innerHTML = ev.notesRaw;
-    card.appendChild(det);
+    var n = el('div',{C:'dnotes'}); 
+    n.innerHTML = cleanNotes(ev.notesHtml); // RUN THE SMART PROCESSOR
+    det.appendChild(n); card.appendChild(det);
   }
   var acts=el('div',{C:'cc-acts'});
   acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{
-    var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
-    if(!j.some(i=>i.customer===ev.customer))j.unshift({id:ev.id, customer:ev.customer, time:ev.startTime, data:[]});
-    localStorage.setItem('visionaireJobs',JSON.stringify(j));
     localStorage.setItem('activeJobId', JSON.stringify(ev.id));
+    var jobs = JSON.parse(localStorage.getItem('visionaireJobs'))||[];
+    if(!jobs.find(j=>j.id===ev.id)) jobs.unshift({id:ev.id, customer:ev.customer, time:ev.startTime, data:[]});
+    localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
     window.location.href='measure.html';
   }}));
   acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
