@@ -28,8 +28,7 @@
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
       const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
       
-      // UI State
-      const [activeTab, setActiveTab] = useState('measure'); // 'overview', 'measure', 'signoff'
+      const [activeTab, setActiveTab] = useState('measure'); 
       const [activeItemIndex, setActiveItemIndex] = useState(0);
       const [activeField, setActiveField] = useState('fmWidth');
       const [loading, setLoading] = useState(false);
@@ -43,7 +42,6 @@
 
       const goBackToHub = () => { window.location.href = 'index.html'; };
 
-      // UPDATED: Massive Export Function
       const exportData = () => {
         if(!activeJob) return alert('No data to export.');
         let text = `FINAL MEASURE SHEET: ${activeJob.customer.toUpperCase()}\n`;
@@ -152,7 +150,6 @@
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-white flex flex-col shadow-xl">
-          {/* HEADER & TABS */}
           <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] flex flex-col gap-4 sticky top-0 z-50">
             <div className="flex justify-between items-center">
               <button onClick={goBackToHub} className="text-white font-black text-[10px] uppercase bg-white/20 px-3 py-2 rounded">Close</button>
@@ -170,123 +167,120 @@
           </header>
 
           <main className="p-4 flex-1 pb-32 bg-slate-100">
-            {loading ? <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Searching Drive & Analyzing PDF...</div> : 
-             !hasData ? (
-               <div className="p-8 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
-                 <div className="text-4xl">📄</div>
-                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
-                 <div className="text-slate-400 font-bold text-xs">— OR —</div>
-                 <button onClick={addUnit} className="bg-slate-800 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">➕ Add Unit Manually</button>
-               </div>
-             ) : (
-               <>
-                 {/* TAB 1: OVERVIEW */}
-                 {activeTab === 'overview' && (
-                   <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
-                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Job Details</h2>
-                     <div><span className="field-label">Window Brand</span><input type="text" className="input-field" placeholder="Simonton, ProVia, etc." value={headerData.brand || ''} onChange={e => updateHeader('brand', e.target.value)} /></div>
-                     <div><span className="field-label">Install Crew / Type</span><input type="text" className="input-field" placeholder="Retro, Capping, etc." value={headerData.crew || ''} onChange={e => updateHeader('crew', e.target.value)} /></div>
-                     <div className="grid grid-cols-2 gap-4">
-                       <div><span className="field-label">Exterior Color</span><input type="text" className="input-field" placeholder="White, Bronze..." value={headerData.extColor || ''} onChange={e => updateHeader('extColor', e.target.value)} /></div>
-                       <div><span className="field-label">Interior Color</span><input type="text" className="input-field" placeholder="White, Woodgrain..." value={headerData.intColor || ''} onChange={e => updateHeader('intColor', e.target.value)} /></div>
+            <div className="space-y-6">
+              
+              {loading ? <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Searching Drive & Analyzing PDF...</div> : 
+               !hasData ? (
+                 <div className="p-8 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
+                   <div className="text-4xl">📄</div>
+                   <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white px-6 py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
+                   <div className="text-slate-400 font-bold text-xs">— OR —</div>
+                   <button onClick={addUnit} className="bg-slate-800 text-white px-6 py-4 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">➕ Add Unit Manually</button>
+                 </div>
+               ) : (
+                 <>
+                   {activeTab === 'overview' && (
+                     <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-5 border border-slate-200">
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Job Details</h2>
+                       <div><span className="field-label">Window Brand</span><input type="text" className="input-field" placeholder="Simonton, ProVia, etc." value={headerData.brand || ''} onChange={e => updateHeader('brand', e.target.value)} /></div>
+                       <div><span className="field-label">Install Crew / Type</span><input type="text" className="input-field" placeholder="Retro, Capping, etc." value={headerData.crew || ''} onChange={e => updateHeader('crew', e.target.value)} /></div>
+                       <div className="grid grid-cols-2 gap-4">
+                         <div><span className="field-label">Exterior Color</span><input type="text" className="input-field" placeholder="White, Bronze..." value={headerData.extColor || ''} onChange={e => updateHeader('extColor', e.target.value)} /></div>
+                         <div><span className="field-label">Interior Color</span><input type="text" className="input-field" placeholder="White, Woodgrain..." value={headerData.intColor || ''} onChange={e => updateHeader('intColor', e.target.value)} /></div>
+                       </div>
+                       <button onClick={() => setActiveTab('measure')} className="w-full bg-[#1a3a5c] text-white py-4 rounded-xl font-bold text-sm uppercase mt-4">Start Measuring ➔</button>
                      </div>
-                     <button onClick={() => setActiveTab('measure')} className="w-full bg-[#1a3a5c] text-white py-4 rounded-xl font-bold text-sm uppercase mt-4">Start Measuring ➔</button>
-                   </div>
-                 )}
+                   )}
 
-                 {/* TAB 2: MEASURE (UNITS) */}
-                 {activeTab === 'measure' && (
-                   <div className="space-y-6">
-                     <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-xs uppercase text-slate-500">Unit {activeItemIndex + 1} of {activeJob.data.length}</span>
-                          <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer shadow-md tracking-wider">{currentItem.itemType} ⟳</span>
-                        </div>
-                        
-                        <div onClick={() => { let loc = prompt("Enter location:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer group">
-                          <span className="field-label group-hover:text-blue-500">Location (Tap to edit)</span>
-                          <h2 className="text-2xl font-black text-slate-800 uppercase border-b-2 border-dashed border-transparent group-hover:border-blue-200 inline-block">{currentItem.location || 'Unknown'}</h2>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          {['Grids', 'Glass'].map(type => (
-                            <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
-                          ))}
-                        </div>
-                        
-                        <div>
-                          <span className="field-label">Contract Specs / Extras</span>
-                          <div className="bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">
-                            {currentItem.style || 'N/A'} | {currentItem.color || 'N/A'} | {currentItem.hardware || 'N/A'} <br/> {currentItem.extras}
+                   {activeTab === 'measure' && (
+                     <div className="space-y-6">
+                       <div className="bg-white border-l-[12px] border-l-[#1a3a5c] rounded-[2rem] overflow-hidden shadow-sm p-5 space-y-6">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-xs uppercase text-slate-500">Unit {activeItemIndex + 1} of {activeJob.data.length}</span>
+                            <span onClick={() => updateItem('itemType', currentItem.itemType === 'Window' ? 'Door' : 'Window')} className="bg-[#f59e0b] text-[9px] px-3 py-1 rounded-full text-white cursor-pointer shadow-md tracking-wider">{currentItem.itemType} ⟳</span>
                           </div>
-                        </div>
+                          
+                          <div onClick={() => { let loc = prompt("Enter location:", currentItem.location); if(loc) updateItem('location', loc); }} className="cursor-pointer group">
+                            <span className="field-label group-hover:text-blue-500">Location (Tap to edit)</span>
+                            <h2 className="text-2xl font-black text-slate-800 uppercase border-b-2 border-dashed border-transparent group-hover:border-blue-200 inline-block">{currentItem.location || 'Unknown'}</h2>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            {['Grids', 'Glass'].map(type => (
+                              <div key={type}><span className="field-label">{type}</span><div className="flex flex-wrap gap-2">{(type==='Grids'?['Contour','Flat','SDL']:['Temp','Obscure']).map(v => <button key={v} onClick={() => updateItem(type.toLowerCase(), v)} className={`spec-pill ${currentItem[type.toLowerCase()] === v ? 'active-pill' : ''}`}>{v}</button>)}</div></div>
+                            ))}
+                          </div>
+                          
+                          <div>
+                            <span className="field-label">Contract Specs / Extras</span>
+                            <div className="bg-slate-50 p-3 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">
+                              {currentItem.style || 'N/A'} | {currentItem.color || 'N/A'} | {currentItem.hardware || 'N/A'} <br/> {currentItem.extras}
+                            </div>
+                          </div>
 
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                            <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
-                            <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
-                        </div>
+                          <div className="grid grid-cols-2 gap-3 pt-2">
+                              <div onClick={() => setActiveField('fmWidth')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmWidth'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Width</span><span className="text-3xl font-black">{currentItem.fmWidth||'-'}</span></div>
+                              <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Final Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
+                          </div>
 
-                        {/* MISMATCH VERIFICATION BOX */}
-                        <div className={`p-3 rounded-xl border flex justify-between items-center transition-colors ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                           <div>
-                             <span className="text-[10px] font-black uppercase text-slate-500 block">Contract Size</span>
-                             <span className="font-bold text-slate-800">{currentItem.contractSize || 'Unknown'}</span>
-                           </div>
-                           <label className={`flex items-center gap-2 text-sm font-black cursor-pointer px-3 py-2 rounded-lg ${currentItem.verified ? 'text-green-700 bg-green-100' : 'text-amber-700 bg-amber-100'}`}>
-                              <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600 cursor-pointer" />
-                              {currentItem.verified ? 'VERIFIED' : 'VERIFY SIZE'}
-                           </label>
-                        </div>
-                     </div>
+                          <div className={`p-3 rounded-xl border flex justify-between items-center transition-colors ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                             <div>
+                               <span className="text-[10px] font-black uppercase text-slate-500 block">Contract Size</span>
+                               <span className="font-bold text-slate-800">{currentItem.contractSize || 'Unknown'}</span>
+                             </div>
+                             <label className={`flex items-center gap-2 text-sm font-black cursor-pointer px-3 py-2 rounded-lg ${currentItem.verified ? 'text-green-700 bg-green-100' : 'text-amber-700 bg-amber-100'}`}>
+                                <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600 cursor-pointer" />
+                                {currentItem.verified ? 'VERIFIED' : 'VERIFY SIZE'}
+                             </label>
+                          </div>
+                       </div>
 
-                     {/* NUMPAD */}
-                     <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
-                      <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow active:scale-95 transition-transform">{f}</button>)}</div>
-                      <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black text-2xl shadow-sm hover:bg-slate-50 active:scale-95 transition-transform ${n==='CLR'?'text-red-500 text-sm':n==='DEL'?'text-orange-500 text-sm':'text-slate-700'}`}>{n}</button>)}</div>
-                      <div className="flex gap-2 mt-4">
-                        <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase active:scale-95 transition-transform">Prev</button>
-                        <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl active:scale-95 transition-transform">
-                          {activeItemIndex === activeJob.data.length - 1 ? '➕ Add Unit' : 'Next Unit ➔'}
-                        </button>
+                       <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
+                        <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow active:scale-95 transition-transform">{f}</button>)}</div>
+                        <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black text-2xl shadow-sm hover:bg-slate-50 active:scale-95 transition-transform ${n==='CLR'?'text-red-500 text-sm':n==='DEL'?'text-orange-500 text-sm':'text-slate-700'}`}>{n}</button>)}</div>
+                        <div className="flex gap-2 mt-4">
+                          <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase active:scale-95 transition-transform">Prev</button>
+                          <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl active:scale-95 transition-transform">
+                            {activeItemIndex === activeJob.data.length - 1 ? '➕ Add Unit' : 'Next Unit ➔'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                   </div>
-                 )}
-
-                 {/* TAB 3: SIGN-OFF */}
-                 {activeTab === 'signoff' && (
-                   <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
-                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
-                     
-                     <div className="space-y-3">
-                       <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                         <input type="checkbox" checked={signoffData.alarms || false} onChange={e=>updateSignoff('alarms', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                         <span className="font-bold text-slate-700 text-sm">Alarms Reviewed / Handled</span>
-                       </label>
-                       <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                         <input type="checkbox" checked={signoffData.photos || false} onChange={e=>updateSignoff('photos', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                         <span className="font-bold text-slate-700 text-sm">Photos Taken (All sides, Exterior)</span>
-                       </label>
-                       <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                         <input type="checkbox" checked={signoffData.colors || false} onChange={e=>updateSignoff('colors', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                         <span className="font-bold text-slate-700 text-sm">Colors Confirmed with HO</span>
-                       </label>
-                       <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
-                         <input type="checkbox" checked={signoffData.swings || false} onChange={e=>updateSignoff('swings', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                         <span className="font-bold text-slate-700 text-sm">Door Swings Confirmed (If applicable)</span>
-                       </label>
                      </div>
+                   )}
 
-                     <div className="pt-4 border-t-2 border-dashed border-slate-200">
-                       <span className="field-label">Homeowner Sign-Off Initials</span>
-                       <input type="text" className="input-field text-center text-2xl tracking-widest uppercase" placeholder="Type Initials" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                   {activeTab === 'signoff' && (
+                     <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">CYA Checklist</h2>
+                       
+                       <div className="space-y-3">
+                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                           <input type="checkbox" checked={signoffData.alarms || false} onChange={e=>updateSignoff('alarms', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                           <span className="font-bold text-slate-700 text-sm">Alarms Reviewed / Handled</span>
+                         </label>
+                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                           <input type="checkbox" checked={signoffData.photos || false} onChange={e=>updateSignoff('photos', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                           <span className="font-bold text-slate-700 text-sm">Photos Taken (All sides, Exterior)</span>
+                         </label>
+                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                           <input type="checkbox" checked={signoffData.colors || false} onChange={e=>updateSignoff('colors', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                           <span className="font-bold text-slate-700 text-sm">Colors Confirmed with HO</span>
+                         </label>
+                         <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                           <input type="checkbox" checked={signoffData.swings || false} onChange={e=>updateSignoff('swings', e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
+                           <span className="font-bold text-slate-700 text-sm">Door Swings Confirmed</span>
+                         </label>
+                       </div>
+
+                       <div className="pt-4 border-t-2 border-dashed border-slate-200">
+                         <span className="field-label">Homeowner Sign-Off Initials</span>
+                         <input type="text" className="input-field text-center text-2xl tracking-widest uppercase" placeholder="Type Initials" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                       </div>
+
+                       <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl mt-4">📋 Copy Full Job to Clipboard</button>
                      </div>
-
-                     <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl mt-4">📋 Copy Full Job to Clipboard</button>
-                   </div>
-                 )}
-               </>
-             )}
+                   )}
+                 </>
+               )}
             </div>
           </main>
         </div>
