@@ -48,6 +48,7 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
+      // --- SIGNATURE DRAWING LOGIC ---
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
@@ -79,12 +80,26 @@
         setIsPlaying(true); window.speechSynthesis.speak(utterance);
       };
 
+      const exportData = () => {
+        if(!activeJob) return;
+        let text = `FINAL MEASURE: ${cleanCustomerName(activeJob.customer).toUpperCase()}\n=====================================\n`;
+        if(activeJob.summary) text += `Briefing: ${activeJob.summary}\n`;
+        text += `Blinds: ${signoffData.hasBlinds === 'yes' ? 'HAS BLINDS - ' + (signoffData.blindNotes || '') : 'NONE'}\n=====================================\n\n`;
+        if(activeJob.data) {
+          activeJob.data.forEach((item, i) => {
+            text += `UNIT ${i+1}: QTY ${item.qty} | ${item.itemType} - ${item.location}\nFM Size: ${item.fmWidth} x ${item.fmHeight}\nSpecs: ${item.extras}\n---\n`;
+          });
+        }
+        text += `\nSigned: ${signoffData.initials} | Captured: ${new Date().toLocaleString()}\n`;
+        navigator.clipboard.writeText(text).then(() => alert('Measure Sheet Copied!'));
+      };
+
       const updateHeader = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, header: { ...j.header, [key]: value } } : j));
       const updateSignoff = (key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
       const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
 
       const wipeAndRescan = () => {
-        if (confirm("Wipe current measurement data and briefing?")) {
+        if (confirm("Wipe current data and rescan the contract?")) {
           setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [], summary: '' } : j));
           setActiveTab('measure'); setExpandedIndex(0);
         }
@@ -96,17 +111,14 @@
         const newData = [...activeJob.data];
         newData.splice(index + 1, 0, newUnit);
         setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
-        setExpandedIndex(index + 1);
-        setActiveField(null);
+        setExpandedIndex(index + 1); setActiveField(null);
       };
 
-      // 🛠️ NEW: REMOVE LINE LOGIC
       const removeLine = (index) => {
-        if (confirm("Permanently delete this opening line?")) {
+        if (confirm("Permanently delete this line?")) {
           const newData = activeJob.data.filter((_, i) => i !== index);
           setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: newData } : j));
-          setExpandedIndex(null);
-          setActiveField(null);
+          setExpandedIndex(null); setActiveField(null);
         }
       };
 
@@ -119,7 +131,7 @@
       const handleKeyPress = (val) => {
         if (!activeField) return;
         const { index, field } = activeField;
-        let cur = activeJob.data[index][field] || '';
+        let cur = String(activeJob.data[index][field] || '');
         if (val === 'DEL') cur = cur.slice(0, -1);
         else if (val === 'CLR') cur = '';
         else cur += (cur.length > 0 && val.includes('/') ? ' ' : '') + val;
@@ -127,7 +139,7 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract. Combine Door components. Extract Qty, Type, Location, Unit Size. Format extras with headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
+        const promptText = `Analyze door/window specialist. 1. Briefing: 1 sentence. 2. Combine Door system components. 3. Extract Qty, Type, Location, Unit Size. 4. Format extras headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"DH","location":"","contractSize":"...","extras":"..."}]}`;
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
         if (!res.ok) { setLoading(false); return alert("AI Error."); }
         const result = await res.json();
@@ -147,7 +159,7 @@
           const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
           const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const dData = await dRes.json();
-          if (!dData.files?.[0]) { setLoading(false); return alert("No 2026 contract found."); }
+          if (!dData.files?.[0]) { setLoading(false); return alert("No 2026 file found."); }
           const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${dData.files[0].id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${prefs.accessToken}` } });
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
@@ -155,24 +167,26 @@
         } catch (e) { setLoading(false); }
       };
 
+      if(!activeJob) return <div className="p-10 text-center">No active job.</div>;
+
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
           <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
             <div className="flex justify-between items-center mb-3">
-              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded shadow-sm">Close</button>
+              <button onClick={goBackToHub} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Close</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{cleanCustomerName(activeJob.customer)}</h1>
-              <button onClick={() => alert('Export Logic active.')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow-sm">Export</button>
+              <button onClick={exportData} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow-sm':'text-white opacity-60'}`}>{tab}</button>
+                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
               ))}
             </div>
           </header>
 
           <main className="p-3 flex-1">
             {loading ? (
-              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Processing Files...</div>
+              <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Scanning Contract Files...</div>
             ) : !activeJob.data?.length ? (
               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
                  <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg active:scale-95 transition-transform">Scan PDF Contract</button>
@@ -188,13 +202,13 @@
                            <div className="font-black text-xs uppercase text-slate-800">Briefing: <span className="block text-[10px] font-bold text-slate-500 lowercase">{activeJob.summary}</span></div>
                        </div>
                     )}
-                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Specs</h2>
+                    <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Settings</h2>
                     <div className="grid grid-cols-2 gap-3">
                        <div className="col-span-2"><span className="field-label">Window Brand</span><input className="input-box" value={headerData.brand || ''} onChange={e=>updateHeader('brand', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                        <div><span className="field-label">Glass Type</span><input className="input-box" value={headerData.glass || ''} onChange={e=>updateHeader('glass', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                        <div><span className="field-label">Existing Frame</span><input className="input-box" value={headerData.frame || ''} onChange={e=>updateHeader('frame', e.target.value)} onFocus={()=>setActiveField(null)} /></div>
                     </div>
-                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10 shadow-sm">🗑️ Wipe Data & Rescan Drive</button>
+                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-10">🗑️ Wipe Data & Rescan Drive</button>
                   </div>
                 )}
 
@@ -204,7 +218,6 @@
                        <button onClick={()=>setExpandedIndex(null)} className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase text-slate-400">Collapse All</button>
                        <button onClick={()=>setExpandedIndex(0)} className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase text-slate-400">Expand All</button>
                     </div>
-
                     {activeJob.data.map((unit, idx) => (
                       <div key={idx} className="unit-card industrial-shadow">
                          <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
@@ -217,7 +230,6 @@
                             </div>
                             <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
                          </div>
-                         
                          {expandedIndex === idx && (
                            <div className="p-4 border-t border-slate-100 bg-white space-y-4">
                               <div className="grid grid-cols-3 gap-3">
@@ -239,8 +251,8 @@
                                  <div><span className="field-label">Location</span><input type="text" className="input-box" value={unit.location} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'location', e.target.value)} /></div>
                               </div>
                               <div>
-                                 <span className="field-label">Notes / Specs</span>
-                                 <textarea className="input-box h-16 text-[10px]" value={unit.extras} onFocus={()=>setActiveField(null)} onChange={e=>updateItem(idx, 'extras', e.target.value)} />
+                                 <span className="field-label">Project Specs / Details</span>
+                                 <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] border border-slate-100">{unit.extras || 'No specs listed.'}</div>
                               </div>
                               <div className="space-y-2">
                                  <div className={`p-3 rounded-lg flex justify-between items-center ${unit.verified ? 'bg-green-50' : 'bg-amber-50'}`}>
@@ -258,7 +270,7 @@
                          )}
                       </div>
                     ))}
-                    <button onClick={addUnitAtEnd} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black uppercase text-xs mb-10 shadow-lg">+ Add Manual Opening At Bottom</button>
+                    <button onClick={addUnitAtEnd} className="w-full py-4 bg-slate-800 text-white rounded-xl font-black uppercase text-xs mb-10 shadow-lg">+ Add Opening At Bottom</button>
                   </>
                 )}
 
@@ -266,7 +278,7 @@
                   <div className="bg-white rounded-2xl p-6 shadow-sm space-y-6 border border-slate-200 pb-10">
                      <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Final Verification</h2>
                      {activeJob.data.some(d => d.itemType === 'Door') && (
-                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4 shadow-sm">
+                        <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
                            <h4 className="font-black text-[10px] text-blue-800 uppercase flex items-center gap-2">🚪 Door System Verification</h4>
                            {activeJob.data.filter(d => d.itemType === 'Door').map((door, dIdx) => (
                              <div key={dIdx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100 shadow-sm">
@@ -277,19 +289,19 @@
                            {['Colors (Jamb/Slab/Sidelite)', 'Swing/Handing', 'Glass/Privacy Type'].map(spec => (
                                <label key={spec} className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer shadow-sm border border-blue-100">
                                   <input type="checkbox" className="w-5 h-5 accent-blue-600" checked={signoffData['door_'+spec] || false} onChange={e=>updateSignoff('door_'+spec, e.target.checked)} />
-                                  <span className="text-[10px] font-black text-blue-900">{spec} Confirmed Correct</span>
+                                  <span className="text-[10px] font-black text-blue-900">{spec} Matches Contract</span>
                                </label>
                            ))}
                         </div>
                      )}
                      <div className="bg-amber-50 p-4 rounded-xl space-y-3 shadow-sm border border-amber-100">
-                        <h4 className="font-black text-[10px] text-amber-800 uppercase">🛋️ Window Treatments</h4>
+                        <h4 className="font-black text-[10px] text-amber-800 uppercase">🛋️ Window Treatments / Blinds</h4>
                         <div className="flex gap-2">
                            <button onClick={()=>updateSignoff('hasBlinds', 'none')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='none'?'bg-[#1a3a5c] text-white shadow-lg':'bg-white text-slate-400 border border-slate-200'}`}>None</button>
                            <button onClick={()=>updateSignoff('hasBlinds', 'yes')} className={`flex-1 py-3 rounded-xl font-black text-xs ${signoffData.hasBlinds==='yes'?'bg-amber-500 text-white shadow-lg':'bg-white text-slate-400 border border-slate-200'}`}>Has Blinds</button>
                         </div>
                         {signoffData.hasBlinds === 'yes' && (
-                           <textarea className="input-box h-20 text-xs mt-2" placeholder="Blind details..." onFocus={()=>setActiveField(null)} value={signoffData.blindNotes || ''} onChange={e=>updateSignoff('blindNotes', e.target.value)} />
+                           <textarea className="input-box h-20 text-xs mt-2" placeholder="Note about blinds..." onFocus={()=>setActiveField(null)} value={signoffData.blindNotes || ''} onChange={e=>updateSignoff('blindNotes', e.target.value)} />
                         )}
                      </div>
                      <div className="space-y-3">
@@ -301,9 +313,9 @@
                        ))}
                      </div>
                      <div className="space-y-2 pt-4 border-t border-slate-100">
-                       <div className="flex justify-between items-end px-1"><span className="field-label">Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear</button></div>
+                       <div className="flex justify-between items-end px-1"><span className="field-label">Customer Signature</span><button onClick={clearSig} className="text-[8px] font-black text-red-500 uppercase mb-1">Clear Pad</button></div>
                        <canvas ref={canvasRef} className="sig-canvas industrial-shadow" width="350" height="150"></canvas>
-                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full shadow-sm" placeholder="Print Full Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
+                       <input type="text" className="input-field text-center text-lg font-black uppercase mt-4 border border-slate-200 p-3 rounded-xl w-full" placeholder="Print Name" onFocus={()=>setActiveField(null)} value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
                      </div>
                   </div>
                 )}
@@ -311,9 +323,10 @@
             )}
           </main>
 
+          {/* ON-DEMAND NUMERICAL KEYPAD */}
           <div className={`keypad-container bg-slate-100 p-3 rounded-t-[2.5rem] shadow-2xl border-t-2 border-slate-200 ${activeField ? 'keypad-open' : ''}`}>
              <div className="flex justify-between items-center px-4 mb-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{activeField?.field === 'qty' ? 'Set Qty' : 'Set Measurement'}</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{activeField?.field==='qty'?'Qty':'Dimensions'}</span>
                 <button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done ✓</button>
              </div>
              <div className="grid grid-cols-7 gap-1.5 mb-3">
