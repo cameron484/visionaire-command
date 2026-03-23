@@ -69,6 +69,8 @@
     .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200);}
+    .preload-bar { background: #1a3a5c; color: white; padding: 10px; text-align: center; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
+    .ready-badge { background: #dcfce7; color: #166534; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 900; margin-left: 8px; border: 1px solid #86efac; }
   </style>
 </head>
 <body>
@@ -81,6 +83,8 @@ var prefs        = loadPrefs();
 var view         = prefs.accessToken ? 'sched' : 'setup'; 
 var calEvents    = prefs.calEvents || []; 
 var loading      = false;
+var preloading   = false;
+var preloadProgress = "";
 var lastSync     = prefs.lastSync   || null;
 var selDate      = todayStr();
 var expandId     = null;
@@ -150,6 +154,77 @@ function syncCalendar(){
     });
 }
 
+// 🚀 SMART PRE-LOAD QUEUE
+async function preloadToday() {
+  if (preloading) return;
+  const dayEvs = calEvents.filter(e => e.startDate === selDate);
+  const existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  
+  // Find jobs that haven't been scanned yet
+  const targets = dayEvs.filter(ev => !existingJobs.find(j => j.id === ev.id && j.data?.length > 0));
+  
+  if (targets.length === 0) return alert("All jobs for this date are already loaded!");
+  if (!confirm(`Found ${targets.length} new jobs. Pre-load them now? (Takes ~10s per job to avoid AI limits)`)) return;
+
+  preloading = true;
+  for (let i = 0; i < targets.length; i++) {
+    const ev = targets[i];
+    preloadProgress = `(${i+1}/${targets.length}) Scanning ${ev.customer}...`;
+    render();
+    
+    try {
+        await processSingleJob(ev);
+        // Safety wait to stay under 15 RPM (15 requests per minute = 4s gap)
+        if (i < targets.length - 1) await new Promise(r => setTimeout(r, 5000));
+    } catch (err) { console.error("Preload error:", err); }
+  }
+  
+  preloading = false;
+  preloadProgress = "";
+  alert("Today's morning briefing is ready!");
+  render();
+}
+
+async function processSingleJob(ev) {
+  let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
+  let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+  const q = `fullText contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement') and mimeType='application/pdf'`;
+  
+  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const dData = await dRes.json();
+  const fileId = dData.files?.[0]?.id;
+  if (!fileId) return;
+
+  const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const blob = await fRes.blob();
+  const base64 = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
+
+  const promptText = `Analyze door/window specialist. 1. Briefing: 1 sentence. 2. Combine Door system components. 3. Extract Qty, Type, Location, Unit Size. 4. Format extras headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"qty":"1","itemType":"Door","location":"","contractSize":"...","extras":"..."}]}`;
+  
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { 
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) 
+  });
+  
+  const result = await res.json();
+  const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(text);
+
+  // Save to jobs list
+  let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  const existingIdx = jobs.findIndex(j => j.id === ev.id);
+  const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})) };
+  
+  if (existingIdx > -1) jobs[existingIdx] = jobData;
+  else jobs.unshift(jobData);
+  
+  localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
+}
+
 function cleanNotes(html) {
   if (!html) return "";
   let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').replace(/&/g, '&').trim();
@@ -190,7 +265,9 @@ function parseEv(ev){
 
 function render(){
   var root=document.getElementById('root'); root.innerHTML='';
-  var wrap=el('div',{C:'app'}); wrap.appendChild(rHeader());
+  var wrap=el('div',{C:'app'}); 
+  if (preloading) wrap.appendChild(el('div', {C:'preload-bar', t: preloadProgress}));
+  wrap.appendChild(rHeader());
   var main=el('div',{C:'main'});
   if(view==='setup') rSetup(main); else rSched(main);
   wrap.appendChild(main); root.appendChild(wrap);
@@ -248,7 +325,11 @@ function rSched(main){
   if(!accessToken){main.appendChild(el('div',{t:'Go to Setup to sign in.'})); return;}
   var sb=el('div',{C:'sync-bar'});
   var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail||'Calendar Sync'})); si.appendChild(el('div',{C:'sync-sub',t:'Last: '+lastSync}));
-  sb.appendChild(si); sb.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
+  sb.appendChild(si);
+  var grp = el('div', {style: 'display:flex; gap: 8px;'});
+  grp.appendChild(el('button',{C:'sync-btn', style:'background:#059669', t:preloading?'...':'Morning Prep',click:preloadToday}));
+  grp.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
+  sb.appendChild(grp);
   main.appendChild(sb);
   if(loading){main.appendChild(el('div',{C:'lrow',t:'Pulling Calendar...'})); return;}
   rDateStrip(main);
@@ -274,12 +355,17 @@ function rDateStrip(main){
 
 function rCard(ev){
   var isExp=expandId===ev.id;
+  var jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  var isReady = jobs.find(j => j.id === ev.id && j.data?.length > 0);
+  
   var card=el('div',{C:'cc'});
   var head=el('div',{C:'cc-head'});
   head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
   var body=el('div',{C:'cc-body'});
   var top=el('div',{C:'cc-top'}); 
-  top.appendChild(el('div',{C:'cc-name',t:ev.customer}));
+  var nameBox = el('div', {C:'cc-name', t:ev.customer});
+  if(isReady) nameBox.appendChild(el('span', {C:'ready-badge', t:'PRE-LOADED'}));
+  top.appendChild(nameBox);
   top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); 
   body.appendChild(top);
   head.appendChild(body); card.appendChild(head);
@@ -307,7 +393,7 @@ function rCard(ev){
 }
 function el(tag,props){
   var e=document.createElement(tag);
-  for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else e[k]=props[k]; }
+  for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else if(k==='style')e.style.cssText=props[k]; else e[k]=props[k]; }
   return e;
 }
 document.addEventListener('DOMContentLoaded',render);
