@@ -119,14 +119,34 @@
       };
 
       const processPDFBase64 = async (base64, apiKey, job) => {
-        const promptText = `Analyze this contract. 1. Write a 1 sentence verbal briefing of project scope. 2. Extract units. Rules: Combine "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITES" into ONE item representing the total hole. For 'contractSize', find the exact text "Unit Size:". structure extras with headers: SYSTEM, FRAME, ENTRY, SIDELITES, HARDWARE. Return ONLY JSON: {"summary": "...", "items": [{"line":"1","itemType":"Door","location":"","contractSize":"...","extras":"..."}]}`;
+        const promptText = `You are a specialist door/window measurer. Analyze this contract.
+        
+        GOAL: Extract physical openings.
+        
+        STRICT RULES FOR DOORS:
+        - If a page has "COMBINATION UNIT", "ENTRY DOOR", and "SIDELITE" listed near each other, these are NOT 3 products. They are 1 physical unit. Combine them into ONE line item.
+        - For 'contractSize', search the text for the specific label "Unit Size:". Use that value (e.g. 60 1/16" x 81 11/16"). 
+        - DO NOT create separate items for sidelites or door slabs.
+        
+        STRICT FORMAT FOR 'extras':
+        SYSTEM: [Nominal Size], [Sidelite Width], [Unit Size], [Frame Depth]
+        FRAME: [Color], [Cladding]
+        ENTRY: [Style], [Int/Ext Colors], [Swing]
+        SIDELITES: [Style], [Glass], [Privacy Info]
+        HARDWARE: [Lockset], [Deadbolt], [Peepsite]
+        
+        TASKS:
+        1. Briefing: 1 sentence summary of the whole job.
+        2. JSON Items: List of openings.
+        
+        Return ONLY this JSON: {"summary": "...", "items": [{"line":"1","itemType":"Door","location":"","contractSize":"...","extras":"..."}]}`;
         
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
         });
         
-        if (geminiRes.status === 429) { setLoading(false); return alert("⏳ Rate limit. Please wait 60s."); }
+        if (geminiRes.status === 429) { setLoading(false); return alert("Rate limit. Wait 60s."); }
         if (!geminiRes.ok) { setLoading(false); return alert("API Error."); }
         
         const result = await geminiRes.json();
@@ -187,7 +207,7 @@
           <main className="p-4 flex-1 pb-32 bg-slate-100">
             <div className="space-y-6">
               {loading ? (
-                <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Processing PDF...</div>
+                <div className="p-20 text-center animate-pulse font-bold text-slate-500 uppercase tracking-widest">Applying Installer Logic...</div>
               ) : !activeJob.data?.length ? (
                 <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
                    <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan Drive PDF</button>
@@ -209,7 +229,7 @@
                              <div><div className="font-black text-xs uppercase tracking-wider">Audio Briefing</div><div className="text-slate-500 text-[10px] font-bold">{activeJob.summary}</div></div>
                          </div>
                        )}
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Details</h2>
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Global Details</h2>
                        {['brand', 'crew', 'extColor', 'intColor'].map(f => (
                          <div key={f}><span className="field-label">{f}</span><input type="text" className="input-field" value={headerData[f] || ''} onChange={e => updateHeader(f, e.target.value)} /></div>
                        ))}
@@ -228,7 +248,7 @@
                             <h2 className="text-2xl font-black text-slate-800 uppercase underline decoration-slate-200">{currentItem.location || 'Unknown'}</h2>
                           </div>
                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <span className="field-label">Specs</span>
+                            <span className="field-label">Project Specs</span>
                             <div className="contract-spec-box font-bold text-slate-600 text-[10px]">{currentItem.extras || 'No specs.'}</div>
                           </div>
                           <div className="grid grid-cols-2 gap-3 pt-2">
@@ -236,7 +256,7 @@
                               <div onClick={() => setActiveField('fmHeight')} className={`p-4 rounded-2xl border-4 text-center cursor-pointer ${activeField==='fmHeight'?'border-[#1a3a5c] bg-white shadow-md':'bg-slate-50 border-transparent'}`}><span className="field-label">Height</span><span className="text-3xl font-black">{currentItem.fmHeight||'-'}</span></div>
                           </div>
                           <div className={`p-3 rounded-xl border flex justify-between items-center ${currentItem.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-                             <div><span className="text-[10px] font-black uppercase text-slate-500 block">Contract Size</span><span className="font-bold text-slate-800">{currentItem.contractSize || 'N/A'}</span></div>
+                             <div><span className="text-[10px] font-black uppercase text-slate-500 block">Contract Unit Size</span><span className="font-bold text-slate-800">{currentItem.contractSize || 'N/A'}</span></div>
                              <label className="flex items-center gap-2 text-xs font-black cursor-pointer px-3 py-2 rounded-lg bg-white/50 border border-current">
                                 <input type="checkbox" checked={currentItem.verified || false} onChange={e => updateItem('verified', e.target.checked)} className="w-5 h-5 accent-green-600" />
                                 {currentItem.verified ? 'VERIFIED' : 'VERIFY'}
@@ -245,7 +265,7 @@
                        </div>
                        <div className="bg-slate-200 p-3 rounded-[2.5rem] shadow-inner">
                         <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3.5 rounded-xl font-bold text-xs shadow">{f}</button>)}</div>
-                        <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className="bg-white p-5 rounded-2xl font-black text-2xl shadow-sm text-slate-700">{n}</button>)}</div>
+                        <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9, 'CLR', '0', 'DEL'].map(n => <button key={n} onClick={() => handleKeyPress(n)} className={`bg-white p-5 rounded-2xl font-black text-2xl shadow-sm text-slate-700`}>{n}</button>)}</div>
                         <div className="flex gap-2 mt-4">
                           <button onClick={() => setActiveItemIndex(p => Math.max(0, p - 1))} className="flex-1 bg-slate-400 text-white py-5 rounded-[2rem] font-bold text-sm uppercase">Prev</button>
                           <button onClick={() => { if (activeItemIndex === activeJob.data.length - 1) addUnit(); else setActiveItemIndex(p => p + 1); }} className="flex-[2] bg-[#1a3a5c] text-white py-5 rounded-[2rem] font-bold text-sm uppercase shadow-xl">{activeItemIndex === activeJob.data.length - 1 ? '➕ Add' : 'Next ➔'}</button>
@@ -256,19 +276,19 @@
 
                   {activeTab === 'signoff' && (
                     <div className="bg-white rounded-[2rem] p-6 shadow-sm space-y-6 border border-slate-200">
-                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Checklist</h2>
+                       <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 border-slate-100 pb-2">Sign-Off</h2>
                        {activeJob.data.some(d => d.itemType === 'Door') && (
                         <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200 space-y-4">
-                           <h4 className="font-black text-[10px] text-blue-800 uppercase">🚪 Door Specs Verification</h4>
+                           <h4 className="font-black text-[10px] text-blue-800 uppercase">🚪 Door System Specs</h4>
                            {activeJob.data.filter(d => d.itemType === 'Door').map((door, idx) => (
                              <div key={idx} className="bg-white p-3 rounded-lg text-[10px] font-bold text-slate-600 border border-blue-100">
-                                <div className="text-blue-700 font-black mb-1">UNIT: {door.location.toUpperCase()}</div>
+                                <div className="text-blue-700 font-black mb-1">OPENING: {door.location.toUpperCase()}</div>
                                 <div className="contract-spec-box">{door.extras}</div>
                              </div>
                            ))}
                            <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer shadow-sm">
                               <input type="checkbox" className="w-5 h-5 accent-blue-600" checked={signoffData.doorVerify || false} onChange={e=>updateSignoff('doorVerify', e.target.checked)} />
-                              <span className="text-[10px] font-black text-blue-900">HO verified spec details match</span>
+                              <span className="text-[10px] font-black text-blue-900">Homeowner verified door system details</span>
                            </label>
                         </div>
                        )}
@@ -276,7 +296,7 @@
                          {['alarms', 'photos', 'colors', 'swings'].map(f => (
                            <label key={f} className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer shadow-sm">
                              <input type="checkbox" checked={signoffData[f] || false} onChange={e=>updateSignoff(f, e.target.checked)} className="w-6 h-6 accent-[#064e3b]" />
-                             <span className="font-black text-slate-700 text-xs uppercase">{f} Checked</span>
+                             <span className="font-black text-slate-700 text-[10px] uppercase">{f} Checklist</span>
                            </label>
                          ))}
                        </div>
@@ -284,7 +304,7 @@
                          <span className="field-label">Homeowner Initials</span>
                          <input type="text" className="input-field text-center text-3xl font-black uppercase" value={signoffData.initials || ''} onChange={e => updateSignoff('initials', e.target.value)} />
                        </div>
-                       <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl mt-4">📋 Copy Full Summary</button>
+                       <button onClick={exportData} className="w-full bg-[#064e3b] text-white py-5 rounded-xl font-black text-sm uppercase shadow-xl mt-4">📋 Copy Data</button>
                     </div>
                   )}
                 </>
