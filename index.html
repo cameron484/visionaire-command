@@ -72,23 +72,13 @@
     .sync-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
     .err{background:var(--redl);border:1.5px solid #fca5a5;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:0.75rem;font-weight:700;color:var(--red);line-height:1.4}
 
-    /* DATE STRIP */
-    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:14px}
-    .dstrip::-webkit-scrollbar{display:none}
-    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;transition:all 0.15s;min-width:50px}
-    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
-    .dchip.ev{border-color:var(--amber)}
-    .dc-d{font-size:0.57rem;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:var(--s400)}
-    .dchip.on .dc-d{color:rgba(255,255,255,0.6)}
-    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700);line-height:1;margin-top:2px}
-    .dchip.on .dc-n{color:white}
-    .dc-dot{width:5px;height:5px;border-radius:50%;background:var(--amber);margin-top:3px}
-
     /* SECTION */
     .sec-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .sec-lbl{font-size:0.62rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);display:flex;align-items:center;gap:7px}
     .sec-lbl::after{content:'';width:28px;height:1px;background:var(--border)}
     .sec-ct{font-size:0.65rem;font-weight:800;color:var(--s400)}
+    .wlbl{font-size:0.6rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+    .wlbl::before,.wlbl::after{content:'';flex:1;height:1px;background:var(--border)}
 
     /* CUSTOMER CARD */
     .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
@@ -130,10 +120,6 @@
     .gi-txt{font-size:0.75rem;color:var(--s700);line-height:1.5}
     .gi-tap{background:none;border:none;color:var(--navy);font-size:0.72rem;font-weight:700;cursor:pointer;padding:0;letter-spacing:0.04em}
 
-    /* SCHEDULE */
-    .wlbl{font-size:0.6rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:var(--s400);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
-    .wlbl::before,.wlbl::after{content:'';flex:1;height:1px;background:var(--border)}
-
     /* LOADING / EMPTY */
     .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .spin{width:18px;height:18px;border:2.5px solid var(--s200);border-top-color:var(--navy);border-radius:50%;animation:sp 0.7s linear infinite}
@@ -155,16 +141,16 @@
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly';
+// ADDED DRIVE SCOPE SO THE HUB CAN PULL PDFs AUTOMATICALLY
+var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly';
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 var prefs        = loadPrefs();
-var view         = prefs.accessToken ? 'hub' : 'setup';
+var view         = prefs.accessToken ? 'sched' : 'setup'; // Default is now Schedule
 var calEvents    = [];
 var loading      = false;
 var loadTxt      = 'Loading\u2026';
 var lastSync     = prefs.lastSync   || null;
-var selDate      = todayStr();
 var expandId     = null;
 var syncErr      = null;
 var accessToken  = prefs.accessToken || null;
@@ -182,7 +168,7 @@ function save(){
 }
 function todayStr(){return new Date().toISOString().slice(0,10);}
 
-// ── GOOGLE OAUTH (GIS Implicit/Token flow) ────────────────────────────────
+// ── GOOGLE OAUTH ────────────────────────────────
 function loadGIS(cb){
   if(window.google&&window.google.accounts){cb();return;}
   var s=document.createElement('script');
@@ -216,7 +202,7 @@ function signOut(){
   prefs.accessToken=null;prefs.userEmail=null;save();view='setup';render();
 }
 
-// ── CALENDAR SYNC ─────────────────────────────────────────────────────────
+// ── CALENDAR SYNC & CONTRACT AUTO-PULL ────────────────────────────────────
 function syncCalendar(){
   if(!accessToken){syncErr='Sign in with Google first.';render();return;}
   loading=true;loadTxt='Pulling Final Measures\u2026';syncErr=null;render();
@@ -236,14 +222,93 @@ function syncCalendar(){
     })
     .then(function(data){
       calEvents=(data.items||[]).map(parseEv);
-      loading=false;
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       save();
-      var dates=evDates();
-      if(dates.length&&dates.indexOf(selDate)<0)selDate=dates[0];
-      render();
+      render(); 
+      syncContracts(calEvents); // Begin background extraction
     })
     .catch(function(err){loading=false;syncErr=err.message||'Sync failed.';render();});
+}
+
+async function syncContracts(events) {
+  if(!accessToken || !geminiKey) {
+    loading = false; render(); return;
+  }
+  var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+
+  for(var i=0; i<events.length; i++){
+    var ev = events[i];
+    loadTxt = 'Checking Drive for ' + ev.customer + '...';
+    render();
+
+    try {
+      var query = "name contains '" + ev.customer.replace(/'/g, "\\'") + "' and mimeType='application/pdf'";
+      var dRes = await fetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) + '&fields=files(id,name,modifiedTime)&orderBy=createdTime desc&pageSize=1', {
+        headers: {'Authorization': 'Bearer ' + accessToken}
+      });
+      var dData = await dRes.json();
+
+      if(dData.files && dData.files.length > 0){
+        var file = dData.files[0];
+        var jIdx = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
+        var needsUpdate = true;
+
+        // Check if we've already extracted this exact version of the file
+        if(jIdx >= 0 && existingJobs[jIdx].pdfModifiedTime === file.modifiedTime && existingJobs[jIdx].data && existingJobs[jIdx].data.length > 0) {
+          needsUpdate = false;
+        }
+
+        if(needsUpdate){
+          loadTxt = 'Extracting data for ' + ev.customer + '...';
+          render();
+
+          var fRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media', {
+            headers: {'Authorization': 'Bearer ' + accessToken}
+          });
+          var blob = await fRes.blob();
+          var base64 = await new Promise(function(resolve){
+            var reader = new FileReader();
+            reader.onloadend = function(){ resolve(reader.result.split(',')[1]); };
+            reader.readAsDataURL(blob);
+          });
+
+          var prompt = "Extract items. Header: Location. Specs: Color, Hardware, Size. JSON: [{\"line\":\"1\",\"itemType\":\"Window/Door\",\"location\":\"\",\"style\":\"\",\"contractSize\":\"\",\"color\":\"\",\"hardware\":\"\",\"extras\":\"\",\"qty\":\"1\"}]";
+          var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] })
+          });
+          var gData = await gRes.json();
+          var text = gData.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+          var items = JSON.parse(text).map(function(item){ return Object.assign({}, item, {fmWidth:'', fmHeight:''}); });
+
+          var newJob = {
+            id: ev.id,
+            customer: ev.customer,
+            time: ev.startTime || 'Scheduled',
+            data: items,
+            pdfModifiedTime: file.modifiedTime
+          };
+
+          if(jIdx >= 0) existingJobs[jIdx] = newJob;
+          else existingJobs.unshift(newJob);
+
+          localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
+        }
+      } else {
+         // Create the job profile even if no PDF is found so it shows up in Field Command
+         var jIdx2 = existingJobs.findIndex(function(j){ return j.customer === ev.customer; });
+         if(jIdx2 < 0){
+            existingJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime || 'Scheduled', data: []});
+            localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
+         }
+      }
+    } catch(e) {
+      console.log("Error processing " + ev.customer, e);
+    }
+  }
+  loading = false;
+  render();
 }
 
 function parseEv(ev){
@@ -302,7 +367,6 @@ function render(){
   wrap.appendChild(rHeader());
   var main=el('div',{C:'main'});
   if(view==='setup')rSetup(main);
-  else if(view==='hub')rHub(main);
   else if(view==='sched')rSched(main);
   wrap.appendChild(main);root.appendChild(wrap);
 }
@@ -322,8 +386,27 @@ function rHeader(){
   var sb=el('button',{C:'hdr-btn',t:'\u2699',click:function(){view='setup';render();}});
   right.appendChild(sb);top.appendChild(right);h.appendChild(top);
   var tabs=el('div',{C:'vtabs'});
-  [['hub','\uD83D\uDCCB Today'],['sched','\uD83D\uDCC5 Schedule'],['setup','\u2699 Setup']].forEach(function(t){
-    var tab=el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:function(v){return function(){view=v;render();};}(t[0])});
+  
+  // NEW TABS: Schedule, Manual, Setup
+  [['sched','\uD83D\uDCC5 Schedule'],['manual','\uD83D\uDCDD Manual FM'],['setup','\u2699 Setup']].forEach(function(t){
+    var tab=el('button',{
+      C:'vtab'+(view===t[0]?' on':''),
+      t:t[1],
+      click:function(){
+        if (t[0] === 'manual') {
+          var name = prompt("Enter Customer Name for Manual Entry:");
+          if(name) {
+            var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+            eJobs.unshift({id: Date.now(), customer: name, time: 'Manual', data: []});
+            localStorage.setItem('visionaireJobs', JSON.stringify(eJobs));
+            window.location.href = 'index.html';
+          }
+        } else {
+          view = t[0];
+          render();
+        }
+      }
+    });
     tabs.appendChild(tab);
   });
   h.appendChild(tabs);return h;
@@ -372,7 +455,7 @@ function rSetup(main){
   st.addEventListener('input',function(){prefs.searchTerm=this.value.trim();save();});
   body.appendChild(st);
 
-  var sv=el('button',{C:'btn-p',t:accessToken?'\u21BB Re-sync Calendar':'Save Settings',click:function(){save();if(accessToken){view='hub';syncCalendar();}else{view='hub';render();}}});
+  var sv=el('button',{C:'btn-p',t:accessToken?'\u21BB Save & Resync':'Save Settings',click:function(){save();if(accessToken){view='sched';syncCalendar();}else{view='sched';render();}}});
   body.appendChild(sv);
   if(accessToken){
     var disc=el('button',{C:'btn-disc',t:'Sign Out / Disconnect',click:signOut});
@@ -381,9 +464,10 @@ function rSetup(main){
   card.appendChild(body);main.appendChild(card);
 }
 
-function rHub(main){
+function rSched(main){
   if(!accessToken){rNoAuth(main);return;}
-  // Sync bar
+  
+  // Sync bar from old Hub
   var sb=el('div',{C:'sync-bar'});
   var sbl=el('div',{C:'sync-l'});
   sbl.appendChild(el('span',{t:'\uD83D\uDCC5',style:'font-size:1.1rem'}));
@@ -395,24 +479,18 @@ function rHub(main){
   syn.disabled=loading;sb.appendChild(syn);main.appendChild(sb);
   if(syncErr)main.appendChild(el('div',{C:'err',t:'\u26A0 '+syncErr}));
   if(loading){var lr=el('div',{C:'lrow'});lr.appendChild(el('div',{C:'spin'}));lr.appendChild(el('div',{C:'ltxt',t:loadTxt}));main.appendChild(lr);return;}
+
   if(!calEvents.length&&!syncErr){
-    var es=el('div',{C:'empty'});es.appendChild(el('div',{C:'e-icon',t:'\uD83D\uDCCB'}));
-    es.appendChild(el('div',{C:'e-title',t:'No Final Measures Found'}));
-    es.appendChild(el('div',{C:'e-sub',t:'Tap Sync or check the search term in Setup.'}));
+    var es=el('div',{C:'empty'});es.appendChild(el('div',{C:'e-icon',t:'\uD83D\uDCC5'}));
+    es.appendChild(el('div',{C:'e-title',t:'No events loaded'}));
+    es.appendChild(el('div',{C:'e-sub',t:'Tap Sync to pull final measures.'}));
     main.appendChild(es);return;
   }
-  rDateStrip(main);
-  var dayEvs=evsFor(selDate);
-  var sr=el('div',{C:'sec-row'});
-  sr.appendChild(el('div',{C:'sec-lbl',t:fmtDate(selDate)}));
-  sr.appendChild(el('div',{C:'sec-ct',t:dayEvs.length+' job'+(dayEvs.length===1?'':'s')}));
-  main.appendChild(sr);
-  if(!dayEvs.length){
-    var nd=el('div',{C:'empty',style:'padding:24px 20px'});
-    nd.appendChild(el('div',{C:'e-icon',t:'\u2713'}));
-    nd.appendChild(el('div',{C:'e-title',t:'No measures this day'}));
-    main.appendChild(nd);
-  } else {dayEvs.forEach(function(ev){main.appendChild(rCard(ev));});}
+  
+  evDates().forEach(function(ds){
+    main.appendChild(el('div',{C:'wlbl',t:fmtDate(ds)}));
+    evsFor(ds).forEach(function(ev){main.appendChild(rCard(ev));});
+  });
 }
 
 function rNoAuth(main){
@@ -421,27 +499,6 @@ function rNoAuth(main){
   es.appendChild(el('div',{C:'e-sub',t:'Go to Setup, enter your OAuth Client ID, then sign in with your Visionaire Google account.'}));
   var btn=el('button',{C:'btn-p',t:'\u2699 Open Setup',style:'margin-top:20px',click:function(){view='setup';render();}});
   es.appendChild(btn);main.appendChild(es);
-}
-
-function rDateStrip(main){
-  var strip=el('div',{C:'dstrip'});
-  var evd=evDates();var evs={};evd.forEach(function(d){evs[d]=1;});
-  var base=new Date();base.setHours(0,0,0,0);
-  var days=[];
-  for(var i=-1;i<=28;i++){var d=new Date(base);d.setDate(d.getDate()+i);days.push(d.toISOString().slice(0,10));}
-  evd.forEach(function(d){if(days.indexOf(d)<0)days.push(d);});
-  days.sort();
-  var shown=days.filter(function(d){return evs[d]||Math.abs(ddiff(d,todayStr()))<=1;});
-  shown.forEach(function(ds){
-    var d=new Date(ds+'T12:00:00');var active=ds===selDate;var hasEv=!!evs[ds];
-    var chip=el('div',{C:'dchip'+(active?' on':'')+(hasEv?' ev':''),click:function(s){return function(){selDate=s;render();};}(ds)});
-    var dnames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    chip.appendChild(el('div',{C:'dc-d',t:isToday(ds)?'Today':dnames[d.getDay()]}));
-    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
-    if(hasEv&&!active)chip.appendChild(el('div',{C:'dc-dot'}));
-    strip.appendChild(chip);
-  });
-  main.appendChild(strip);
 }
 
 function fmtDate(ds){
@@ -491,32 +548,17 @@ function rCard(ev){
     card.appendChild(det);
   }
 
- var acts=el('div',{C:'cc-acts'});
+  var acts=el('div',{C:'cc-acts'});
   var fm=el('button',{C:'ca p',t:'\uD83D\uDCCB FM Sheet',click:function(){
-    try {
-      // 1. Inject the job directly into the Field Command app's memory
-      var existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-      var jobExists = false;
-      for(var i=0; i<existingJobs.length; i++) {
-        if(existingJobs[i].customer === ev.customer) { jobExists = true; break; }
-      }
-      
-      if(!jobExists) {
-        existingJobs.unshift({
-          id: Date.now(),
-          customer: ev.customer,
-          time: ev.startTime ? ev.startTime : 'Scheduled',
-          data: []
-        });
-        localStorage.setItem('visionaireJobs', JSON.stringify(existingJobs));
-      }
-      
-      // 2. Redirect instantly to the Field Command app
-      window.location.href = 'index.html';
-      
-    } catch(e) {
-      alert('Error transferring data to Field Command.');
+    // Ensure the job exists in memory before redirecting
+    var eJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+    var exists = eJobs.some(function(j){return j.customer === ev.customer;});
+    if(!exists){
+      eJobs.unshift({id: ev.id, customer: ev.customer, time: ev.startTime||'Scheduled', data: []});
+      localStorage.setItem('visionaireJobs', JSON.stringify(eJobs));
     }
+    // Redirect seamlessly to Field Command
+    window.location.href = 'index.html';
   }});
   acts.appendChild(fm);
   var ca=el('button',{C:'ca',t:'\uD83D\uDCC5 Event',click:function(){if(ev.htmlLink)window.open(ev.htmlLink,'_blank');}});
@@ -524,20 +566,6 @@ function rCard(ev){
   var exp=el('button',{C:'ca',t:isExp?'\u25B2 Less':'\u25BC Details',click:function(){expandId=isExp?null:ev.id;render();}});
   acts.appendChild(exp);
   card.appendChild(acts);return card;
-}
-
-function rSched(main){
-  if(!accessToken){rNoAuth(main);return;}
-  if(!calEvents.length){
-    var es=el('div',{C:'empty'});es.appendChild(el('div',{C:'e-icon',t:'\uD83D\uDCC5'}));
-    es.appendChild(el('div',{C:'e-title',t:'No events loaded'}));
-    es.appendChild(el('div',{C:'e-sub',t:'Go to Today and tap Sync first.'}));
-    main.appendChild(es);return;
-  }
-  evDates().forEach(function(ds){
-    main.appendChild(el('div',{C:'wlbl',t:fmtDate(ds)}));
-    evsFor(ds).forEach(function(ev){main.appendChild(rCard(ev));});
-  });
 }
 
 // ── UTILITY ───────────────────────────────────────────────────────────────
