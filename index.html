@@ -11,13 +11,12 @@
       return false;
     };
 
-    // IDENTITY CALLBACK
     window.handleCredentialResponse = (response) => {
       const payload = JSON.parse(window.atob(response.credential.split('.')[1]));
       let p = JSON.parse(localStorage.getItem('vhub_v2')) || {};
       p.userEmail = payload.email;
       localStorage.setItem('vhub_v2', JSON.stringify(p));
-      alert("Identity Verified. Authorizing App...");
+      alert("Identity Verified. Authorizing App Permissions...");
       signIn(); 
     };
   </script>
@@ -34,7 +33,7 @@
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
     .hdr-title{font-size:1.1rem;font-weight:900;font-style:italic;text-transform:uppercase}
     .acct-badge{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);padding:5px 10px;border-radius:8px}
-    .acct-dot{width:10px;height:10px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80}
+    .acct-dot{width:10px;height:10px;border-radius:50%;background:#4ade80;box-shadow: 0 0 8px #4ade80}
     .acct-dot.off{background:#94a3b8;box-shadow:none}
     .acct-txt{font-size:0.6rem;font-weight:800}
 
@@ -46,7 +45,6 @@
     .sc{background:white;border-radius:14px;border:1.5px solid var(--s200);overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
     .sc-head{background:var(--navy);padding:12px;color:white;font-weight:900;text-transform:uppercase;font-size:0.7rem}
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:12px}
-    .lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;color:var(--s500)}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:8px;padding:10px;font-size:0.85rem;outline:none}
     .btn-p{background:var(--navy);color:white;border:none;border-radius:8px;padding:14px;font-weight:800;text-transform:uppercase;font-size:0.7rem;cursor:pointer}
     
@@ -54,12 +52,14 @@
     .sync-btn{background:var(--navy);color:white;border:none;border-radius:6px;padding:8px 12px;font-size:0.6rem;font-weight:800;text-transform:uppercase}
     
     .card-head{display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer}
-    .card-name{font-weight:900;color:var(--navy);text-transform:uppercase;font-size:0.9rem}
-    .card-time{font-size:10px;font-weight:800;background:var(--navy);color:white;padding:3px 6px;border-radius:4px}
+    .card-name{font-weight:900;color:var(--navy);text-transform:uppercase;font-size:0.85rem;flex:1;}
+    .card-time{font-size:9px;font-weight:800;background:var(--navy);color:white;padding:3px 6px;border-radius:4px;white-space:nowrap;}
+    .card-date{font-size:9px;font-weight:700;color:var(--s500);margin-right:8px;}
     .card-det{padding:14px;background:#f8fafc;border-top:1px solid #eee;display:none}
     
     .rescan-box{margin-top:10px; padding-top:10px; border-top:1px dashed #ccc; display:flex; gap:5px;}
     .ready-badge { background: #dcfce7; color: #166534; font-size: 0.5rem; padding: 2px 5px; border-radius: 4px; font-weight: 900; margin-left: 5px; border: 1px solid #86efac; }
+    .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:var(--s50);border-radius:16px;border:2px dashed var(--s200)}
   </style>
 </head>
 <body>
@@ -96,18 +96,34 @@ function signIn() {
   client.requestAccessToken({prompt: 'select_account'});
 }
 
+// --- HARDENED CALENDAR SYNC (Date Filtered) ---
 function syncCalendar() {
-  if (!accessToken) return;
-  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&q=Measure`;
+  if (!accessToken) return alert("Authorize Green Ball first.");
+  
+  const now = new Date();
+  const past = new Date(); past.setDate(now.getDate() - 2); // Show from 2 days ago
+  const future = new Date(); future.setDate(now.getDate() + 14); // Show up to 2 weeks ahead
+
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${past.toISOString()}&timeMax=${future.toISOString()}&singleEvents=true&orderBy=startTime&q=Measure`;
+  
   fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
     .then(r => r.json())
     .then(data => {
-      calEvents = (data.items || []).map(ev => ({
-        id: ev.id, customer: ev.summary.replace(/measure/ig, '').trim(),
-        startTime: (ev.start.dateTime || '').slice(11, 16) || 'Scheduled', startDate: (ev.start.dateTime || ev.start.date || '').slice(0, 10)
-      }));
-      save(); window.view = 'sched'; render();
-    }).catch(() => alert("Sync Failed"));
+      calEvents = (data.items || []).map(ev => {
+        const start = ev.start.dateTime || ev.start.date || '';
+        const dateObj = new Date(start);
+        return {
+          id: ev.id,
+          customer: ev.summary.replace(/final measure|measure|fm/ig, '').replace(/[-:]/g, '').trim(),
+          startTime: start.includes('T') ? dateObj.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Scheduled',
+          startDate: dateObj.toLocaleDateString([], {month:'short', day:'numeric'}),
+          rawDate: start.slice(0, 10)
+        };
+      });
+      save();
+      window.view = 'sched';
+      render();
+    }).catch(() => alert("Sync Failed. Check internet."));
 }
 
 function renderGoogleBtn() {
@@ -118,9 +134,8 @@ function renderGoogleBtn() {
   } else { setTimeout(renderGoogleBtn, 500); }
 }
 
-// ⚡ NUMBER 4: HARDENED DRIVE SCANNER
 async function processSingleJob(ev, manualKeyword = null) {
-  if (!accessToken) return alert("Please Refresh Green Ball.");
+  if (!accessToken) return alert("Refresh Green Ball.");
   let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
   let searchTarget = manualKeyword || cleanName.split(/\s+/)[0];
   const q = `mimeType='application/pdf' and name contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement' or name contains 'REVISED' or name contains 'Ph 2')`;
@@ -140,14 +155,14 @@ async function processSingleJob(ev, manualKeyword = null) {
     const result = await res.json();
     const parsed = JSON.parse(result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim());
 
-    let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+    let saved = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
     const jobData = { id: ev.id, customer: ev.customer, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:''})), summary: parsed.summary, repairNotes: parsed.repairNotes, contractLink: `https://drive.google.com/file/d/${bestFile.id}/view` };
-    const idx = jobs.findIndex(j => j.id === ev.id);
-    if (idx > -1) jobs[idx] = jobData; else jobs.unshift(jobData);
-    localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
+    const idx = saved.findIndex(j => j.id === ev.id);
+    if (idx > -1) saved[idx] = jobData; else saved.unshift(jobData);
+    localStorage.setItem('visionaireJobs', JSON.stringify(saved));
     alert("Scanned: " + bestFile.name);
     render();
-  } catch (err) { alert("Scan failed. Check Gemini Key."); }
+  } catch (err) { alert("Scan failed."); }
 }
 
 function handleManualFM() {
@@ -197,9 +212,8 @@ function render(){
     `;
     renderGoogleBtn();
   } else {
-    main.innerHTML = `<div class="sync-bar"><div style="font-size:0.7rem; font-weight:800;">Google Sync Active</div><button class="sync-btn" onclick="syncCalendar()">Sync Cal</button></div>`;
+    main.innerHTML = `<div class="sync-bar"><div><div style="font-size:0.7rem; font-weight:800;">Current Measures</div><div style="font-size:0.5rem; color:#64748b;">Filtered: Past 2 days to Next 14 days</div></div><button class="sync-btn" onclick="syncCalendar()">Sync Cal</button></div>`;
     
-    // Merge Calendar Events and Manual Jobs
     let savedJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
     calEvents.forEach(ev => {
       const card = document.createElement('div'); card.className = 'sc';
@@ -207,10 +221,10 @@ function render(){
       card.innerHTML = `
         <div class="card-head" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
           <div class="card-name">${ev.customer} ${isReady ? '<span class="ready-badge">READY</span>' : ''}</div>
-          <div class="card-time">${ev.startTime}</div>
+          <div style="display:flex; align-items:center;"><span class="card-date">${ev.startDate}</span><span class="card-time">${ev.startTime}</span></div>
         </div>
         <div class="card-det">
-          <button class="btn-p" style="width:100%;" onclick="processSingleJob({id:'${ev.id}', customer:'${ev.customer}'})">Scan 2026 Contract</button>
+          <button class="btn-p" style="width:100%;" onclick="processSingleJob({id:'${ev.id}', customer:'${ev.customer}'})">Auto-Scan 2026 Contract</button>
           <div class="rescan-box">
              <input class="inp" style="padding:5px; font-size:10px;" id="ref-${ev.id}" placeholder="Specific name (Phase 2)...">
              <button class="sync-btn" style="background:var(--amber); color:var(--navy);" onclick="processSingleJob({id:'${ev.id}', customer:'${ev.customer}'}, document.getElementById('ref-${ev.id}').value)">Manual Ph2 Scan</button>
@@ -220,7 +234,7 @@ function render(){
       `;
       main.appendChild(card);
     });
-    if(calEvents.length === 0) main.innerHTML += `<div class="empty-state">No appointments. Tap Sync Cal.</div>`;
+    if(calEvents.length === 0) main.innerHTML += `<div class="empty-state">No upcoming measures. Tap Sync Cal.</div>`;
   }
 }
 
