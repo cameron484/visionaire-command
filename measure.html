@@ -36,9 +36,7 @@
     const WIN_T = ["DH", "SH", "SL", "PIC", "CAS", "AWN", "HOP", "B/B", "T", "Other"];
     const GRIDS = ["None", "Contour", "Flat", "SDL", "Other"];
     const GLASS_O = ["None", "Tempered", "Obscure – Standard", "Obscure – Rain", "Obscure – Flemish", "Obscure – Satin", "Other"];
-    const DOOR_T = ["Single", "Double / French", "Sliding Patio", "Single w/ Sidelights", "Double w/ Sidelights", "Bifold", "Other"];
     const SWINGS = ["RHI", "LHI", "RHO", "LHO", "Active/Passive – Right", "Active/Passive – Left"];
-    const JAMBS = ["4-9/16\"", "6-9/16\"", "4-5/8\"", "Custom"];
 
     function VisionaireApp() {
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
@@ -57,6 +55,7 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
+      // --- SIGNATURE PAD LOGIC ---
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
@@ -73,7 +72,8 @@
           const end = () => { isDrawing.current = false; updateSignoff('sigData', canvas.toDataURL()); };
           canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move);
           window.addEventListener('mouseup', end);
-          canvas.addEventListener('touchstart', start, {passive: false}); canvas.addEventListener('touchmove', move, {passive: false});
+          canvas.addEventListener('touchstart', start, {passive: false});
+          canvas.addEventListener('touchmove', move, {passive: false});
           canvas.addEventListener('touchend', end);
         }
       }, [activeTab]);
@@ -95,27 +95,58 @@
         updateItem(index, field, cur);
       };
 
-      const uploadToDrive = async () => {
-        setLoading(true);
-        try {
-          const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
-          const token = latestPrefs.accessToken;
-          const folderId = "1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz";
-          let report = `FINAL MEASURE: ${activeJob.customer}\nCaptured: ${new Date().toLocaleString()}\n=====================================\n\n`;
-          activeJob.data.forEach((unit, idx) => {
-            report += `UNIT ${idx + 1} [${unit.itemType}]: ${unit.location}\nSize: ${unit.fmWidth} x ${unit.fmHeight}\nOriginal Specs: ${formatSpecs(unit.extras)}\n---\n`;
-          });
-          const metadata = { name: `FM_${activeJob.customer.replace(/\s+/g, '_')}.txt`, mimeType: 'text/plain', parents: [folderId] };
-          const form = new FormData();
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-          form.append('file', new Blob([report], { type: 'text/plain' }));
-          const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
-          if (res.ok) alert("✅ Uploaded successfully!"); else alert("Upload failed.");
-        } catch (e) { alert("Error."); } finally { setLoading(false); }
+      const playBriefing = (text) => {
+        if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); 
+        if (isPlaying) { setIsPlaying(false); return; }
+        const utterance = new SpeechSynthesisUtterance(text); utterance.onend = () => setIsPlaying(false);
+        setIsPlaying(true); window.speechSynthesis.speak(utterance);
       };
 
-      // SAFE DISLPAY NAME (Split method avoid Regex Crash)
-      const displayName = activeJob.customer ? activeJob.customer.split(':').pop().trim() : "";
+      // --- FULL PDF SCAN & AUTO-FILL LOGIC RESTORED ---
+      const processPDFBase64 = async (base64, apiKey, job, contractLink) => {
+        const promptText = `Analyze project for Visionaire Windows. DATA MAP: 1. Group sidelites/transoms into slabs. 2. Extract: Hands, Jambs, Glass, Colors. 3. summary: recap. 4. repairNotes: flags. Return JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+        const result = await res.json();
+        const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          const parsed = JSON.parse(text);
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:''})), summary: parsed.summary, repairNotes: parsed.repairNotes, checklist: parsed.checklist, contractLink: contractLink } : j));
+          setLoading(false);
+        } catch(e) { setLoading(false); alert("AI Sync Error."); }
+      };
+
+      const autoLoadContract = async (job) => {
+        setLoading(true);
+        const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+        const token = latestPrefs.accessToken;
+        const cleanName = job.customer.split(':').pop().trim().split(' ')[0];
+        const q = `fullText contains '${cleanName}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
+        const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+        const dData = await dRes.json();
+        if (!dData.files?.[0]) return setLoading(false);
+        const fileId = dData.files[0].id;
+        const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
+        const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+        const blob = await fRes.blob();
+        const reader = new FileReader(); reader.readAsDataURL(blob);
+        reader.onloadend = () => processPDFBase64(reader.result.split(',')[1], latestPrefs.geminiKey, job, contractLink);
+      };
+
+      const uploadToDrive = async () => {
+        setLoading(true);
+        const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+        const folderId = "1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz";
+        let report = `FM: ${activeJob.customer}\nAlarm: ${signoffData.alarmNotes}\nInstall: ${signoffData.finalNotes}\n\n`;
+        activeJob.data.forEach((u, i) => report += `${i+1}: ${u.location} | ${u.fmWidth}x${u.fmHeight}\n`);
+        const metadata = { name: `FM_${activeJob.customer.replace(/\s+/g,'_')}.txt`, mimeType: 'text/plain', parents: [folderId] };
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', new Blob([report], { type: 'text/plain' }));
+        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { Authorization: `Bearer ${latestPrefs.accessToken}` }, body: form });
+        setLoading(false); alert("✅ Uploaded!");
+      };
+
+      const displayName = activeJob.customer ? activeJob.customer.split(':').pop().trim() : "Unnamed";
 
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
@@ -123,107 +154,89 @@
             <div className="flex justify-between items-center mb-3">
               <button onClick={() => window.location.href = 'index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Hub</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{displayName}</h1>
-              <button onClick={() => alert('Export clipboard ready')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <button onClick={() => alert('Export Ready')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
+                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c]':'text-white opacity-60'}`}>{tab}</button>
               ))}
             </div>
           </header>
 
           <main className="p-3 flex-1">
-            {activeTab === 'overview' && (
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-                {activeJob.summary && (
-                   <div onClick={() => {
-                     if (!window.speechSynthesis) return; window.speechSynthesis.cancel();
-                     if (isPlaying) { setIsPlaying(false); return; }
-                     const utterance = new SpeechSynthesisUtterance(activeJob.summary); utterance.onend = () => setIsPlaying(false);
-                     setIsPlaying(true); window.speechSynthesis.speak(utterance);
-                   }} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
-                       <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
-                       <div className="font-black text-xs uppercase text-slate-800 tracking-tight">Technical Briefing: <span className="block text-[10px] font-bold text-slate-500 normal-case mt-1">{activeJob.summary}</span></div>
-                   </div>
-                )}
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2">
-                   <h3 className="text-[10px] font-black uppercase text-amber-800 tracking-widest">⚠️ Critical Project Notes</h3>
-                   <div className="text-[11px] font-bold text-slate-700 leading-relaxed italic">{activeJob.repairNotes || "No special repairs noted."}</div>
-                </div>
-                {activeJob.contractLink && <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block text-center">📄 Original Contract</a>}
+            {loading ? <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase text-xs">Syncing...</div> :
+            !activeJob.data?.length ? (
+              <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white mt-10">
+                <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 px-10 rounded-xl font-black text-sm uppercase">Scan Contract</button>
               </div>
-            )}
-
-            {activeTab === 'measure' && (
+            ) : (
               <div className="space-y-4">
-                {activeJob.data.map((unit, idx) => (
-                  <div key={idx} className="unit-card industrial-shadow" style={unit.itemType === 'Door' ? {borderLeft: '12px solid #064e3b'} : {borderLeft: '12px solid #1a3a5c'}}>
-                     <div onClick={() => setExpandedIndex(idx)} className="unit-header">
-                        <div className="flex items-center gap-3">
-                           <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
-                           <div><div className="text-xs font-black uppercase">{unit.location}</div><div className="text-[10px] font-bold text-slate-400 tracking-tight">{unit.contractSize}</div></div>
-                        </div>
-                        <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
-                     </div>
-                     {expandedIndex === idx && (
-                       <div className="p-4 border-t space-y-4 bg-white">
-                          <div className="grid grid-cols-3 gap-3">
-                             <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
-                             <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
-                             <div className="bg-slate-50 border rounded-lg flex flex-col items-center justify-center"><span className="field-label">Qty</span><div className="font-black">{unit.qty}</div></div>
-                          </div>
-                          {unit.itemType === 'Door' ? (
-                            <div className="space-y-3">
-                              <div className="flex gap-2">
-                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
-                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
-                              </div>
-                              <select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}><option>Swing</option>{SWINGS.map(s=><option key={s}>{s}</option>)}</select>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                               <select className="input-box" value={unit.grids} onChange={e=>updateItem(idx,'grids',e.target.value)}><option>Grids</option>{GRIDS.map(g=><option key={g}>{g}</option>)}</select>
-                               <select className="input-box" value={unit.glass} onChange={e=>updateItem(idx,'glass',e.target.value)}><option>Glass</option>{GLASS_O.map(g=><option key={g}>{g}</option>)}</select>
-                            </div>
-                          )}
-                          <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] italic border">{formatSpecs(unit.extras)}</div>
-                          <textarea className="input-box mobile-note" placeholder="Notes..." value={unit.notes} onInput={(e)=>updateItem(idx,'notes',e.target.value)} />
-                       </div>
-                     )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === 'signoff' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-8">
-                 <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 pb-2">Final Sign-Off</h2>
-                 <div className="bg-red-50 p-4 rounded-xl border border-red-100 space-y-3">
-                    <label className="flex items-center justify-between cursor-pointer">
-                       <span className="font-black text-xs text-red-900 uppercase">Alarm Checkoff</span>
-                       <input type="checkbox" className="w-6 h-6 accent-red-600" checked={signoffData.alarmChecked} onChange={e=>updateSignoff('alarmChecked', e.target.checked)} />
-                    </label>
-                    <textarea className="input-box mobile-note border-red-200" placeholder="Notes..." value={signoffData.alarmNotes} onInput={(e)=>updateSignoff('alarmNotes', e.target.value)} />
-                 </div>
-                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-2">
-                    <h3 className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Extracted Contract Specs</h3>
-                    <div className="grid grid-cols-1 gap-2 text-[10px] font-bold text-slate-600 italic">
-                       <div className="flex justify-between border-b pb-1"><span>Windows:</span><span>{checklist.winColor || 'N/A'} | {checklist.glassType}</span></div>
-                       <div className="flex justify-between border-b pb-1"><span>Doors:</span><span>{checklist.doorSwing} | {checklist.doorJamb}</span></div>
+                {activeTab === 'overview' && (
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-6">
+                    {activeJob.summary && (
+                      <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
+                        <div className="font-black text-xs uppercase text-slate-800">Briefing: <span className="block text-[10px] font-bold text-slate-500 normal-case">{activeJob.summary}</span></div>
+                      </div>
+                    )}
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                      <h3 className="text-[10px] font-black uppercase text-amber-800">⚠️ Repairs/Notes</h3>
+                      <div className="text-[11px] font-bold text-slate-700 italic">{activeJob.repairNotes || "No flags."}</div>
                     </div>
-                 </div>
-                 <div className="space-y-3">
-                    <span className="field-label">Signature</span>
+                  </div>
+                )}
+
+                {activeTab === 'measure' && (
+                  <div className="space-y-4 pb-10">
+                    {activeJob.data.map((unit, idx) => (
+                      <div key={idx} className="unit-card industrial-shadow" style={{borderLeft: unit.itemType === 'Door' ? '12px solid #064e3b' : '12px solid #1a3a5c'}}>
+                        <div onClick={() => setExpandedIndex(idx)} className="unit-header">
+                          <div className="flex items-center gap-3">
+                            <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
+                            <div><div className="text-xs font-black uppercase">{unit.location}</div><div className="text-[10px] font-bold text-slate-400 tracking-tight">{unit.contractSize}</div></div>
+                          </div>
+                          <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
+                        </div>
+                        {expandedIndex === idx && (
+                          <div className="p-4 border-t space-y-4 bg-white">
+                            <div className="grid grid-cols-3 gap-3">
+                              <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
+                              <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
+                              <div className="bg-slate-50 border rounded-lg flex flex-col items-center justify-center font-black">{unit.qty}</div>
+                            </div>
+                            <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] italic border">{formatSpecs(unit.extras)}</div>
+                            <textarea className="input-box mobile-note" placeholder="Notes..." value={unit.notes} onInput={e=>updateItem(idx,'notes',e.target.value)} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'signoff' && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border space-y-8">
+                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 space-y-3">
+                       <label className="flex items-center justify-between"><span className="font-black text-xs text-red-900 uppercase">Alarm Checkoff</span><input type="checkbox" className="w-6 h-6 accent-red-600" checked={signoffData.alarmChecked} onChange={e=>updateSignoff('alarmChecked', e.target.checked)} /></label>
+                       <textarea className="input-box mobile-note border-red-200" placeholder="Alarm notes..." value={signoffData.alarmNotes} onInput={e=>updateSignoff('alarmNotes', e.target.value)} />
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                       <h3 className="text-[10px] font-black text-blue-800 uppercase">Contract Specs</h3>
+                       <div className="text-[10px] font-bold text-slate-600 italic">
+                          <div className="flex justify-between border-b pb-1"><span>Windows:</span><span>{checklist.winColor} | {checklist.glassType}</span></div>
+                          <div className="flex justify-between border-b pb-1"><span>Doors:</span><span>{checklist.doorSwing} | {checklist.doorJamb}</span></div>
+                       </div>
+                    </div>
                     <div className="sig-container industrial-shadow"><canvas ref={canvasRef} className="sig-canvas" /></div>
-                    <input type="text" className="input-box text-center uppercase" placeholder="Print Name" value={signoffData.printName} onChange={(e)=>updateSignoff('printName', e.target.value)} />
-                 </div>
-                 <button onClick={uploadToDrive} disabled={loading} className="w-full py-5 bg-[#064e3b] text-white rounded-xl font-black uppercase shadow-lg transition-transform active:scale-95">LOCK & SUBMIT</button>
+                    <input type="text" className="input-box text-center uppercase" placeholder="Print Name" value={signoffData.printName} onChange={e=>updateSignoff('printName', e.target.value)} />
+                    <button onClick={uploadToDrive} disabled={loading} className="w-full py-5 bg-[#064e3b] text-white rounded-xl font-black uppercase">LOCK & SUBMIT</button>
+                  </div>
+                )}
               </div>
             )}
           </main>
 
           <div className={`keypad-container bg-slate-100 p-3 shadow-2xl border-t-2 ${activeField ? 'keypad-open' : ''}`}>
-             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Measure Input</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase">Done</button></div>
+             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Keypad</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done</button></div>
              <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}</div>
              <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (<button key={n} onClick={() => handleKeyPress(n)} className="bg-white py-3 rounded-lg font-black text-lg border">{n}</button>))}</div>
           </div>
