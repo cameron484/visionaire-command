@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-<script>
-  window.onerror = function(msg, url, line) {
-    alert("Error: " + msg + "\nLine: " + line);
-    return false;
-  };
-</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Visionaire — Customer Hub</title>
+  <script>
+    window.onerror = function(msg, url, line) {
+      alert("Hub Error: " + msg + "\nLine: " + line);
+      return false;
+    };
+  </script>
   <style>
     :root {
       --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
@@ -41,7 +41,6 @@
     .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
     .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
     .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
-    .btn-disc{width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:var(--redl);color:var(--red);font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
     .sync-sub{font-size:0.55rem;color:var(--s500);margin-top:1px;font-weight:700}
@@ -130,10 +129,7 @@ function signIn(){
       client_id:clientId,
       scope:GCAL_SCOPE,
       callback:function(resp){
-        if(resp.error) {
-           console.error(resp.error);
-           return;
-        }
+        if(resp.error) return console.error(resp.error);
         accessToken=resp.access_token;
         fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
           .then(r=>r.json()).then(info=>{userEmail=info.email||'Connected User'; save(); syncCalendar();})
@@ -163,7 +159,7 @@ function syncCalendar(){
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       save(); loading=false; render();
     })
-    .catch(e => { loading=false; render(); alert("Sync Error: Check Connection"); });
+    .catch(e => { loading=false; render(); alert("Sync Error"); });
 }
 
 async function preloadToday() {
@@ -213,9 +209,7 @@ async function processSingleJob(ev) {
     reader.readAsDataURL(blob);
   });
 
-  const promptText = `Analyze project details for Visionaire Windows tech. DATA MAP: 1. Determine 'itemType'... [Prompt truncated for brevity]`;
-  
-  // Using gemini-2.5-flash as specified
+  const promptText = `Analyze project details for Visionaire Windows tech. DATA MAP: 1. Determine 'itemType'... [Prompt truncated]`;
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
   const result = await res.json();
   const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -231,7 +225,7 @@ async function processSingleJob(ev) {
 
 function cleanNotes(html) {
   if (!html) return "";
-  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').trim();
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').trim();
   const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
   labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'gi'), `|||$1`); });
   return text.split('|||').filter(l => l.trim().length > 3).map(line => {
@@ -278,7 +272,7 @@ function rHeader(){
   top.appendChild(badge); h.appendChild(top);
   var tabs=el('div',{C:'vtabs'});
   [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(t => {
-    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''), t:t[1], click:()=>{ if(t[0]==='manual'){ var n=prompt("Enter Name:"); if(n){ var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[]; var id=Date.now(); j.unshift({id:id, customer:n, time:'Manual', data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(j)); localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='measure.html'; } } else { view=t[0]; render(); } } }));
+    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''), t:t[1], click:()=>{ if(t[0]==='manual'){ var n=prompt("Enter Name:"); if(n){ var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[]; var id=Date.now(); j.unshift({id:id, customer:n, time:'Manual', data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(j)); localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='./measure.html'; } } else { view=t[0]; render(); } } }));
   });
   h.appendChild(tabs); return h;
 }
@@ -321,4 +315,42 @@ function rDateStrip(main){
   for(let i=-1; i<=14; i++){
     let d=new Date(); d.setDate(d.getDate()+i); 
     let iso=d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    let chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''),
+    let chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''), click:()=>{selDate=iso; render();} });
+    chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
+    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+    strip.appendChild(chip);
+  }
+  main.appendChild(strip);
+}
+
+function rCard(ev){
+  var isExp=expandId===ev.id;
+  var jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  var isReady = jobs.find(j => j.id === ev.id && j.data?.length > 0);
+  var card=el('div',{C:'cc'});
+  var head=el('div',{C:'cc-head'});
+  head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
+  var body=el('div',{C:'cc-body'});
+  var top=el('div',{C:'cc-top'}); 
+  var nameBox = el('div', {C:'cc-name', t:ev.customer});
+  if(isReady) nameBox.appendChild(el('span', {C:'ready-badge', t:'READY'}));
+  top.appendChild(nameBox); top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); 
+  body.appendChild(top); head.appendChild(body); card.appendChild(head);
+  if(isExp){
+    var det=el('div',{C:'cc-det'});
+    var n = el('div',{C:'dnotes'}); 
+    let notesHtml = "";
+    if(ev.address) notesHtml += '<span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb;">' + ev.address + '</a></span>';
+    notesHtml += cleanNotes(ev.notesHtml);
+    n.innerHTML = notesHtml || "No notes."; det.appendChild(n); card.appendChild(det);
+  }
+  var acts=el('div',{C:'cc-acts'});
+  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='./measure.html'; }}));
+  acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
+  card.appendChild(acts); return card;
+}
+function el(tag,props){ var e=document.createElement(tag); for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else if(k==='style')e.style.cssText=props[k]; else e[k]=props[k]; } return e; }
+document.addEventListener('DOMContentLoaded',render);
+</script>
+</body>
+</html>
