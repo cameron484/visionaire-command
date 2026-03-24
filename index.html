@@ -3,149 +3,354 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire — Hub</title>
-  <script>
-    window.onerror = function(msg, url, line) {
-      alert("Hub Error: " + msg + "\nLine: " + line);
-      return false;
-    };
-  </script>
+  <title>Visionaire — Customer Hub</title>
   <style>
     :root {
-      --navy:#1a3a5c; --navy-mid:#2d5a8e; --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s500:#64748b; --s800:#1e293b;
+      --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
+      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
+      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
+      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
+      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
+      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
-    
-    /* HEADER */
-    .hdr{background:var(--navy);padding:14px 16px;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200;color:white}
-    .hdr-top{display:flex;align-items:center;justify-content:space-between}
-    .hdr-title{font-size:1.2rem;font-weight:900;font-style:italic;text-transform:uppercase}
-    .acct-badge{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px;font-size:0.6rem;font-weight:700}
-    .acct-dot{width:8px;height:8px;border-radius:50%;background:#4ade80}
-    .acct-dot.off{background:#94a3b8}
-
-    .main{padding:16px}
-    .sc{background:white;border-radius:12px;border:1px solid var(--s200);overflow:hidden;margin-bottom:16px}
-    .sc-head{background:var(--navy);padding:12px;color:white;font-weight:800;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.05em}
-    .sc-body{padding:16px;display:flex;flex-direction:column;gap:12px}
-    
-    .lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;color:var(--s500)}
-    .inp{width:100%;border:1.5px solid var(--s200);border-radius:8px;padding:10px;font-size:0.85rem;outline:none}
-    
-    /* OFFICIAL GOOGLE BUTTON */
-    .g-btn {
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      background: white; color: #3c4043; border: 1px solid #dadce0;
-      border-radius: 4px; padding: 12px; font-size: 14px; font-weight: 500;
-      cursor: pointer; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      margin-top: 10px;
-    }
-    .g-btn:active { background: #f8f9fa; }
-    .g-logo { width: 18px; height: 18px; }
-
-    .btn-p{background:var(--navy);color:white;border:none;border-radius:8px;padding:14px;font-weight:800;text-transform:uppercase;font-size:0.75rem;cursor:pointer}
-    .vtab-bar{display:flex;background:var(--navy);border-top:1px solid rgba(255,255,255,0.1)}
-    .vtab{flex:1;padding:12px;text-align:center;font-size:0.6rem;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer}
-    .vtab.on{color:var(--amber);border-bottom:3px solid var(--amber)}
+    .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
+    .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
+    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
+    .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
+    .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
+    .acct-dot.off{background:var(--s400)}
+    .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
+    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
+    .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
+    .main{padding:14px 12px 100px}
+    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
+    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
+    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase;}
+    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
+    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
+    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
+    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
+    .btn-disc{width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:var(--redl);color:var(--red);font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
+    .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
+    .sync-sub{font-size:0.55rem;color:var(--s500);margin-top:1px;font-weight:700}
+    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase;cursor:pointer}
+    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px; scrollbar-width: none; -webkit-overflow-scrolling: touch;}
+    .dstrip::-webkit-scrollbar { display: none; }
+    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;min-width:55px}
+    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
+    .dchip.ev{border-color:var(--amber)}
+    .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
+    .dchip.on .dc-d, .dchip.on .dc-n {color:white}
+    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
+    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .cc-head{display:flex;align-items:stretch}
+    .cc-bar{width:8px;flex-shrink:0}
+    .cc-bar.win{background:linear-gradient(180deg,var(--navy) 0%,var(--navy-mid) 100%)}
+    .cc-bar.door{background:linear-gradient(180deg,var(--emerald) 0%,var(--emerald-mid) 100%)}
+    .cc-bar.both{background:linear-gradient(180deg,var(--navy) 0%,var(--emerald) 100%)}
+    .cc-body{flex:1;padding:12px 12px 12px 10px}
+    .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
+    .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1;}
+    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap;}
+    .cc-acts{display:flex;border-top:1px solid var(--border)}
+    .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;}
+    .ca:not(:last-child){border-right:1px solid var(--border)}
+    .ca.p{color:var(--navy)}
+    .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
+    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--s700);line-height:1.7;}
+    .note-line { display: block; padding-bottom: 6px; border-bottom: 1px dashed var(--s200); margin-bottom: 6px; }
+    .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 1px; }
+    .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
+    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
+    .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200);}
+    .preload-bar { background: #1a3a5c; color: white; padding: 10px; text-align: center; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
+    .ready-badge { background: #dcfce7; color: #166534; font-size: 0.55rem; padding: 2px 6px; border-radius: 4px; font-weight: 900; margin-left: 8px; border: 1px solid #86efac; }
   </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script>
 var STORAGE_KEY = 'vhub_v2';
 var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
 
-var prefs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-var clientId = prefs.clientId || '';
-var geminiKey = prefs.geminiKey || '';
-var accessToken = prefs.accessToken || null;
-var userEmail = prefs.userEmail || null;
-var view = accessToken ? 'sched' : 'setup';
+var prefs        = loadPrefs();
+var view         = prefs.accessToken ? 'sched' : 'setup'; 
+var calEvents    = prefs.calEvents || []; 
+var loading      = false;
+var preloading   = false;
+var preloadProgress = "";
+var lastSync     = prefs.lastSync   || null;
+var lastDriveSync = prefs.lastDriveSync || null;
+var selDate      = todayStr();
+var expandId     = null;
+var accessToken  = prefs.accessToken || null;
+var userEmail    = prefs.userEmail   || null;
+var geminiKey    = prefs.geminiKey   || '';
+var clientId     = prefs.clientId   || '';
+var searchTerm   = prefs.searchTerm  || 'Measure';
 
+function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
 function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({clientId, geminiKey, accessToken, userEmail}));
+  prefs.accessToken=accessToken; prefs.userEmail=userEmail;
+  prefs.geminiKey=geminiKey; prefs.clientId=clientId; prefs.searchTerm=searchTerm;
+  prefs.lastSync=lastSync; prefs.lastDriveSync=lastDriveSync; prefs.calEvents=calEvents; 
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));
+}
+
+function todayStr(){
+  let d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
 function loadGIS(cb){
-  if(window.google) return cb();
+  if(window.google&&window.google.accounts){cb();return;}
   var s=document.createElement('script');
   s.src='https://accounts.google.com/gsi/client';
+  s.crossOrigin = "anonymous";
   s.onload=cb;
   document.head.appendChild(s);
 }
 
 function signIn(){
-  if(!clientId) return alert("Enter Client ID first.");
-  loadGIS(() => {
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: GCAL_SCOPE,
-      callback: (resp) => {
-        if(resp.access_token){
-          accessToken = resp.access_token;
-          fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{Authorization:`Bearer ${accessToken}`}})
-            .then(r=>r.json()).then(info => {
-              userEmail = info.email;
-              save();
-              location.reload();
-            });
+  if(!clientId){alert('Enter Client ID first.'); return;}
+  loadGIS(function(){
+    var client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:GCAL_SCOPE,
+      callback:function(resp){
+        if(resp.error) {
+           console.error(resp.error);
+           return;
         }
+        accessToken=resp.access_token;
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
+          .then(r=>r.json()).then(info=>{userEmail=info.email||'Connected User'; save(); syncCalendar();})
+          .catch(()=>{userEmail='Connected User'; save(); syncCalendar();});
       }
     });
     client.requestAccessToken({prompt:'select_account'});
   });
 }
 
-function render(){
-  const root = document.getElementById('root');
-  root.innerHTML = `
-    <div class="app">
-      <header class="hdr">
-        <div class="hdr-top">
-          <span class="hdr-title">Visionaire Hub</span>
-          <div class="acct-badge">
-            <span class="acct-dot ${accessToken ? '' : 'off'}"></span>
-            <span>${userEmail || 'Signed Out'}</span>
-          </div>
-        </div>
-      </header>
-      
-      <div class="vtab-bar">
-        <div class="vtab ${view==='sched'?'on':''}" onclick="if('${accessToken}'){ location.reload() }">Schedule</div>
-        <div class="vtab ${view==='setup'?'on':''}" onclick="alert('Setup is below')">Setup</div>
-      </div>
-
-      <main class="main">
-        <div class="sc">
-          <div class="sc-head">Configuration & Login</div>
-          <div class="sc-body">
-            <span class="lbl">Client ID</span>
-            <input class="inp" id="ci" value="${clientId}" placeholder="Paste ID here...">
-            
-            <span class="lbl">Gemini Key</span>
-            <input class="inp" id="gk" type="password" value="${geminiKey}" placeholder="Paste Key here...">
-            
-            <button class="btn-p" onclick="clientId=document.getElementById('ci').value; geminiKey=document.getElementById('gk').value; save(); alert('Saved!');">Save Settings</button>
-            
-            <div style="border-top:1px solid #eee; margin:10px 0;"></div>
-            
-            <button class="g-btn" onclick="signIn()">
-              <img class="g-logo" src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg">
-              <span>Sign in with Google</span>
-            </button>
-            
-            ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:20px; font-size:10px; color:red; background:none; border:none; text-decoration:underline;">Disconnect Account</button>` : ''}
-          </div>
-        </div>
-      </main>
-    </div>
-  `;
+function signOut(){
+  accessToken=null; userEmail=null; calEvents=[];
+  prefs.accessToken=null; prefs.userEmail=null; prefs.calEvents=[]; 
+  save(); view='setup'; render();
 }
 
-window.onload = render;
+function syncCalendar(){
+  if(!accessToken) return;
+  loading=true; render();
+  var past = new Date(); past.setDate(past.getDate()-7);
+  var future = new Date(); future.setDate(future.getDate()+30);
+  var term = encodeURIComponent(searchTerm || 'Measure');
+  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q='+term;
+  fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
+    .then(r=>r.json()).then(data=>{
+      calEvents=(data.items||[]).map(parseEv);
+      lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      save(); loading=false; render();
+    })
+    .catch(e => { loading=false; render(); alert("Sync Error: Check Connection"); });
+}
+
+async function preloadToday() {
+  if (preloading) return;
+  const dayEvs = calEvents.filter(e => e.startDate === selDate);
+  const existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  const targets = dayEvs.filter(ev => !existingJobs.find(j => j.id === ev.id && j.data?.length > 0));
+  
+  if (targets.length === 0) return alert("Everything pre-loaded!");
+  if (!confirm(`Pre-load ${targets.length} jobs?`)) return;
+
+  preloading = true;
+  for (let i = 0; i < targets.length; i++) {
+    const ev = targets[i];
+    preloadProgress = `Prep: (${i+1}/${targets.length}) Scanning ${ev.customer}...`;
+    render();
+    try {
+        await processSingleJob(ev);
+        if (i < targets.length - 1) await new Promise(r => setTimeout(r, 5000));
+    } catch (err) { console.error("Prep error:", err); }
+  }
+  preloading = false;
+  preloadProgress = "";
+  lastDriveSync = new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  save();
+  render();
+}
+
+async function processSingleJob(ev) {
+  let latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+  let token = latestPrefs.accessToken;
+  let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
+  let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+  
+  const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf'`;
+  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+  const dData = await dRes.json();
+  const fileId = dData.files?.[0]?.id;
+  if (!fileId) return;
+
+  const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
+  const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+  const blob = await fRes.blob();
+  const base64 = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
+
+  const promptText = `Analyze project details for Visionaire Windows tech. DATA MAP: 1. Determine 'itemType'... [Prompt truncated for brevity]`;
+  
+  // Using gemini-2.5-flash as specified
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+  const result = await res.json();
+  const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(text);
+  
+  let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, repairNotes: parsed.repairNotes, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink };
+  
+  const existingIdx = jobs.findIndex(j => j.id === ev.id);
+  if (existingIdx > -1) jobs[existingIdx] = jobData; else jobs.unshift(jobData);
+  localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
+}
+
+function cleanNotes(html) {
+  if (!html) return "";
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').trim();
+  const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
+  labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'gi'), `|||$1`); });
+  return text.split('|||').filter(l => l.trim().length > 3).map(line => {
+    let part = line.trim();
+    let label = labels.find(lab => part.toLowerCase().startsWith(lab.toLowerCase()));
+    if (label) {
+      let content = part.substring(label.length).trim();
+      if (label.toLowerCase() === 'contact:') {
+          let phones = content.match(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g);
+          content = phones ? phones.map(p => `<a href="tel:${p}" class="tel-link">${p}</a>`).join(' | ') : "No phone listed";
+          label = "CONTACT:";
+      } else if (label.toLowerCase() === 'edit event at:') {
+          return `<span class="note-line"><span class="note-label">CRM:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700;">Open MarketSharp</a></span>`;
+      }
+      return `<span class="note-line"><span class="note-label">${label}</span>${content}</span>`;
+    }
+    return `<span class="note-line">${part}</span>`;
+  }).join('');
+}
+
+function parseEv(ev){
+  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
+  let rawName = ev.summary.replace(/final\s*measure|measure|fm/ig, '').trim().replace(/^[^a-zA-Z0-9]+/, '');
+  return { id: ev.id, customer: rawName || 'Unnamed', address: ev.location || '', startDate: start.slice(0,10), startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled', notesHtml: ev.description || '', hasWin: /window/i.test(ev.summary + ev.description), hasDoor: /door/i.test(ev.summary + ev.description) };
+}
+
+function render(){
+  var root=document.getElementById('root'); root.innerHTML='';
+  var wrap=el('div',{C:'app'}); 
+  if (preloading) wrap.appendChild(el('div', {C:'preload-bar', t: preloadProgress}));
+  wrap.appendChild(rHeader());
+  var main=el('div',{C:'main'});
+  if(view==='setup') rSetup(main); else rSched(main);
+  wrap.appendChild(main); root.appendChild(wrap);
+}
+
+function rHeader(){
+  var h=el('div',{C:'hdr'});
+  var top=el('div',{C:'hdr-top'});
+  top.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
+  var badge=el('div',{C:'acct-badge'});
+  badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
+  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Sign-in Needed')}));
+  top.appendChild(badge); h.appendChild(top);
+  var tabs=el('div',{C:'vtabs'});
+  [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(t => {
+    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''), t:t[1], click:()=>{ if(t[0]==='manual'){ var n=prompt("Enter Name:"); if(n){ var j=JSON.parse(localStorage.getItem('visionaireJobs'))||[]; var id=Date.now(); j.unshift({id:id, customer:n, time:'Manual', data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(j)); localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='measure.html'; } } else { view=t[0]; render(); } } }));
+  });
+  h.appendChild(tabs); return h;
+}
+
+function rSetup(main){
+  var body=el('div',{C:'sc-body'});
+  body.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
+  var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
+  body.appendChild(ci);
+  if(accessToken&&userEmail){ body.appendChild(el('button',{C:'g-btn conn',t:'✓ Connected', click: signOut})); } else { body.appendChild(el('button',{C:'g-btn',t:'Connect Google', click: signIn})); }
+  body.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
+  var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
+  body.appendChild(gk);
+  body.appendChild(el('button',{C:'btn-p',t:'Save Hub Config',click:()=>{save();syncCalendar();}}));
+  var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'Hub Settings'})); sc.appendChild(body);
+  main.appendChild(sc);
+}
+
+function rSched(main){
+  if(!accessToken){main.appendChild(el('div',{t:'Connect account to view schedule.'})); return;}
+  var sb=el('div',{C:'sync-bar'});
+  var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:userEmail||'Calendar'})); 
+  si.appendChild(el('div',{C:'sync-sub', t:'Sync: '+(lastSync||'--') + ' | Prep: '+(lastDriveSync||'--')}));
+  sb.appendChild(si);
+  var grp = el('div', {style: 'display:flex; gap: 8px;'});
+  grp.appendChild(el('button',{C:'sync-btn', style:'background:#059669', t:preloading?'...':'Prep Drive',click:preloadToday}));
+  grp.appendChild(el('button',{C:'sync-btn',t:loading?'...':'Sync',click:syncCalendar}));
+  sb.appendChild(grp);
+  main.appendChild(sb);
+  if(loading){main.appendChild(el('div',{C:'lrow',t:'Updating Schedule...'})); return;}
+  rDateStrip(main);
+  var dayEvs = calEvents.filter(e=>e.startDate===selDate);
+  if(dayEvs.length === 0) {
+     main.appendChild(el('div', {C: 'empty-state', t: 'No measurements today.'}));
+  } else { dayEvs.forEach(ev=>main.appendChild(rCard(ev))); }
+}
+
+function rDateStrip(main){
+  var strip=el('div',{C:'dstrip'});
+  for(let i=-1; i<=14; i++){
+    let d=new Date(); d.setDate(d.getDate()+i); 
+    let iso=d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    let chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(calEvents.some(e=>e.startDate===iso)?' ev':''), click:()=>{selDate=iso; render();} });
+    chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
+    chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+    strip.appendChild(chip);
+  }
+  main.appendChild(strip);
+}
+
+function rCard(ev){
+  var isExp=expandId===ev.id;
+  var jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  var isReady = jobs.find(j => j.id === ev.id && j.data?.length > 0);
+  var card=el('div',{C:'cc'});
+  var head=el('div',{C:'cc-head'});
+  head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
+  var body=el('div',{C:'cc-body'});
+  var top=el('div',{C:'cc-top'}); 
+  var nameBox = el('div', {C:'cc-name', t:ev.customer});
+  if(isReady) nameBox.appendChild(el('span', {C:'ready-badge', t:'READY'}));
+  top.appendChild(nameBox); top.appendChild(el('span',{C:'cc-time',t:ev.startTime})); 
+  body.appendChild(top); head.appendChild(body); card.appendChild(head);
+  if(isExp){
+    var det=el('div',{C:'cc-det'});
+    var n = el('div',{C:'dnotes'}); 
+    let notesHtml = "";
+    if(ev.address) notesHtml += '<span class="note-line"><span class="note-label">MAPS:</span><a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb;">' + ev.address + '</a></span>';
+    notesHtml += cleanNotes(ev.notesHtml);
+    n.innerHTML = notesHtml || "No notes."; det.appendChild(n); card.appendChild(det);
+  }
+  var acts=el('div',{C:'cc-acts'});
+  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='measure.html'; }}));
+  acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
+  card.appendChild(acts); return card;
+}
+function el(tag,props){ var e=document.createElement(tag); for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else if(k==='style')e.style.cssText=props[k]; else e[k]=props[k]; } return e; }
+document.addEventListener('DOMContentLoaded',render);
 </script>
 </body>
 </html>
