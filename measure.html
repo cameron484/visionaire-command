@@ -123,10 +123,11 @@
         try {
           const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
           const token = latestPrefs.accessToken;
+          // ⚡ HARDENED SEARCH: Specifically looks for 2026 in the name
           const q = `fullText contains '${job.customer.split(' ')[0]}' and name contains '2026' and mimeType='application/pdf'`;
-          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
           const dData = await dRes.json();
-          if (!dData.files?.[0]) { setLoading(false); return alert("Contract not found."); }
+          if (!dData.files?.[0]) { setLoading(false); return alert("2026 Contract not found."); }
           const fileId = dData.files[0].id;
           const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
           const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
@@ -137,10 +138,14 @@
       };
 
       const wipeAndRescan = () => {
-        if (confirm("Wipe all FM data for this customer and rescan contract?")) {
-          setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [], summary: '', repairNotes: '', syncTime: null, contractLink: null, checklist: {} } : j));
-          // Immediate re-trigger scan logic
-          const targetJob = jobs.find(j => j.id === activeJobId);
+        if (confirm("Wipe this customer data and rescan the 2026 contract?")) {
+          // Reset data
+          const targetId = activeJobId;
+          setJobs(prev => prev.map(j => j.id === targetId ? { ...j, data: [], summary: '', repairNotes: '', syncTime: null, contractLink: null, checklist: {} } : j));
+          
+          // Re-trigger the fixed search
+          const freshJobsList = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+          const targetJob = freshJobsList.find(j => j.id === targetId);
           autoLoadContract(targetJob);
           setActiveTab('measure'); setExpandedIndex(0);
         }
