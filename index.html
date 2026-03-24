@@ -39,7 +39,7 @@
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
     .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
-    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06); touch-action: manipulation;}
     .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
@@ -122,28 +122,20 @@ function loadGIS(cb){
   document.head.appendChild(s);
 }
 
-function signIn() {
-  if (!clientId) return alert('Enter Client ID first.');
-  
-  // 1. Initialize the client first (this can happen once)
-  loadGIS(function() {
-    var client = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: GCAL_SCOPE,
-      callback: function(resp) {
-        if (resp.error) return console.error(resp.error);
-        accessToken = resp.access_token;
-        // Proceed with data fetch...
-        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{'Authorization':'Bearer '+accessToken}})
-          .then(r=>r.json()).then(info=>{userEmail=info.email; save(); syncCalendar();});
+function signIn(){
+  if(!clientId){alert('Enter Client ID first.'); return;}
+  loadGIS(function(){
+    var client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,
+      scope:GCAL_SCOPE,
+      callback:function(resp){
+        if(resp.error) return console.error(resp.error);
+        accessToken=resp.access_token;
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
+          .then(r=>r.json()).then(info=>{userEmail=info.email||'Connected User'; save(); syncCalendar();})
+          .catch(()=>{userEmail='Connected User'; save(); syncCalendar();});
       }
     });
-
-    // 2. IMMEDIATELY request the token. 
-    // This MUST stay inside the click handler's direct execution path.
-    client.requestAccessToken({ prompt: 'select_account' });
-  });
-}
     client.requestAccessToken({prompt:'select_account'});
   });
 }
