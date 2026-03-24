@@ -4,247 +4,884 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Visionaire Field Command</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body { overscroll-behavior-y: contain; background: #eef2f6; font-family: ui-sans-serif, system-ui, sans-serif; touch-action: manipulation; }
-    .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
-    .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
-    .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.7rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
-    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
-    .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
-    .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-    .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
-    .active-input { border: 3px solid #1a3a5c !important; background: #f0f9ff; }
-    .sig-container { background: #fff; border: 2px dashed #cbd5e1; border-radius: 1rem; touch-action: none; position: relative; }
-    .sig-canvas { width: 100%; height: 180px; border-radius: 1rem; }
-    .keypad-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .keypad-open { transform: translateY(0); }
-    .checkbox-pill { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 10px; font-weight: 700; color: #475569; }
-    .checkbox-pill input { width: 16px; height: 16px; accent-color: #1a3a5c; }
-    .mobile-note { line-height: 1.5; resize: none; overflow: hidden; min-height: 80px; }
-    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
+    :root {
+      --navy:#1a3a5c; --navy-mid:#2d5a8e; --amber:#f59e0b;
+      --emerald:#064e3b; --emerald-mid:#065f46;
+      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
+      --s400:#94a3b8; --s500:#64748b; --s700:#334155; --s800:#1e293b;
+      --border:#e2e8f0;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{overscroll-behavior-y:contain;background:#eef2f6;font-family:ui-sans-serif,system-ui,sans-serif}
+    .app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:80px}
+
+    /* HEADER */
+    .hdr{background:var(--navy);color:white;padding:12px 12px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
+    .hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .hdr-title{font-weight:900;font-style:italic;font-size:1.05rem;text-transform:uppercase;flex:1;text-align:center;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hdr-btn{background:rgba(255,255,255,0.1);color:white;border:none;border-radius:6px;padding:7px 11px;font-size:0.6rem;font-weight:900;text-transform:uppercase;cursor:pointer}
+    .hdr-btn.amber{background:var(--amber);color:var(--navy)}
+    .tabs{display:flex;background:rgba(0,0,0,0.2);border-radius:8px;padding:3px;gap:3px;margin-bottom:10px}
+    .tab{flex:1;padding:7px 4px;font-size:0.6rem;font-weight:900;text-transform:uppercase;border:none;border-radius:6px;background:transparent;color:rgba(255,255,255,0.5);cursor:pointer;transition:all 0.15s}
+    .tab.on{background:var(--amber);color:var(--navy)}
+
+    /* SHARED */
+    .main{padding:10px 10px 20px}
+    .field-label{font-size:0.6rem;font-weight:800;color:var(--s500);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:3px}
+    .input-box{width:100%;border:1.5px solid var(--s300);border-radius:8px;padding:10px;font-size:0.85rem;font-weight:700;color:var(--s800);background:white;outline:none;font-family:inherit;cursor:pointer;-webkit-appearance:none}
+    .input-box:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,58,92,0.1)}
+    .input-box.active-input{border:3px solid var(--navy) !important;background:#f0f9ff}
+    select.input-box{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+    /* LOADING / EMPTY */
+    .loading{padding:60px 20px;text-align:center;font-size:0.7rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:var(--s400);animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    .empty-state{margin:30px 0;padding:40px 20px;text-align:center;border:4px dashed var(--s300);border-radius:24px;background:white;display:flex;flex-direction:column;gap:14px;align-items:center}
+    .empty-state button{background:#2563eb;color:white;border:none;border-radius:12px;padding:18px 32px;font-size:0.85rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px}
+
+    /* OVERVIEW */
+    .overview-card{background:white;border-radius:16px;border:1.5px solid var(--border);padding:18px;box-shadow:0 4px 20px rgba(26,58,92,0.08);display:flex;flex-direction:column;gap:14px}
+    .briefing-row{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:2px solid var(--s200);background:var(--s50);cursor:pointer}
+    .briefing-row.playing{border-color:#3b82f6;background:#eff6ff}
+    .briefing-icon{font-size:1.8rem;flex-shrink:0}
+    .briefing-title{font-size:0.65rem;font-weight:900;text-transform:uppercase;color:var(--s800)}
+    .briefing-sub{font-size:0.6rem;font-weight:700;color:var(--s500);margin-top:3px;line-height:1.5}
+    .flags-box{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px}
+    .flags-title{font-size:0.6rem;font-weight:900;text-transform:uppercase;color:#92400e;margin-bottom:6px}
+    .flags-body{font-size:0.7rem;font-weight:700;color:var(--s700);line-height:1.6;font-style:italic}
+    .contract-link{display:block;width:100%;padding:11px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:12px;font-size:0.65rem;font-weight:900;text-transform:uppercase;text-align:center;text-decoration:none}
+    .wipe-btn{width:100%;padding:12px;background:transparent;border:2px dashed #fecaca;border-radius:12px;color:#dc2626;font-size:0.65rem;font-weight:900;text-transform:uppercase;cursor:pointer}
+
+    /* UNIT CARDS */
+    .unit-card{background:white;border-radius:12px;border:1px solid #d1d5db;margin-bottom:10px;overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08)}
+    .unit-card.win{border-left:10px solid var(--navy)}
+    .unit-card.door{border-left:10px solid var(--emerald)}
+    .unit-header{background:var(--s50);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:60px}
+    .unit-num{width:30px;height:30px;background:var(--navy);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.75rem;flex-shrink:0}
+    .unit-num.door{background:var(--emerald)}
+    .unit-info{flex:1;padding:0 10px}
+    .unit-loc{font-size:0.75rem;font-weight:900;text-transform:uppercase;color:var(--s800)}
+    .unit-type-badge{display:inline-block;background:#dbeafe;color:#1e40af;font-size:0.55rem;font-weight:900;padding:2px 6px;border-radius:4px;margin-left:6px}
+    .unit-type-badge.door{background:#d1fae5;color:#065f46}
+    .unit-size{font-size:0.6rem;font-weight:700;color:var(--s400);margin-top:2px}
+    .unit-body{padding:14px;border-top:1px solid var(--border);background:white;display:flex;flex-direction:column;gap:12px}
+
+    /* DIMENSION GRID */
+    .dim-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .dim-display{text-align:center;font-size:1.2rem;font-weight:900;color:var(--s800);min-height:44px;display:flex;align-items:center;justify-content:center}
+
+    /* CHECKBOX PILLS */
+    .pill-row{display:flex;gap:6px;flex-wrap:wrap}
+    .checkbox-pill{display:flex;align-items:center;gap:5px;background:var(--s100);padding:7px 10px;border-radius:6px;border:1px solid var(--s300);cursor:pointer;font-size:0.65rem;font-weight:700;color:var(--s600)}
+    .checkbox-pill input{width:16px;height:16px;accent-color:var(--navy);cursor:pointer}
+
+    /* CONTRACT SPECS */
+    .specs-box{background:var(--s50);border:1px solid var(--s200);border-radius:8px;padding:10px;font-size:0.7rem;font-weight:600;color:var(--s600);line-height:1.7;white-space:pre-line}
+
+    /* ADD UNIT BUTTONS */
+    .add-row{display:flex;gap:8px;margin-top:6px}
+    .add-btn{flex:1;padding:12px;border:2px dashed var(--s300);border-radius:10px;background:white;font-size:0.65rem;font-weight:900;text-transform:uppercase;color:var(--s500);cursor:pointer}
+    .add-btn.win{border-color:var(--navy);color:var(--navy)}
+    .add-btn.door{border-color:var(--emerald);color:var(--emerald)}
+
+    /* SIGN OFF */
+    .signoff-card{background:white;border-radius:16px;border:1.5px solid var(--border);padding:16px;box-shadow:0 4px 20px rgba(26,58,92,0.08);display:flex;flex-direction:column;gap:14px;margin-bottom:12px}
+    .signoff-label{font-size:0.7rem;font-weight:900;text-transform:uppercase;color:var(--navy);margin-bottom:6px}
+    .mobile-note{width:100%;border:1.5px solid var(--s300);border-radius:8px;padding:10px;font-size:0.85rem;font-family:inherit;color:var(--s800);background:white;outline:none;min-height:80px;resize:none;line-height:1.5}
+    .mobile-note:focus{border-color:var(--navy)}
+    .sig-container{background:white;border:2px dashed var(--s300);border-radius:12px;overflow:hidden;position:relative}
+    .sig-canvas{display:block;width:100%;height:180px;touch-action:none}
+    .sig-clear{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.1);border:none;border-radius:6px;padding:4px 8px;font-size:0.6rem;font-weight:900;color:var(--s600);cursor:pointer}
+    .upload-btn{width:100%;padding:14px;background:var(--navy);color:white;border:none;border-radius:12px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer}
+    .upload-btn:disabled{opacity:0.5}
+
+    /* CUSTOM KEYPAD */
+    .keypad-tray{position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--s800);border-top:3px solid var(--amber);padding:12px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .keypad-tray.open{transform:translateY(0)}
+    .keypad-field-label{font-size:0.6rem;font-weight:900;text-transform:uppercase;color:var(--amber);margin-bottom:8px;text-align:center}
+    .keypad-display{background:var(--s700);border-radius:8px;padding:10px 14px;text-align:center;font-size:1.4rem;font-weight:900;color:white;margin-bottom:10px;min-height:48px}
+    .keypad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+    .kbtn{background:var(--s700);color:white;border:none;border-radius:8px;padding:14px 6px;font-size:1rem;font-weight:900;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:background 0.1s}
+    .kbtn:active{background:var(--navy-mid)}
+    .kbtn.amber{background:var(--amber);color:var(--navy)}
+    .kbtn.red{background:#dc2626;color:white}
+    .kbtn.wide{grid-column:span 2}
+    .keypad-done{width:100%;margin-top:8px;padding:12px;background:var(--amber);color:var(--navy);border:none;border-radius:10px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer}
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+<div class="app">
+  <header class="hdr">
+    <div class="hdr-top">
+      <button class="hdr-btn" onclick="window.location.href='index.html'">Hub</button>
+      <div class="hdr-title" id="jobTitle">Field Command</div>
+      <button class="hdr-btn amber" onclick="doExport()">Export</button>
+    </div>
+    <div class="tabs">
+      <button class="tab" id="tab-overview" onclick="setTab('overview')">Overview</button>
+      <button class="tab" id="tab-measure" onclick="setTab('measure')">Measure</button>
+      <button class="tab" id="tab-signoff" onclick="setTab('signoff')">Sign Off</button>
+    </div>
+  </header>
+  <main class="main" id="main"></main>
+</div>
 
-    const WIN_T = ["DH", "SH", "SL", "PIC", "CAS", "AWN", "HOP", "B/B", "T", "Other"];
-    const GRIDS = ["None", "Contour", "Flat", "SDL", "Other"];
-    const GLASS_O = ["None", "Tempered", "Obscure – Standard", "Obscure – Rain", "Obscure – Flemish", "Obscure – Satin", "Other"];
-    const DOOR_T = ["Single", "Double / French", "Sliding Patio", "Single w/ Sidelights", "Double w/ Sidelights", "Bifold", "Other"];
-    const SWINGS = ["RHI", "LHI", "RHO", "LHO", "Active/Passive – Right", "Active/Passive – Left"];
-    const JAMBS = ["4-9/16\"", "6-9/16\"", "4-5/8\"", "Custom"];
+<!-- CUSTOM KEYPAD -->
+<div class="keypad-tray" id="keypadTray">
+  <div class="keypad-field-label" id="keypadLabel">Width</div>
+  <div class="keypad-display" id="keypadDisplay">—</div>
+  <div class="keypad-grid">
+    <button class="kbtn" onclick="kpress('7')">7</button>
+    <button class="kbtn" onclick="kpress('8')">8</button>
+    <button class="kbtn" onclick="kpress('9')">9</button>
+    <button class="kbtn red" onclick="kpress('DEL')">⌫</button>
+    <button class="kbtn" onclick="kpress('4')">4</button>
+    <button class="kbtn" onclick="kpress('5')">5</button>
+    <button class="kbtn" onclick="kpress('6')">6</button>
+    <button class="kbtn amber" onclick="kpress('1/2')">½</button>
+    <button class="kbtn" onclick="kpress('1')">1</button>
+    <button class="kbtn" onclick="kpress('2')">2</button>
+    <button class="kbtn" onclick="kpress('3')">3</button>
+    <button class="kbtn amber" onclick="kpress('3/4')">¾</button>
+    <button class="kbtn wide" onclick="kpress('0')">0</button>
+    <button class="kbtn amber" onclick="kpress('1/4')">¼</button>
+    <button class="kbtn amber" onclick="kpress('CLR')">CLR</button>
+  </div>
+  <button class="keypad-done" onclick="closeKeypad()">Done ✓</button>
+</div>
 
-    const opt = (arr) => arr.map(o => <option key={o} value={o}>{o}</option>);
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+var WIN_T   = ["DH","SH","SL","PIC","CAS","AWN","HOP","B/B","T","Other"];
+var GRIDS   = ["None","Contour","Flat","SDL","Other"];
+var GLASS_O = ["None","Tempered","Obscure – Standard","Obscure – Rain","Obscure – Flemish","Obscure – Satin","Other"];
+var DOOR_T  = ["Single","Double / French","Sliding Patio","Single w/ Sidelights","Double w/ Sidelights","Bifold","Other"];
+var SWINGS  = ["RHI","LHI","RHO","LHO","Active/Passive – Right","Active/Passive – Left"];
+var JAMBS   = ['4-9/16"','6-9/16"','4-5/8"',"Custom"];
 
-    function VisionaireApp() {
-      const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
-      const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
-      const [activeTab, setActiveTab] = useState('measure'); 
-      const [expandedIndex, setExpandedIndex] = useState(0);
-      const [activeField, setActiveField] = useState(null); 
-      const [loading, setLoading] = useState(false);
-      const [isPlaying, setIsPlaying] = useState(false);
-      const canvasRef = useRef(null);
-      const isDrawing = useRef(false);
+// ─── STATE ───────────────────────────────────────────────────────────────────
+var activeTab    = 'measure';
+var expandedIdx  = 0;
+var activeField  = null;   // { index, field }
+var isPlaying    = false;
+var appLoading   = false;
 
-      const activeJob = jobs.find(j => String(j.id) === String(activeJobId)) || { data: [], header: {}, signoff: {}, checklist: {} };
-      const signoffData = activeJob.signoff || {};
+function safeGet(key, fallback) {
+  try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
+}
+function safeSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
 
-      useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
+function getJobs()      { return safeGet('visionaireJobs', []); }
+function getActiveId()  { return safeGet('activeJobId', null); }
+function saveJobs(jobs) { safeSet('visionaireJobs', jobs); }
 
-      // MOBILE TOUCH SIGNATURE PAD
-      useEffect(() => {
-        if (activeTab === 'signoff' && canvasRef.current) {
-          const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
-          const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = 180; ctx.strokeStyle = '#1a3a5c'; ctx.lineWidth = 3; ctx.lineCap = 'round'; };
-          resize();
-          const getPos = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top };
-          };
-          const start = (e) => { if(e.type==='touchstart') e.preventDefault(); isDrawing.current = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
-          const move = (e) => { if (!isDrawing.current) return; if(e.type==='touchmove') e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
-          const end = () => { if(isDrawing.current) { isDrawing.current = false; setJobs(prev => prev.map(j => String(j.id) === String(activeJobId) ? { ...j, signoff: { ...j.signoff, sigData: canvas.toDataURL() } } : j)); } };
-          canvas.addEventListener('touchstart', start, {passive:false}); canvas.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
-          return () => window.removeEventListener('touchend', end);
-        }
-      }, [activeTab]);
+function getJob() {
+  var jobs = getJobs();
+  var id   = getActiveId();
+  return jobs.find(function(j){ return j.id === id; }) || { data:[], header:{}, signoff:{}, checklist:{} };
+}
 
-      const formatSpecs = (input) => {
-        if (!input) return "No specs.";
-        if (typeof input === 'string') return input;
-        return Object.entries(input).map(([k, v]) => `${k}: ${v}`).join('\n');
-      };
+function updateJob(fn) {
+  var jobs = getJobs();
+  var id   = getActiveId();
+  var idx  = jobs.findIndex(function(j){ return j.id === id; });
+  if (idx > -1) { fn(jobs[idx]); saveJobs(jobs); }
+}
 
-      const updateSignoff = (key, value) => setJobs(prev => prev.map(j => String(j.id) === String(activeJobId) ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
-      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => String(j.id) === String(activeJobId) ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
+function updateItem(index, key, value) {
+  updateJob(function(j){
+    if (!j.data[index]) return;
+    j.data[index][key] = value;
+  });
+}
 
-      const handleKeyPress = (val) => {
-        if (!activeField) return;
-        const { index, field } = activeField;
-        let cur = String(activeJob.data[index][field] || '');
-        if (val === 'DEL') cur = cur.slice(0, -1); else if (val === 'CLR') cur = ''; else cur += (cur.length > 0 && val.includes('/') ? ' ' : '') + val;
-        updateItem(index, field, cur);
-      };
+function updateSignoff(key, value) {
+  updateJob(function(j){
+    if (!j.signoff) j.signoff = {};
+    j.signoff[key] = value;
+  });
+}
 
-      const playBriefing = (text) => {
-        if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); 
-        if (isPlaying) { setIsPlaying(false); return; }
-        const utterance = new SpeechSynthesisUtterance(text); utterance.onend = () => setIsPlaying(false);
-        setIsPlaying(true); window.speechSynthesis.speak(utterance);
-      };
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function el(tag, props) {
+  var e = document.createElement(tag);
+  for (var k in props) {
+    if      (k === 'C')     e.className   = props[k];
+    else if (k === 't')     e.textContent = props[k];
+    else if (k === 'html')  e.innerHTML   = props[k];
+    else if (k === 'click') e.addEventListener('click', props[k]);
+    else if (k === 'style') e.style.cssText = props[k];
+    else                    e[k] = props[k];
+  }
+  return e;
+}
 
-      const uploadToDrive = async () => {
-        setLoading(true);
-        try {
-          const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
-          const token = latestPrefs.accessToken;
-          const folderId = "1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz";
-          if (!token) return alert("Session expired.");
-          
-          let report = `FINAL MEASURE: ${activeJob.customer}\nCaptured: ${new Date().toLocaleString()}\n=====================================\n\n`;
-          report += `ALARM NOTES: ${signoffData.alarmNotes || 'None'}\nINSTALL NOTES: ${signoffData.finalNotes || 'None'}\n\n`;
-          activeJob.data.forEach((unit, idx) => {
-            report += `UNIT ${idx + 1} [${unit.itemType}]: ${unit.location}\nSize: ${unit.fmWidth} x ${unit.fmHeight}\nOriginal Specs: ${formatSpecs(unit.extras)}\n---\n`;
-          });
+function opt(arr, selected) {
+  // Returns array of <option> elements for a select
+  return arr.map(function(v) {
+    var o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    if (v === selected) o.selected = true;
+    return o;
+  });
+}
 
-          const metadata = { name: `FM_${activeJob.customer.replace(/\s+/g, '_')}.txt`, mimeType: 'text/plain', parents: [folderId] };
-          const form = new FormData();
-          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-          form.append('file', new Blob([report], { type: 'text/plain' }));
+function appendOpts(select, arr, selected) {
+  opt(arr, selected).forEach(function(o){ select.appendChild(o); });
+}
 
-          const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
-          if (res.ok) alert("✅ Uploaded successfully!"); else alert("Upload failed.");
-        } catch (e) { alert("Error."); } finally { setLoading(false); }
-      };
+function formatSpecs(input) {
+  if (!input) return "No specs.";
+  if (typeof input === 'string') return input;
+  return Object.entries(input).map(function(kv){ return kv[0]+': '+kv[1]; }).join('\n');
+}
 
-      const handleNoteInput = (e, key) => {
-        e.target.style.height = 'inherit';
-        e.target.style.height = `${e.target.scrollHeight}px`;
-        updateSignoff(key, e.target.value);
-      };
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function setTab(tab) {
+  activeTab = tab;
+  activeField = null;
+  closeKeypad();
+  ['overview','measure','signoff'].forEach(function(t){
+    document.getElementById('tab-'+t).classList.toggle('on', t === tab);
+  });
+  renderMain();
+}
 
-      return (
-        <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
-          <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
-            <div className="flex justify-between items-center mb-3">
-              <button onClick={() => window.location.href = './index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Hub</button>
-              <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{activeJob.customer}</h1>
-              <button onClick={() => alert('Export clipboard ready')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
-            </div>
-            <div className="flex bg-black/20 rounded-lg p-1 gap-1">
-              {['overview', 'measure', 'signoff'].map(tab => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
-              ))}
-            </div>
-          </header>
+// ─── RENDER MAIN ─────────────────────────────────────────────────────────────
+function renderMain() {
+  var job  = getJob();
+  var main = document.getElementById('main');
+  main.innerHTML = '';
+  document.getElementById('jobTitle').textContent = job.customer || 'Field Command';
 
-          <main className="p-3 flex-1">
-            {loading ? (
-               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Processing...</div>
-            ) : (
-              <div className="space-y-4">
-                
-                {/* OVERVIEW TAB */}
-                {activeTab === 'overview' && (
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-                    {activeJob.summary && (
-                       <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
-                           <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
-                           <div className="font-black text-xs uppercase text-slate-800 tracking-tight">Technical Briefing: <span className="block text-[10px] font-bold text-slate-500 normal-case mt-1">{activeJob.summary}</span></div>
-                       </div>
-                    )}
-                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2">
-                       <h3 className="text-[10px] font-black uppercase text-amber-800 tracking-widest">⚠️ Critical Project Notes</h3>
-                       <div className="text-[11px] font-bold text-slate-700 leading-relaxed italic">{activeJob.repairNotes || "No special repairs noted."}</div>
-                    </div>
-                    {activeJob.contractLink && <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>}
-                  </div>
-                )}
+  if (appLoading) {
+    main.appendChild(el('div', {C:'loading', t:'Processing...'}));
+    return;
+  }
 
-                {/* MEASURE TAB */}
-                {activeTab === 'measure' && (
-                  <div className="space-y-4 pb-10">
-                    {activeJob.data.map((unit, idx) => (
-                      <div key={idx} className="unit-card industrial-shadow" style={{borderLeft: unit.itemType === 'Door' ? '12px solid #064e3b' : '12px solid #1a3a5c'}}>
-                         <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
-                            <div className="flex items-center gap-3">
-                               <div className="unit-num" style={{background: unit.itemType === 'Door' ? '#064e3b' : '#1a3a5c'}}>{idx + 1}</div>
-                               <div><div className="text-xs font-black uppercase">{unit.location} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px]">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400 leading-tight mt-1">{unit.contractSize}</div></div>
-                            </div>
-                            <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
-                         </div>
-                         {expandedIndex === idx && (
-                           <div className="p-4 border-t space-y-4 bg-white">
-                              <div className="grid grid-cols-3 gap-3">
-                                 <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
-                                 <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
-                                 <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
-                              </div>
-                              <div className="space-y-3">
-                                <div className="flex gap-2">
-                                  <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
-                                  <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
-                                </div>
-                                {unit.itemType === 'Door' ? (
-                                  <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}>{opt(SWINGS)}</select></div>
-                                ) : (
-                                  <div><span className="field-label">Type</span><select className="input-box" value={unit.winType} onChange={e=>updateItem(idx,'winType',e.target.value)}>{opt(WIN_T)}</select></div>
-                                )}
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx,'grids',e.target.value)}>{opt(GRIDS)}</select></div>
-                                  <div><span className="field-label">Glass</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx,'glass',e.target.value)}>{opt(GLASS_O)}</select></div>
-                                </div>
-                              </div>
-                           </div>
-                         )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+  if (!job.data || !job.data.length) {
+    renderEmpty(main, job);
+    return;
+  }
 
-                {/* SIGNOFF TAB */}
-                {activeTab === 'signoff' && (
-                  <div className="space-y-6">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                      <span className="field-label mb-2">Alarm & Sensor Notes</span>
-                      <textarea className="input-box mobile-note" placeholder="Note any security sensors..." value={signoffData.alarmNotes || ''} onChange={(e) => handleNoteInput(e, 'alarmNotes')}></textarea>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                      <span className="field-label mb-2">Install Crew Notes</span>
-                      <textarea className="input-box mobile-note" placeholder="Special instructions for install team..." value={signoffData.finalNotes || ''} onChange={(e) => handleNoteInput(e, 'finalNotes')}></textarea>
-                    </div>
-                    <div className="sig-container industrial-shadow m-2">
-                       <canvas ref={canvasRef} className="sig-canvas"></canvas>
-                       <button onClick={() => { const ctx = canvasRef.current.getContext('2d'); ctx.clearRect(0,0,canvasRef.current.width,canvasRef.current.height); }} className="absolute top-2 right-2 bg-slate-100 p-2 rounded text-[8px] font-black uppercase">Clear</button>
-                    </div>
-                    <button onClick={uploadToDrive} className="w-full bg-[#1a3a5c] text-white py-4 rounded-xl font-black uppercase tracking-wider shadow-lg">Upload FM to Drive</button>
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
+  if (activeTab === 'overview') renderOverview(main, job);
+  if (activeTab === 'measure')  renderMeasure(main, job);
+  if (activeTab === 'signoff')  renderSignoff(main, job);
+}
 
-          <div className={`keypad-container bg-slate-900 p-2 pb-6 grid grid-cols-4 gap-1 ${activeField ? 'keypad-open' : ''}`} style={{pointerEvents: activeField ? 'auto' : 'none'}}>
-            {['7','8','9','/','4','5','6','-','1','2','3','CLR','0','.','DEL','DONE'].map(k => (
-              <button key={k} onClick={() => k === 'DONE' ? setActiveField(null) : handleKeyPress(k)} className={`py-4 rounded font-black text-xl ${k==='DONE'?'bg-amber-500 col-span-1 text-slate-900':k==='CLR'||k==='DEL'?'bg-slate-700 text-white':'bg-white text-slate-900'}`}>{k}</button>
-            ))}
-          </div>
-        </div>
-      );
+// ─── EMPTY STATE ─────────────────────────────────────────────────────────────
+function renderEmpty(main, job) {
+  var wrap = el('div', {C:'empty-state'});
+  var btn  = el('button', {t:'Scan PDF Contract'});
+  btn.addEventListener('click', function(){ autoLoadContract(job); });
+  wrap.appendChild(btn);
+  main.appendChild(wrap);
+}
+
+// ─── OVERVIEW ────────────────────────────────────────────────────────────────
+function renderOverview(main, job) {
+  var card = el('div', {C:'overview-card'});
+
+  // Audio briefing
+  if (job.summary) {
+    var row = el('div', {C:'briefing-row'+(isPlaying?' playing':'')});
+    row.id = 'briefingRow';
+    var icon = el('div', {C:'briefing-icon', t: isPlaying ? '⏸️' : '🔊'});
+    var text = el('div');
+    text.appendChild(el('div', {C:'briefing-title', t:'Technical Briefing'}));
+    text.appendChild(el('div', {C:'briefing-sub', t: job.summary}));
+    row.appendChild(icon); row.appendChild(text);
+    row.addEventListener('click', function(){ playBriefing(job.summary); });
+    card.appendChild(row);
+  }
+
+  // Flags
+  var flags = el('div', {C:'flags-box'});
+  flags.appendChild(el('div', {C:'flags-title', t:'⚠️ Critical Project Notes'}));
+  flags.appendChild(el('div', {C:'flags-body', t: job.repairNotes || 'No special repairs noted.'}));
+  card.appendChild(flags);
+
+  // Contract link — shows matched filename so tech can verify it's the right job
+  if (job.contractLink) {
+    var linkLabel = job.contractFile
+      ? '📄 ' + job.contractFile.replace(/_/g,' ').substring(0,50) + (job.contractFile.length > 50 ? '…' : '')
+      : '📄 Original Contract';
+    var link = el('a', {C:'contract-link', t: linkLabel, href: job.contractLink, target:'_blank'});
+    card.appendChild(link);
+  }
+
+  // Wipe & rescan
+  var wipe = el('button', {C:'wipe-btn', t:'🗑️ Wipe Data & Rescan'});
+  wipe.addEventListener('click', function(){ wipeAndRescan(job); });
+  card.appendChild(wipe);
+
+  main.appendChild(card);
+}
+
+// ─── MEASURE ─────────────────────────────────────────────────────────────────
+function renderMeasure(main, job) {
+  var items = job.data || [];
+
+  items.forEach(function(unit, idx) {
+    main.appendChild(renderUnitCard(unit, idx, job));
+  });
+
+  // Add unit buttons
+  var addRow = el('div', {C:'add-row'});
+  var addWin  = el('button', {C:'add-btn win', t:'+ Window'});
+  var addDoor = el('button', {C:'add-btn door', t:'+ Door'});
+  addWin.addEventListener('click',  function(){ addUnit('Window'); });
+  addDoor.addEventListener('click', function(){ addUnit('Door'); });
+  addRow.appendChild(addWin); addRow.appendChild(addDoor);
+  main.appendChild(addRow);
+}
+
+function renderUnitCard(unit, idx, job) {
+  var isDoor = unit.itemType === 'Door';
+  var isOpen = expandedIdx === idx;
+
+  var card = el('div', {C:'unit-card '+(isDoor?'door':'win')});
+
+  // Header
+  var hdr = el('div', {C:'unit-header'});
+  var num = el('div', {C:'unit-num '+(isDoor?'door':''), t:String(idx+1)});
+  var info = el('div', {C:'unit-info'});
+  var locLine = el('div', {C:'unit-loc'});
+  locLine.textContent = unit.location || 'Unit '+(idx+1);
+  var badge = el('span', {C:'unit-type-badge '+(isDoor?'door':''), t: unit.itemType||'Window'});
+  locLine.appendChild(badge);
+  info.appendChild(locLine);
+  if (unit.contractSize) info.appendChild(el('div', {C:'unit-size', t: unit.contractSize}));
+  var chevron = el('div', {style:'color:#cbd5e1;font-size:0.7rem', t: isOpen ? '▲' : '▼'});
+  hdr.appendChild(num); hdr.appendChild(info); hdr.appendChild(chevron);
+  hdr.addEventListener('click', function(){
+    expandedIdx = (expandedIdx === idx) ? null : idx;
+    activeField = null;
+    closeKeypad();
+    renderMain();
+  });
+  card.appendChild(hdr);
+
+  // Body (expanded)
+  if (isOpen) {
+    var body = el('div', {C:'unit-body'});
+
+    // Dimension fields
+    var dimGrid = el('div', {C:'dim-grid'});
+
+    // Width — custom keypad
+    ['fmWidth','fmHeight'].forEach(function(field) {
+      var labels = {fmWidth:'Width', fmHeight:'Height'};
+      var wrap = el('div');
+      wrap.appendChild(el('span', {C:'field-label', t: labels[field]}));
+      var isActive = activeField && activeField.index === idx && activeField.field === field;
+      var disp = el('div', {C:'input-box dim-display'+(isActive?' active-input':'')});
+      disp.textContent = unit[field] ? String(unit[field]) : (field === 'fmWidth' ? 'W"' : 'H"');
+      disp.addEventListener('click', function(e){
+        e.stopPropagation();
+        activeField = {index: idx, field: field};
+        openKeypad(idx, field);
+        renderMain();
+      });
+      wrap.appendChild(disp);
+      dimGrid.appendChild(wrap);
+    });
+
+    // Qty — native number input
+    var qtyWrap = el('div');
+    qtyWrap.appendChild(el('span', {C:'field-label', t:'Qty'}));
+    var qtyInput = el('input', {C:'input-box', type:'number', min:'1'});
+    qtyInput.value = unit.qty || '1';
+    qtyInput.style.cssText = 'text-align:center;font-size:1.1rem;font-weight:900;';
+    qtyInput.addEventListener('change', function(){ updateItem(idx, 'qty', this.value); });
+    qtyWrap.appendChild(qtyInput);
+    dimGrid.appendChild(qtyWrap);
+
+    body.appendChild(dimGrid);
+
+    if (isDoor) {
+      // Door-specific
+      var pillRow = el('div', {C:'pill-row'});
+      var osjLabel = el('label', {C:'checkbox-pill'});
+      var osjCb = el('input', {type:'checkbox'}); osjCb.checked = !!unit.osj;
+      osjCb.addEventListener('change', function(){ updateItem(idx,'osj',this.checked); });
+      osjLabel.appendChild(osjCb); osjLabel.appendChild(el('span', {t:'OSJ'}));
+      var osbmLabel = el('label', {C:'checkbox-pill'});
+      var osbmCb = el('input', {type:'checkbox'}); osbmCb.checked = !!unit.osbm;
+      osbmCb.addEventListener('change', function(){ updateItem(idx,'osbm',this.checked); });
+      osbmLabel.appendChild(osbmCb); osbmLabel.appendChild(el('span', {t:'OSBM'}));
+      pillRow.appendChild(osjLabel); pillRow.appendChild(osbmLabel);
+      body.appendChild(pillRow);
+
+      // Swing
+      var swingWrap = el('div');
+      swingWrap.appendChild(el('span', {C:'field-label', t:'Swing'}));
+      var swingSel = el('select', {C:'input-box'});
+      appendOpts(swingSel, SWINGS, unit.swing);
+      swingSel.addEventListener('change', function(){ updateItem(idx,'swing',this.value); });
+      swingWrap.appendChild(swingSel); body.appendChild(swingWrap);
+
+      // Jamb
+      var jambWrap = el('div');
+      jambWrap.appendChild(el('span', {C:'field-label', t:'Jamb Depth'}));
+      var jambSel = el('select', {C:'input-box'});
+      appendOpts(jambSel, JAMBS, unit.jambDepth);
+      jambSel.addEventListener('change', function(){ updateItem(idx,'jambDepth',this.value); });
+      jambWrap.appendChild(jambSel); body.appendChild(jambWrap);
+
+      // Door Type
+      var dtWrap = el('div');
+      dtWrap.appendChild(el('span', {C:'field-label', t:'Door Type'}));
+      var dtSel = el('select', {C:'input-box'});
+      appendOpts(dtSel, DOOR_T, unit.doorType);
+      dtSel.addEventListener('change', function(){ updateItem(idx,'doorType',this.value); });
+      dtWrap.appendChild(dtSel); body.appendChild(dtWrap);
+
+    } else {
+      // Window-specific
+      var wtWrap = el('div');
+      wtWrap.appendChild(el('span', {C:'field-label', t:'Window Type'}));
+      var wtSel = el('select', {C:'input-box'});
+      appendOpts(wtSel, WIN_T, unit.style || unit.windowType);
+      wtSel.addEventListener('change', function(){ updateItem(idx,'style',this.value); });
+      wtWrap.appendChild(wtSel); body.appendChild(wtWrap);
+
+      // Grids
+      var grWrap = el('div');
+      grWrap.appendChild(el('span', {C:'field-label', t:'Grids'}));
+      var grSel = el('select', {C:'input-box'});
+      appendOpts(grSel, GRIDS, unit.grids);
+      grSel.addEventListener('change', function(){ updateItem(idx,'grids',this.value); });
+      grWrap.appendChild(grSel); body.appendChild(grWrap);
+
+      // Glass
+      var glWrap = el('div');
+      glWrap.appendChild(el('span', {C:'field-label', t:'Glass'}));
+      var glSel = el('select', {C:'input-box'});
+      appendOpts(glSel, GLASS_O, unit.glass);
+      glSel.addEventListener('change', function(){ updateItem(idx,'glass',this.value); });
+      glWrap.appendChild(glSel); body.appendChild(glWrap);
+
+      // OSJ / OSBM
+      var wPillRow = el('div', {C:'pill-row'});
+      var wOsjLbl = el('label', {C:'checkbox-pill'});
+      var wOsjCb  = el('input', {type:'checkbox'}); wOsjCb.checked = !!unit.osj;
+      wOsjCb.addEventListener('change', function(){ updateItem(idx,'osj',this.checked); });
+      wOsjLbl.appendChild(wOsjCb); wOsjLbl.appendChild(el('span',{t:'OSJ'}));
+      var wOsbmLbl = el('label', {C:'checkbox-pill'});
+      var wOsbmCb  = el('input', {type:'checkbox'}); wOsbmCb.checked = !!unit.osbm;
+      wOsbmCb.addEventListener('change', function(){ updateItem(idx,'osbm',this.checked); });
+      wOsbmLbl.appendChild(wOsbmCb); wOsbmLbl.appendChild(el('span',{t:'OSBM'}));
+      wPillRow.appendChild(wOsjLbl); wPillRow.appendChild(wOsbmLbl);
+      body.appendChild(wPillRow);
     }
 
-    const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
-    root.render(<VisionaireApp />);
-  </script>
+    // Contract Specs
+    if (unit.extras) {
+      body.appendChild(el('span', {C:'field-label', t:'Contract Specs'}));
+      body.appendChild(el('div', {C:'specs-box', t: formatSpecs(unit.extras)}));
+    }
+
+    card.appendChild(body);
+  }
+
+  return card;
+}
+
+// ─── SIGN OFF ─────────────────────────────────────────────────────────────────
+function renderSignoff(main, job) {
+  var s = job.signoff || {};
+
+  // Notes card
+  var card = el('div', {C:'signoff-card'});
+
+  card.appendChild(el('div', {C:'signoff-label', t:'Alarm / Access Notes'}));
+  var alarmTA = el('textarea', {C:'mobile-note'});
+  alarmTA.value = s.alarmNotes || '';
+  alarmTA.placeholder = 'Alarm wires, gate codes, access notes...';
+  alarmTA.addEventListener('input', function(){
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+    updateSignoff('alarmNotes', this.value);
+  });
+  card.appendChild(alarmTA);
+
+  card.appendChild(el('div', {C:'signoff-label', t:'Install Notes for Crew'}));
+  var installTA = el('textarea', {C:'mobile-note'});
+  installTA.value = s.finalNotes || '';
+  installTA.placeholder = 'Needs 40ft ladder, header work, ROT removal...';
+  installTA.addEventListener('input', function(){
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+    updateSignoff('finalNotes', this.value);
+  });
+  card.appendChild(installTA);
+
+  main.appendChild(card);
+
+  // Signature card
+  var sigCard = el('div', {C:'signoff-card'});
+  sigCard.appendChild(el('div', {C:'signoff-label', t:'Customer Signature'}));
+
+  var sigWrap = el('div', {C:'sig-container'});
+  var canvas  = el('canvas', {C:'sig-canvas'});
+  canvas.id   = 'sigCanvas';
+  var clearBtn = el('button', {C:'sig-clear', t:'Clear'});
+
+  sigWrap.appendChild(canvas);
+  sigWrap.appendChild(clearBtn);
+  sigCard.appendChild(sigWrap);
+  main.appendChild(sigCard);
+
+  // Upload button
+  var uploadBtn = el('button', {C:'upload-btn', t:'☁️ Upload to Drive'});
+  uploadBtn.addEventListener('click', uploadToDrive);
+  main.appendChild(uploadBtn);
+
+  // Init canvas after DOM paint
+  requestAnimationFrame(function(){
+    initSignaturePad(canvas, clearBtn, job);
+    // Restore saved sig if any
+    if (s.sigData) {
+      var img = new Image();
+      img.onload = function(){
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = s.sigData;
+    }
+  });
+}
+
+function initSignaturePad(canvas, clearBtn, job) {
+  canvas.width  = canvas.offsetWidth || canvas.clientWidth || 320;
+  canvas.height = 180;
+  var ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#1a3a5c';
+  ctx.lineWidth   = 3;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  var drawing = false;
+
+  function getPos(e) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+
+  function start(e) { e.preventDefault(); drawing = true; var p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+  function move(e)  { e.preventDefault(); if (!drawing) return; var p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+  function end(e)   { e.preventDefault(); drawing = false; updateSignoff('sigData', canvas.toDataURL()); }
+
+  canvas.addEventListener('mousedown',  start);
+  canvas.addEventListener('mousemove',  move);
+  canvas.addEventListener('mouseup',    end);
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove',  move,  {passive:false});
+  canvas.addEventListener('touchend',   end,   {passive:false});
+
+  clearBtn.addEventListener('click', function(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    updateSignoff('sigData', null);
+  });
+}
+
+// ─── CUSTOM KEYPAD ────────────────────────────────────────────────────────────
+function openKeypad(idx, field) {
+  var labels = {fmWidth:'Width (inches)', fmHeight:'Height (inches)'};
+  document.getElementById('keypadLabel').textContent   = labels[field] || field;
+  var job = getJob();
+  var val = job.data[idx] ? String(job.data[idx][field] || '') : '';
+  document.getElementById('keypadDisplay').textContent = val || '—';
+  document.getElementById('keypadTray').classList.add('open');
+}
+
+function closeKeypad() {
+  activeField = null;
+  document.getElementById('keypadTray').classList.remove('open');
+}
+
+function kpress(val) {
+  if (!activeField) return;
+  var job = getJob();
+  var cur = String(job.data[activeField.index][activeField.field] || '');
+  if      (val === 'DEL') cur = cur.slice(0, -1);
+  else if (val === 'CLR') cur = '';
+  else {
+    // Add space before fractions if there's already a number
+    if (val.includes('/') && cur.length > 0 && !cur.endsWith(' ')) cur += ' ';
+    cur += val;
+  }
+  updateItem(activeField.index, activeField.field, cur);
+  document.getElementById('keypadDisplay').textContent = cur || '—';
+  // Update the display cell in the card without full re-render
+  renderMain();
+}
+
+// ─── AUDIO BRIEFING ────────────────────────────────────────────────────────────
+function playBriefing(text) {
+  if (!window.speechSynthesis) return;
+  if (isPlaying) { window.speechSynthesis.cancel(); isPlaying = false; renderMain(); return; }
+  window.speechSynthesis.cancel();
+  var u = new SpeechSynthesisUtterance(text);
+  u.onend = function(){ isPlaying = false; renderMain(); };
+  isPlaying = true;
+  window.speechSynthesis.speak(u);
+  renderMain();
+}
+
+// ─── ADD UNIT ─────────────────────────────────────────────────────────────────
+function addUnit(type) {
+  var job = getJob();
+  var newUnit = {
+    itemType: type, location: 'New ' + type, qty: '1',
+    fmWidth: '', fmHeight: '', verified: false, extras: '',
+    doorType: type === 'Door' ? 'Single' : '',
+    swing: '', jambDepth: type === 'Door' ? '4-9/16"' : '',
+    grids: 'None', glass: 'None', osj: false, osbm: false
+  };
+  updateJob(function(j){ j.data.push(newUnit); });
+  expandedIdx = (getJob().data.length - 1);
+  renderMain();
+}
+
+// ─── AI SCAN ─────────────────────────────────────────────────────────────────
+async function processPDFBase64(base64, apiKey, job, contractLink, fileName) {
+  var promptText = "Analyze as a Visionaire Windows specialist. 1. Combine sidelites/transoms into one 'Door'. 2. 'summary': 1-sentence recap. 3. 'repairNotes': Extract ROT, HEADER, or CUSTOM CONSTRUCTION. Return ONLY JSON: {\"summary\": \"...\", \"repairNotes\": \"...\", \"items\": [{\"qty\":\"1\",\"itemType\":\"Door/Window\",\"location\":\"\",\"contractSize\":\"\",\"doorType\":\"\",\"swing\":\"\",\"jambDepth\":\"\",\"color\":\"\",\"style\":\"\",\"extras\":\"\"}], \"checklist\": {\"winColor\":\"\",\"glassType\":\"\",\"doorSwing\":\"\",\"doorJamb\":\"\"}}";
+  var res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType:"application/pdf", data: base64 } }] }] })
+  });
+  var result = await res.json();
+  var text = result.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim();
+  try {
+    var parsed = JSON.parse(text);
+    updateJob(function(j){
+      j.data         = parsed.items.map(function(i){ return Object.assign({}, i, {fmWidth:'',fmHeight:'',verified:false,osj:false,osbm:false}); });
+      j.summary      = parsed.summary;
+      j.repairNotes  = parsed.repairNotes;
+      j.checklist    = parsed.checklist;
+      j.syncTime     = new Date().toLocaleString();
+      j.contractLink = contractLink;
+      j.contractFile = fileName || '';
+    });
+    appLoading = false;
+    expandedIdx = 0;
+    setTab('measure');
+  } catch(e) {
+    appLoading = false;
+    renderMain();
+    alert("AI parsing failed. Check your API key.");
+  }
+}
+
+// ─── NAME PARSING UTILITIES ──────────────────────────────────────────────────
+// Handles all formats seen in Drive:
+//   "Gregory Saunders"              → tokens: ["Saunders","Gregory"]
+//   "Saunders, Gregory Ph2"         → tokens: ["Saunders","Gregory"], phase: "Ph2"
+//   "Saunders, Gregory (SOLD)"      → tokens: ["Saunders","Gregory"]
+//   "Johnston, Chris & Renee"       → tokens: ["Johnston","Chris"]
+//   "Kathryn Gilbert 493 Tensas..."  → tokens: ["Gilbert","Kathryn"]
+function parseCustomerTokens(raw) {
+  var clean = raw
+    .replace(/\(.*?\)/g, '')        // strip (SOLD), (Ph2), etc
+    .replace(/\bph\s*\d+\b/gi, '') // strip Ph2 Ph3 outside parens
+    .replace(/[&\/]/g, ' ')          // normalize & and /
+    .replace(/\d{3,}/g, ' ')         // strip long numbers (addresses)
+    .trim();
+  var tokens = [];
+  if (clean.indexOf(',') > -1) {
+    // "Lastname, Firstname" format
+    var parts = clean.split(',').map(function(s){ return s.trim(); });
+    var last  = parts[0].split(/\s+/)[0];
+    var first = parts[1] ? parts[1].split(/\s+/)[0] : '';
+    if (last  && last.length  > 1) tokens.push(last);
+    if (first && first.length > 1) tokens.push(first);
+  } else {
+    // "Firstname Lastname" format
+    var words = clean.split(/\s+/).filter(function(w){ return w.length > 1; });
+    if (words.length >= 2) {
+      tokens.push(words[words.length - 1]); // surname
+      tokens.push(words[0]);                // first name
+    } else if (words.length === 1) {
+      tokens.push(words[0]);
+    }
+  }
+  return tokens;
+}
+
+function parsePhaseTag(raw) {
+  var m1 = raw.match(/\bph\s*(\d+)\b/i);
+  if (m1) return 'Ph' + m1[1];
+  var m2 = raw.match(/\(\s*ph\s*(\d+)\s*\)/i);
+  if (m2) return 'Ph' + m2[1];
+  return null;
+}
+
+function buildSearchStrategies(job) {
+  var tokens    = parseCustomerTokens(job.customer);
+  var phase     = parsePhaseTag(job.customer);
+  var lastName  = tokens[0] || '';
+  var firstName = tokens[1] || '';
+  var strats    = [];
+
+  // 1. Last + First + phase tag (most specific — multi-job customers)
+  if (phase && lastName && firstName) {
+    strats.push("name contains '" + lastName + "' and name contains '" + firstName + "' and name contains '" + phase + "' and mimeType='application/pdf'");
+  }
+  // 2. Last + First + current year
+  if (lastName && firstName) {
+    strats.push("name contains '" + lastName + "' and name contains '" + firstName + "' and name contains '2026' and mimeType='application/pdf'");
+  }
+  // 3. Last + First, most recent (no year filter)
+  if (lastName && firstName) {
+    strats.push("name contains '" + lastName + "' and name contains '" + firstName + "' and mimeType='application/pdf'");
+  }
+  // 4. Surname + "Agreement" keyword
+  if (lastName) {
+    strats.push("name contains '" + lastName + "' and name contains 'Agreement' and mimeType='application/pdf'");
+  }
+  // 5. fullText surname fallback
+  if (lastName) {
+    strats.push("fullText contains '" + lastName + "' and name contains 'Agreement' and mimeType='application/pdf'");
+  }
+  return strats;
+}
+
+async function runDriveSearch(token, query) {
+  var url = "https://www.googleapis.com/drive/v3/files"
+    + "?q=" + encodeURIComponent(query)
+    + "&orderBy=modifiedTime desc"
+    + "&pageSize=5"
+    + "&includeItemsFromAllDrives=true"
+    + "&supportsAllDrives=true"
+    + "&fields=files(id,name,modifiedTime)";
+  var res  = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  var data = await res.json();
+  return data.files || [];
+}
+
+async function autoLoadContract(job) {
+  appLoading = true;
+  renderMain();
+  try {
+    var latestPrefs = safeGet('vhub_v2', {});
+    var token = latestPrefs.accessToken;
+    if (!token) { appLoading = false; renderMain(); return alert("Not connected. Go to Hub and sign in."); }
+
+    var strategies = buildSearchStrategies(job);
+    var fileId = null, fileName = '';
+
+    for (var i = 0; i < strategies.length; i++) {
+      var files = await runDriveSearch(token, strategies[i]);
+      if (files.length > 0) {
+        var phase = parsePhaseTag(job.customer);
+        var best  = files[0];
+        // If phase tag exists, prefer the file whose name contains it
+        if (phase && files.length > 1) {
+          var phMatch = files.find(function(f){
+            return f.name.toLowerCase().indexOf(phase.toLowerCase()) > -1;
+          });
+          if (phMatch) best = phMatch;
+        }
+        fileId   = best.id;
+        fileName = best.name;
+        break;
+      }
+    }
+
+    if (!fileId) {
+      appLoading = false;
+      renderMain();
+      var t = parseCustomerTokens(job.customer);
+      return alert("No contract PDF found for \"" + job.customer + "\"\n\nSearched for: " + t.join(' + ') + "\n\nCheck that the signed agreement exists in Drive.");
+    }
+
+    var contractLink = "https://drive.google.com/file/d/" + fileId + "/view";
+    var fRes = await fetch(
+      "https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media&supportsAllDrives=true",
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    var blob = await fRes.blob();
+    var reader = new FileReader();
+    reader.onloadend = async function(){
+      await processPDFBase64(reader.result.split(',')[1], latestPrefs.geminiKey, job, contractLink, fileName);
+    };
+    reader.readAsDataURL(blob);
+
+  } catch(e) {
+    appLoading = false;
+    renderMain();
+    alert("Drive error: " + e.message);
+  }
+}
+
+function wipeAndRescan(job) {
+  if (!confirm("Wipe this customer data and rescan the 2026 contract?")) return;
+  updateJob(function(j){
+    j.data = []; j.summary = ''; j.repairNotes = '';
+    j.syncTime = null; j.contractLink = null; j.checklist = {};
+  });
+  var freshJob = getJob();
+  autoLoadContract(freshJob);
+  setTab('measure');
+  expandedIdx = 0;
+}
+
+// ─── UPLOAD TO DRIVE ─────────────────────────────────────────────────────────
+async function uploadToDrive() {
+  var job = getJob();
+  var latestPrefs = safeGet('vhub_v2', {});
+  var token = latestPrefs.accessToken;
+  if (!token) return alert("Session expired. Reconnect from Hub.");
+  var folderId = "1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz";
+
+  var report = "FINAL MEASURE: " + job.customer + "\nCaptured: " + new Date().toLocaleString() + "\n=====================================\n\n";
+  report += "ALARM NOTES: " + ((job.signoff && job.signoff.alarmNotes) || 'None') + "\n";
+  report += "INSTALL NOTES: " + ((job.signoff && job.signoff.finalNotes) || 'None') + "\n\n";
+  (job.data || []).forEach(function(unit, idx){
+    report += "UNIT " + (idx+1) + " [" + unit.itemType + "]: " + unit.location + "\n";
+    report += "Size: " + unit.fmWidth + " x " + unit.fmHeight + "\n";
+    report += "Contract Specs: " + formatSpecs(unit.extras) + "\n---\n";
+  });
+
+  var metadata = { name: "FM_" + (job.customer || 'unknown').replace(/\s+/g,'_') + ".txt", mimeType:'text/plain', parents:[folderId] };
+  var form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], {type:'application/json'}));
+  form.append('file',     new Blob([report], {type:'text/plain'}));
+
+  try {
+    var res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method:'POST', headers:{Authorization:'Bearer '+token}, body:form });
+    if (res.ok) alert("✅ Uploaded successfully!"); else alert("Upload failed.");
+  } catch(e) { alert("Upload error: " + e.message); }
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function doExport() {
+  var job = getJob();
+  var lines = ["FIELD MEASURE — " + job.customer, ""];
+  (job.data || []).forEach(function(u, i){
+    lines.push((i+1) + ". " + u.location + " [" + u.itemType + "] — " + u.fmWidth + " x " + u.fmHeight);
+  });
+  var text = lines.join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function(){ alert("Copied to clipboard!"); });
+  } else {
+    alert(text);
+  }
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function(){
+  setTab('measure');
+});
+</script>
 </body>
 </html>
