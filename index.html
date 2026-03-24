@@ -13,32 +13,23 @@
       return false;
     };
 
-    // --- HARDENED CALLBACK ---
+    // Callback for the official button
     window.handleCredentialResponse = (response) => {
-      // 1. Decode the Google Identity (JWT)
       const base64Url = response.credential.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-
-      const decoded = JSON.parse(jsonPayload);
+      const payload = JSON.parse(window.atob(base64));
       
-      // 2. Force Save the Email immediately
-      let currentPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
-      currentPrefs.userEmail = decoded.email;
-      // Note: Identity Services gives an ID token. We still trigger signIn() 
-      // to get the ACCESS token needed for Drive/Calendar.
-      localStorage.setItem('vhub_v2', JSON.stringify(currentPrefs));
+      // Save identity
+      let p = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+      p.userEmail = payload.email;
+      localStorage.setItem('vhub_v2', JSON.stringify(p));
       
-      alert("Identity Verified: " + decoded.email + ". Finalizing permissions...");
-      signIn(); 
+      alert("Verified: " + payload.email);
+      signIn(); // Trigger permission flow
     };
   </script>
   <style>
-    :root {
-      --navy:#1a3a5c; --navy-dark:#0f2236; --amber:#f59e0b; --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s500:#64748b;
-    }
+    :root { --navy:#1a3a5c; --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s500:#64748b; }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain;touch-action:manipulation}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
@@ -49,11 +40,6 @@
     .acct-dot{width:8px;height:8px;border-radius:50%;background:#4ade80}
     .acct-dot.off{background:#94a3b8}
     .acct-txt{font-size:0.65rem;font-weight:700}
-    
-    .vtab-bar{display:flex;background:var(--navy);border-top:1px solid rgba(255,255,255,0.1)}
-    .vtab{flex:1;padding:12px;text-align:center;font-size:0.6rem;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer}
-    .vtab.on{color:var(--amber);border-bottom:3px solid var(--amber)}
-
     .main{padding:16px}
     .sc{background:white;border-radius:12px;border:1px solid var(--s200);overflow:hidden;margin-bottom:16px}
     .sc-head{background:var(--navy);padding:12px;color:white;font-weight:800;text-transform:uppercase;font-size:0.7rem}
@@ -75,19 +61,17 @@ var clientId = prefs.clientId || '';
 var geminiKey = prefs.geminiKey || '';
 var accessToken = prefs.accessToken || null;
 var userEmail = prefs.userEmail || null;
-var view = accessToken ? 'sched' : 'setup';
-var calEvents = prefs.calEvents || [];
 
 function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({clientId, geminiKey, accessToken, userEmail, calEvents}));
+  clientId = document.getElementById('ci').value;
+  geminiKey = document.getElementById('gk').value;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({clientId, geminiKey, accessToken, userEmail}));
 }
 
 function signIn() {
-  if (!clientId) return alert("Missing Client ID");
-  
+  if (!clientId) return;
   const client = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: GCAL_SCOPE,
+    client_id: clientId, scope: GCAL_SCOPE,
     callback: (resp) => {
       if (resp.access_token) {
         accessToken = resp.access_token;
@@ -99,52 +83,59 @@ function signIn() {
   client.requestAccessToken({prompt: ''});
 }
 
+// FORCE RENDER GOOGLE BUTTON
+function renderGoogleBtn() {
+  if (!clientId) return;
+  if (typeof google !== 'undefined' && google.accounts) {
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: window.handleCredentialResponse
+    });
+    google.accounts.id.renderButton(
+      document.getElementById("google-btn-slot"),
+      { theme: "outline", size: "large", width: "100%" }
+    );
+  } else {
+    // If library not ready, try again in 500ms
+    setTimeout(renderGoogleBtn, 500);
+  }
+}
+
 function render(){
   const root = document.getElementById('root');
-  root.innerHTML = '';
-  const wrap = document.createElement('div'); wrap.className = 'app';
-  
-  wrap.innerHTML = `
-    <header class="hdr">
-      <div class="hdr-top">
-        <span class="hdr-title">Visionaire Hub</span>
-        <div class="acct-badge">
-          <div class="acct-dot ${accessToken ? '' : 'off'}"></div>
-          <span class="acct-txt">${userEmail || 'Signed Out'}</span>
-        </div>
-      </div>
-    </header>
-    <div class="vtab-bar">
-      <div class="vtab ${view==='sched'?'on':''}" onclick="location.reload()">Schedule</div>
-      <div class="vtab ${view==='setup'?'on':''}">Setup</div>
-    </div>
-    <main class="main">
-      <div class="sc">
-        <div class="sc-head">System Settings</div>
-        <div class="sc-body">
-          <span class="lbl">Google Client ID</span>
-          <input class="inp" id="ci" value="${clientId}">
-          <span class="lbl">Gemini Key</span>
-          <input class="inp" id="gk" type="password" value="${geminiKey}">
-          <button class="btn-p" onclick="clientId=document.getElementById('ci').value; geminiKey=document.getElementById('gk').value; save(); alert('Saved'); location.reload();">Save & Refresh Button</button>
-          
-          <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-            <div id="g_id_onload"
-                 data-client_id="${clientId}"
-                 data-context="signin"
-                 data-ux_mode="popup"
-                 data-callback="handleCredentialResponse"
-                 data-auto_prompt="false">
-            </div>
-            <div class="g_id_signin" data-type="standard" data-width="100%"></div>
+  root.innerHTML = `
+    <div class="app">
+      <header class="hdr">
+        <div class="hdr-top">
+          <span class="hdr-title">Visionaire Hub</span>
+          <div class="acct-badge">
+            <div class="acct-dot ${accessToken ? '' : 'off'}"></div>
+            <span class="acct-txt">${userEmail || 'Signed Out'}</span>
           </div>
-          
-          ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:30px; color:red; font-size:10px; border:none; background:none; text-decoration:underline; width:100%;">Logout / Reset</button>` : ''}
         </div>
-      </div>
-    </main>
+      </header>
+      <main class="main">
+        <div class="sc">
+          <div class="sc-head">System Settings</div>
+          <div class="sc-body">
+            <span class="lbl">Google Client ID</span>
+            <input class="inp" id="ci" value="${clientId}">
+            <span class="lbl">Gemini Key</span>
+            <input class="inp" id="gk" type="password" value="${geminiKey}">
+            <button class="btn-p" onclick="save(); alert('ID Saved. Refreshing to show login...'); location.reload();">1. Save & Enable Button</button>
+            
+            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+               <div id="google-btn-slot"></div>
+               <p style="font-size:9px; color:#999; text-align:center; margin-top:8px;">Button appears after Client ID is saved.</p>
+            </div>
+            
+            ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:30px; color:red; font-size:10px; border:none; background:none; text-decoration:underline; width:100%;">Log Out / Reset App</button>` : ''}
+          </div>
+        </div>
+      </main>
+    </div>
   `;
-  root.appendChild(wrap);
+  renderGoogleBtn();
 }
 
 window.onload = render;
