@@ -184,14 +184,22 @@ async function preloadToday() {
 async function processSingleJob(ev) {
   let latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
   let token = latestPrefs.accessToken;
-  let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
+  // Clean name: removes colons and extra characters
+  let cleanName = ev.customer.replace(/^[:\s]+/, '').replace(/[^a-zA-Z\s]/g, ' ').trim();
   let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
   
-  // ⚡ HARDENED SEARCH: Specifically looks for 2026 in the name and sorts by Creation Date
-  const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf'`;
-  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
-  const dData = await dRes.json();
-  const fileId = dData.files?.[0]?.id;
+  if (!searchTarget) return;
+
+  // 🚀 PHASE-AWARE SEARCH: Specifically targets 2026 files across subfolders (Ph2, Ph3, etc.)
+  // We sort by createdTime DESC to ensure we get the Ph2/Ph3 version over the original.
+  const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
+  
+  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { 
+    headers: { Authorization: `Bearer ${token}` } 
+  });
+  
+  const dData = await dRes.status === 200 ? await dRes.json() : null;
+  const fileId = dData?.files?.[0]?.id;
   if (!fileId) return;
 
   const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
@@ -202,6 +210,27 @@ async function processSingleJob(ev) {
     reader.onloadend = () => resolve(reader.result.split(',')[1]);
     reader.readAsDataURL(blob);
   });
+
+  const promptText = `Analyze for Visionaire Windows specialist. 
+  1. Determine 'itemType': 'Door' if keywords (French, Sidelite, Entry, Slider) are found. Otherwise 'Window'.
+  2. HARDENED GROUPING: Combine all sidelites/transoms into the main slab opening.
+  3. Extraction: Colors, Glass (DLA-UV), Handing (RHI/LHO), Jamb Depth.
+  4. Checklist: Pre-fill manufacturer details for sign-off.
+  5. Critical Flags: ROT, HEADER, or CUSTOM CONSTRUCTION.
+  Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
+  
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+  const result = await res.json();
+  const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(text);
+  
+  let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+  const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, repairNotes: parsed.repairNotes, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink };
+  
+  const existingIdx = jobs.findIndex(j => j.id === ev.id);
+  if (existingIdx > -1) jobs[existingIdx] = jobData; else jobs.unshift(jobData);
+  localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
+}
 
   const promptText = `Analyze project details for Visionaire Windows tech. 
   DATA MAP:
