@@ -130,20 +130,26 @@ function VisionaireHub() {
     setPreloading(true);
     for (let i = 0; i < dayEvs.length; i++) {
       setPreloadProgress(`Prep: (${i+1}/${dayEvs.length}) ${dayEvs[i].customer}...`);
-      await processSingleJob(dayEvs[i], prefs.geminiKey);
+      await processSingleJob(dayEvs[i]);
       if (i < dayEvs.length - 1) await new Promise(r => setTimeout(r, 3000));
     }
     setPreloading(false); setPreloadProgress(""); syncCalendar();
   };
 
-  async function processSingleJob(ev, geminiKey) {
+  async function processSingleJob(ev) {
     let latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
     let token = latestPrefs.accessToken;
+    let geminiKey = latestPrefs.geminiKey;
+
+    // Clean name: removes colons and extra characters
     let cleanName = ev.customer.replace(/^[:\s]+/, '').replace(/[^a-zA-Z\s]/g, ' ').trim();
     let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+    
     if (!searchTarget) return;
 
+    // 🚀 PHASE-AWARE SEARCH: Targets 2026 files across subfolders, sorting by newest.
     const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
+    
     const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { 
       headers: { Authorization: `Bearer ${token}` } 
     });
@@ -161,7 +167,13 @@ function VisionaireHub() {
       reader.readAsDataURL(blob);
     });
 
-    const promptText = `Analyze for Visionaire Windows specialist. 1. Determine 'itemType': 'Door' if keywords (French, Sidelite, Entry, Slider) are found. Otherwise 'Window'. 2. HARDENED GROUPING: Combine all sidelites/transoms into the main opening. 3. Extraction: Colors, Glass (DLA-UV), Handing (RHI/LHO), Jamb Depth. Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
+    const promptText = `Analyze for Visionaire Windows specialist. 
+    1. Determine 'itemType': 'Door' if keywords (French, Sidelite, Entry, Slider) are found. Otherwise 'Window'.
+    2. HARDENED GROUPING: Combine all sidelites/transoms into the main slab opening.
+    3. Extraction: Colors, Glass (DLA-UV), Handing (RHI/LHO), Jamb Depth.
+    4. Checklist: Pre-fill manufacturer details for sign-off.
+    5. Critical Flags: ROT, HEADER, or CUSTOM CONSTRUCTION.
+    Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
     
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
     const result = await res.json();
@@ -170,6 +182,7 @@ function VisionaireHub() {
     
     let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
     const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, repairNotes: parsed.repairNotes, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink };
+    
     const existingIdx = jobs.findIndex(j => j.id === ev.id);
     if (existingIdx > -1) jobs[existingIdx] = jobData; else jobs.unshift(jobData);
     localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
@@ -215,16 +228,23 @@ function VisionaireHub() {
             <div className="sc-body">
               <span className="lbl">Google Client ID</span>
               <input className="inp" value={prefs.clientId || ''} onChange={e => setPrefs({...prefs, clientId: e.target.value})} />
+              
               <span className="lbl">Gemini API Key</span>
               <input className="inp" type="password" value={prefs.geminiKey || ''} onChange={e => setPrefs({...prefs, geminiKey: e.target.value})} />
-              <button className="btn-p" style={{background:'var(--s800)', marginBottom:'10px'}} onClick={() => {
+
+              {/* RESTORED USER EMAIL FIELD */}
+              <span className="lbl">User Email</span>
+              <input className="inp" value={prefs.userEmail || ''} onChange={e => setPrefs({...prefs, userEmail: e.target.value})} placeholder="cameron@visionairewindows.com" />
+
+              <button className="btn-p" style={{background:'var(--s800)', marginTop:'10px', marginBottom:'10px'}} onClick={() => {
                 var n=prompt("Customer Name:"); if(n){
                   var id=Date.now(); var jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
                   jobs.unshift({id, customer:n, data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(jobs));
                   localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='measure.html';
                 }
               }}>Create Manual FM</button>
-              <button className="btn-p" onClick={signIn}>{prefs.accessToken ? '✓ Connected' : 'Connect Google'}</button>
+              
+              <button className="btn-p" onClick={signIn}>{prefs.accessToken ? '✓ Connected' : 'Connect Google Account'}</button>
             </div>
           </div>
         ) : (
@@ -261,7 +281,7 @@ function VisionaireHub() {
                   {isExp && (
                     <div className="cc-det">
                       <div className="dnotes">
-                        <span className="note-line"><span className="note-label">MAPS:</span><a href={`http://googleusercontent.com/maps.google.com/3{encodeURIComponent(ev.address)}`} target="_blank" className="tel-link">{ev.address}</a></span>
+                        <span className="note-line"><span className="note-label">MAPS:</span><a href={`http://googleusercontent.com/maps.google.com/4{encodeURIComponent(ev.address)}`} target="_blank" className="tel-link">{ev.address}</a></span>
                         {cleanNotes(ev.notesHtml)}
                       </div>
                     </div>
