@@ -14,7 +14,7 @@
       --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
@@ -24,15 +24,15 @@
     .acct-dot.off{background:var(--s400)}
     .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
-    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
+    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
     .main{padding:14px 12px 100px}
     .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
     .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
-    .sc-head{background:var(--navy);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase;}
+    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase;}
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;background:var(--s50);outline:none;}
-    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-weight:800;text-transform:uppercase;cursor:pointer;}
+    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
     .sync-sub{font-size:0.55rem;color:var(--s500);font-weight:700}
@@ -64,206 +64,222 @@
 <body>
 <div id="root"></div>
 <script src="https://accounts.google.com/gsi/client"></script>
-<script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
 var STORAGE_KEY = 'vhub_v2';
-var prefs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-var accessToken = prefs.accessToken || null;
-var userEmail = prefs.userEmail || null;
-var view = accessToken ? 'sched' : 'setup';
-var calEvents = prefs.calEvents || [];
-var loading = false;
-var preloading = false;
-var preloadProgress = "";
-var selDate = new Date().toISOString().slice(0,10);
-var expandId = null;
 
-function save(){
-  prefs.accessToken = accessToken; prefs.userEmail = userEmail;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-}
+function VisionaireHub() {
+  const [prefs, setPrefs] = useState(() => JSON.parse(localStorage.getItem(STORAGE_KEY)) || {});
+  const [view, setView] = useState(prefs.accessToken ? 'sched' : 'setup');
+  const [calEvents, setCalEvents] = useState(prefs.calEvents || []);
+  const [loading, setLoading] = useState(false);
+  const [preloading, setPreloading] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState("");
+  const [selDate, setSelDate] = useState(new Date().toISOString().slice(0,10));
+  const [expandId, setExpandId] = useState(null);
 
-function signIn(){
-  var client = google.accounts.oauth2.initTokenClient({
-    client_id: prefs.clientId,
-    scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email',
-    callback: function(resp){
-      if(resp.error) return;
-      accessToken = resp.access_token;
-      fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{'Authorization':'Bearer '+accessToken}})
-        .then(r=>r.json()).then(info=>{
-          userEmail = info.email; save(); syncCalendar();
-        });
-    }
-  });
-  client.requestAccessToken({prompt:'select_account'});
-}
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); }, [prefs]);
 
-function syncCalendar(){
-  if(!accessToken) return;
-  loading = true; render();
-  var past = new Date(); past.setDate(past.getDate()-7);
-  var future = new Date(); future.setDate(future.getDate()+30);
-  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q=Measure';
-  fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
-    .then(r=>r.json()).then(data=>{
-      calEvents = (data.items||[]).map(parseEv);
-      prefs.calEvents = calEvents;
-      prefs.lastSync = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      save(); loading = false; render();
+  const signIn = () => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: prefs.clientId,
+      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email',
+      callback: (resp) => {
+        setLoading(true);
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{'Authorization':'Bearer '+resp.access_token}})
+          .then(r=>r.json()).then(info=>{
+            setPrefs(p => ({...p, accessToken: resp.access_token, userEmail: info.email}));
+            setView('sched'); setLoading(false);
+          });
+      }
     });
-}
+    client.requestAccessToken({prompt:'select_account'});
+  };
 
-async function preloadToday() {
-  if (preloading) return;
-  const dayEvs = calEvents.filter(e => e.startDate === selDate);
-  if (dayEvs.length === 0) return alert("No events to scan.");
-  if (!confirm(`Prep ${dayEvs.length} jobs for Drive?`)) return;
-  preloading = true;
-  for (let i = 0; i < dayEvs.length; i++) {
-    preloadProgress = `Prep: (${i+1}/${dayEvs.length}) ${dayEvs[i].customer}...`;
-    render();
-    await processSingleJob(dayEvs[i]);
-    if (i < dayEvs.length - 1) await new Promise(r => setTimeout(r, 3000));
-  }
-  preloading = false; preloadProgress = "";
-  prefs.lastDriveSync = new Date().toLocaleTimeString();
-  save(); render();
-}
+  const syncCalendar = async () => {
+    if(!prefs.accessToken) return;
+    setLoading(true);
+    var past = new Date(); past.setDate(past.getDate()-7);
+    var future = new Date(); future.setDate(future.getDate()+30);
+    var url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${past.toISOString()}&timeMax=${future.toISOString()}&singleEvents=true&orderBy=startTime&q=Measure`;
+    const r = await fetch(url, {headers: {'Authorization': 'Bearer ' + prefs.accessToken}});
+    const d = await r.json();
+    const evs = (d.items || []).map(ev => {
+      const start = (ev.start && (ev.start.dateTime || ev.start.date)) || '';
+      const rawName = ev.summary.replace(/final\s*measure|measure|fm/ig, '').split(':').pop().trim();
+      return {
+        id: ev.id, customer: rawName, address: ev.location || '', startDate: start.slice(0,10),
+        startTime: start.indexOf('T') >= 0 ? new Date(start).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : 'Scheduled',
+        notesHtml: ev.description || '', hasWin: /window/i.test(ev.summary + ev.description), hasDoor: /door/i.test(ev.summary + ev.description)
+      };
+    });
+    setCalEvents(evs);
+    setPrefs(p => ({...p, calEvents: evs, lastSync: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}));
+    setLoading(false);
+  };
 
-async function processSingleJob(ev) {
-  // CLEAN NAME: Specifically for Greg Saunders/Phase issues
-  let cleanName = ev.customer.replace(/^[:\s]+/, '').replace(/[^a-zA-Z\s]/g, ' ').trim();
-  let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
-  
-  // 🚀 PHASE-AWARE SEARCH FIX
-  const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
-  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  const dData = await dRes.json();
-  const fileId = dData.files?.[0]?.id;
-  if (!fileId) return;
-
-  const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  const blob = await fRes.blob();
-  const base64 = await new Promise(r => { const reader = new FileReader(); reader.onloadend = () => r(reader.result.split(',')[1]); reader.readAsDataURL(blob); });
-
-  const promptText = `Analyze project for Visionaire Windows. Group sidelites/transoms into 'Door'. Return JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${prefs.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
-  const result = await res.json();
-  const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(text);
-  
-  let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-  const jobData = { id: ev.id, customer: ev.customer, summary: parsed.summary, repairNotes: parsed.repairNotes, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:''})), checklist: parsed.checklist, contractLink: `https://drive.google.com/file/d/${fileId}/view` };
-  const existingIdx = jobs.findIndex(j => j.id === ev.id);
-  if (existingIdx > -1) jobs[existingIdx] = jobData; else jobs.unshift(jobData);
-  localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
-}
-
-function parseEv(ev){
-  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
-  let rawName = ev.summary.replace(/final\s*measure|measure|fm/ig, '').replace(/^[:\s]+/, '').trim();
-  return { id: ev.id, customer: rawName, address: ev.location || '', startDate: start.slice(0,10), startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled', notesHtml: ev.description || '', hasWin: /window/i.test(ev.summary + ev.description), hasDoor: /door/i.test(ev.summary + ev.description) };
-}
-
-function cleanNotes(html) {
-  if (!html) return "";
-  let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').trim();
-  const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
-  labels.forEach(l => { text = text.replace(new RegExp(`(${l})`, 'gi'), `|||$1`); });
-  return text.split('|||').filter(l => l.trim().length > 3).map(line => {
-    let part = line.trim();
-    let label = labels.find(lab => part.toLowerCase().startsWith(lab.toLowerCase()));
-    if (label) {
-      let content = part.substring(label.length).trim();
-      if (label.toLowerCase() === 'edit event at:') return `<span class="note-line"><span class="note-label">CRM:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700;">Open MarketSharp</a></span>`;
-      return `<span class="note-line"><span class="note-label">${label.toUpperCase()}</span>${content}</span>`;
+  const preloadToday = async () => {
+    if (preloading) return;
+    const dayEvs = calEvents.filter(e => e.startDate === selDate);
+    if (dayEvs.length === 0) return alert("No events found.");
+    if (!confirm(`Prep ${dayEvs.length} jobs for Drive?`)) return;
+    setPreloading(true);
+    for (let i = 0; i < dayEvs.length; i++) {
+      setPreloadProgress(`Prep: (${i+1}/${dayEvs.length}) ${dayEvs[i].customer}...`);
+      await processSingleJob(dayEvs[i], prefs.geminiKey);
+      if (i < dayEvs.length - 1) await new Promise(r => setTimeout(r, 3000));
     }
-    return `<span class="note-line">${part}</span>`;
-  }).join('');
-}
+    setPreloading(false); setPreloadProgress(""); syncCalendar();
+  };
 
-function render(){
-  var root = document.getElementById('root'); root.innerHTML = '';
-  var wrap = el('div',{className:'app'});
-  if (preloading) wrap.appendChild(el('div', {className:'preload-bar', innerText: preloadProgress}));
-  
-  var hdr = el('div',{className:'hdr'});
-  hdr.innerHTML = '<div class="hdr-top"><span class="hdr-title">Visionaire Hub</span></div>';
-  var badge = el('div',{className:'acct-badge'});
-  badge.innerHTML = `<span class="acct-dot ${accessToken?'':'off'}"></span><span class="acct-txt">${userEmail||'Sign-in Needed'}</span>`;
-  hdr.querySelector('.hdr-top').appendChild(badge);
-  
-  var tabs = el('div',{className:'vtabs'});
-  [['sched','Schedule'],['setup','Setup']].forEach(t => {
-    var btn = el('button',{className:'vtab ' + (view===t[0]?'on':''), innerText:t[1]});
-    btn.onclick = function(){ view=t[0]; render(); }; tabs.appendChild(btn);
-  });
-  hdr.appendChild(tabs); wrap.appendChild(hdr);
+  async function processSingleJob(ev, geminiKey) {
+    let latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+    let token = latestPrefs.accessToken;
+    let cleanName = ev.customer.replace(/^[:\s]+/, '').replace(/[^a-zA-Z\s]/g, ' ').trim();
+    let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+    if (!searchTarget) return;
 
-  var main = el('div',{className:'main'});
-  if(view === 'setup') {
-    var sc = el('div',{className:'sc'}); sc.innerHTML = '<div class="sc-head">Hub Settings</div>';
-    var body = el('div',{className:'sc-body'});
-    body.appendChild(el('span',{className:'lbl',innerText:'Google Client ID'}));
-    var i1 = el('input',{className:'inp',value:prefs.clientId||''});
-    i1.oninput = function(e){ prefs.clientId = e.target.value; save(); }; body.appendChild(i1);
-    body.appendChild(el('span',{className:'lbl',innerText:'Gemini API Key'}));
-    var i2 = el('input',{className:'inp',type:'password',value:prefs.geminiKey||''});
-    i2.oninput = function(e){ prefs.geminiKey = e.target.value; save(); }; body.appendChild(i2);
+    const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
+    const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { 
+      headers: { Authorization: `Bearer ${token}` } 
+    });
     
-    var bM = el('button',{className:'btn-p',style:'background:var(--s800); margin-bottom:10px',innerText:'Create Manual FM'});
-    bM.onclick = function(){ 
-      var n=prompt("Customer Name:"); if(n){ 
-        var id=Date.now(); var jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
-        jobs.unshift({id:id, customer:n, data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(jobs));
-        localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='measure.html';
-      }
-    }; body.appendChild(bM);
+    const dData = dRes.status === 200 ? await dRes.json() : null;
+    const fileId = dData?.files?.[0]?.id;
+    if (!fileId) return;
 
-    var b1 = el('button',{className:'btn-p',innerText: accessToken ? '✓ Connected' : 'Connect Google'});
-    b1.onclick = signIn; body.appendChild(b1);
-    sc.appendChild(body); main.appendChild(sc);
-  } else {
-    var bar = el('div',{className:'sync-bar'});
-    bar.innerHTML = `<div><div class="sync-title">${userEmail||'Calendar'}</div><div class="sync-sub">Sync: ${prefs.lastSync||'--'}</div></div>`;
-    var grp = el('div',{style:'display:flex; gap:8px'});
-    var pBtn = el('button',{className:'sync-btn',style:'background:var(--emerald)',innerText:'Prep Drive'});
-    pBtn.onclick = preloadToday;
-    var sBtn = el('button',{className:'sync-btn',innerText:loading?'...':'Sync'});
-    sBtn.onclick = syncCalendar;
-    grp.appendChild(pBtn); grp.appendChild(sBtn); bar.appendChild(grp); main.appendChild(bar);
-
-    var strip = el('div',{className:'dstrip'});
-    for(let i=-1; i<=10; i++){
-      let d = new Date(); d.setDate(d.getDate()+i); let iso = d.toISOString().slice(0,10);
-      let chip = el('div',{className:'dchip ' + (iso===selDate?'on':'')});
-      chip.innerHTML = `<div class="dc-d">${d.toLocaleDateString([],{weekday:'short'})}</div><div class="dc-n">${d.getDate()}</div>`;
-      chip.onclick = function(){ selDate=iso; render(); }; strip.appendChild(chip);
-    }
-    main.appendChild(strip);
-
-    calEvents.filter(e => e.startDate === selDate).forEach(ev => {
-      var card = el('div',{className:'cc'});
-      var isExp = expandId === ev.id;
-      var barClr = ev.hasWin && ev.hasDoor ? 'linear-gradient(var(--navy), var(--emerald))' : (ev.hasDoor ? 'var(--emerald)' : 'var(--navy)');
-      card.innerHTML = `<div class="cc-head"><div class="cc-bar" style="background:${barClr}"></div><div class="cc-body"><div class="cc-top"><div class="cc-name">${ev.customer}</div><div class="cc-time">${ev.startTime}</div></div></div></div>`;
-      if(isExp){
-        var det = el('div',{className:'cc-det'});
-        det.innerHTML = `<div class="dnotes"><span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q=${encodeURIComponent(ev.address)}" target="_blank" class="tel-link">${ev.address}</a></span>${cleanNotes(ev.notesHtml)}</div>`;
-        card.appendChild(det);
-      }
-      var acts = el('div',{className:'cc-acts'});
-      var a1 = el('button',{className:'ca p',innerText:'FM Sheet'});
-      a1.onclick = function(){ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='measure.html'; };
-      var a2 = el('button',{className:'ca',innerText: isExp ? 'Less' : 'More'});
-      a2.onclick = function(){ expandId = isExp ? null : ev.id; render(); };
-      acts.appendChild(a1); acts.appendChild(a2); card.appendChild(acts); main.appendChild(card);
+    const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
+    const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+    const blob = await fRes.blob();
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
     });
+
+    const promptText = `Analyze for Visionaire Windows specialist. 1. Determine 'itemType': 'Door' if keywords (French, Sidelite, Entry, Slider) are found. Otherwise 'Window'. 2. HARDENED GROUPING: Combine all sidelites/transoms into the main opening. 3. Extraction: Colors, Glass (DLA-UV), Handing (RHI/LHO), Jamb Depth. Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
+    
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+    const result = await res.json();
+    const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(text);
+    
+    let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
+    const jobData = { id: ev.id, customer: ev.customer, time: ev.startTime, summary: parsed.summary, repairNotes: parsed.repairNotes, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink };
+    const existingIdx = jobs.findIndex(j => j.id === ev.id);
+    if (existingIdx > -1) jobs[existingIdx] = jobData; else jobs.unshift(jobData);
+    localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
   }
-  wrap.appendChild(main); root.appendChild(wrap);
+
+  const cleanNotes = (html) => {
+    if (!html) return "";
+    let text = html.replace(/<[^>]+>/g, ' ').replace(/ /g, ' ').trim();
+    const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
+    labels.forEach(l => { text = text.replace(new RegExp(`(${l})`, 'gi'), `|||$1`); });
+    return text.split('|||').filter(line => line.trim().length > 3).map((line, i) => {
+      let part = line.trim();
+      let label = labels.find(l => part.toLowerCase().startsWith(l.toLowerCase()));
+      if (label) {
+        let content = part.substring(label.length).trim();
+        if (label.toLowerCase() === 'edit event at:') return <span key={i} className="note-line"><span className="note-label">CRM:</span><a href={content} target="_blank" style={{color: '#2563eb', fontWeight: '700'}}>Open MarketSharp</a></span>;
+        return <span key={i} className="note-line"><span className="note-label">{label.toUpperCase()}</span>{content}</span>;
+      }
+      return <span key={i} className="note-line">{part}</span>;
+    });
+  };
+
+  return (
+    <div className="app">
+      {preloading && <div className="preload-bar">{preloadProgress}</div>}
+      <div className="hdr">
+        <div className="hdr-top">
+          <span className="hdr-title">Visionaire Hub</span>
+          <div className="acct-badge">
+            <span className={`acct-dot ${prefs.accessToken?'':'off'}`}></span>
+            <span className="acct-txt">{prefs.userEmail||'Sign-in Needed'}</span>
+          </div>
+        </div>
+        <div className="vtabs">
+          <button className={`vtab ${view === 'sched' ? 'on' : ''}`} onClick={() => setView('sched')}>Schedule</button>
+          <button className={`vtab ${view === 'setup' ? 'on' : ''}`} onClick={() => setView('setup')}>Setup</button>
+        </div>
+      </div>
+      <div className="main">
+        {view === 'setup' ? (
+          <div className="sc">
+            <div className="sc-head">Configuration</div>
+            <div className="sc-body">
+              <span className="lbl">Google Client ID</span>
+              <input className="inp" value={prefs.clientId || ''} onChange={e => setPrefs({...prefs, clientId: e.target.value})} />
+              <span className="lbl">Gemini API Key</span>
+              <input className="inp" type="password" value={prefs.geminiKey || ''} onChange={e => setPrefs({...prefs, geminiKey: e.target.value})} />
+              <button className="btn-p" style={{background:'var(--s800)', marginBottom:'10px'}} onClick={() => {
+                var n=prompt("Customer Name:"); if(n){
+                  var id=Date.now(); var jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
+                  jobs.unshift({id, customer:n, data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(jobs));
+                  localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='measure.html';
+                }
+              }}>Create Manual FM</button>
+              <button className="btn-p" onClick={signIn}>{prefs.accessToken ? '✓ Connected' : 'Connect Google'}</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="sync-bar">
+              <div><div className="sync-title">System Ready</div><div className="sync-sub">Sync: {prefs.lastSync || '--'}</div></div>
+              <div style={{display: 'flex', gap: '8px'}}>
+                <button className="sync-btn" style={{background: '#059669'}} onClick={preloadToday}>Prep Drive</button>
+                <button className="sync-btn" onClick={syncCalendar}>{loading ? '...' : 'Sync'}</button>
+              </div>
+            </div>
+            <div className="dstrip">
+              {[-1, 0, 1, 2, 3, 4, 5].map(i => {
+                let d = new Date(); d.setDate(d.getDate() + i); let iso = d.toISOString().slice(0,10);
+                return (
+                  <div key={i} className={`dchip ${iso === selDate ? 'on' : ''}`} onClick={() => setSelDate(iso)}>
+                    <div className="dc-d">{d.toLocaleDateString([], {weekday: 'short'})}</div>
+                    <div className="dc-n">{d.getDate()}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {calEvents.filter(e => e.startDate === selDate).map(ev => {
+              const isExp = expandId === ev.id;
+              const barClr = ev.hasWin && ev.hasDoor ? 'linear-gradient(var(--navy), var(--emerald))' : (ev.hasDoor ? 'var(--emerald)' : 'var(--navy)');
+              return (
+                <div key={ev.id} className="cc">
+                  <div className="cc-head">
+                    <div className="cc-bar" style={{background: barClr}}></div>
+                    <div className="cc-body">
+                      <div className="cc-top"><div className="cc-name">{ev.customer}</div><div className="cc-time">{ev.startTime}</div></div>
+                    </div>
+                  </div>
+                  {isExp && (
+                    <div className="cc-det">
+                      <div className="dnotes">
+                        <span className="note-line"><span className="note-label">MAPS:</span><a href={`http://googleusercontent.com/maps.google.com/3{encodeURIComponent(ev.address)}`} target="_blank" className="tel-link">{ev.address}</a></span>
+                        {cleanNotes(ev.notesHtml)}
+                      </div>
+                    </div>
+                  )}
+                  <div className="cc-acts">
+                    <button className="ca p" onClick={() => { localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='measure.html'; }}>FM Sheet</button>
+                    <button className="ca" onClick={() => setExpandId(isExp ? null : ev.id)}>{isExp ? 'Less' : 'More'}</button>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
-function el(t,p){ var e=document.createElement(t); for(var k in p) if(k==='style')e.style.cssText=p[k]; else e[k]=p[k]; return e; }
-window.onload = render;
+ReactDOM.createRoot(document.getElementById('root')).render(<VisionaireHub />);
 </script>
 </body>
 </html>
