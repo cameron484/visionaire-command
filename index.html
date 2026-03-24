@@ -52,7 +52,8 @@
     .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
     .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--s700);line-height:1.7;}
     .note-line { display: block; padding-bottom: 6px; border-bottom: 1px dashed var(--s200); margin-bottom: 6px; }
-    .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; }
+    .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 1px; }
+    .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -92,6 +93,29 @@ function signIn(){
   });
 }
 
+function cleanNotes(html) {
+  if (!html) return "";
+  let text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/ /g, ' ').trim();
+  const labels = ["Category:", "Contact:", "Product:", "Edit event at:"];
+  labels.forEach(label => { text = text.replace(new RegExp(`(${label})`, 'gi'), `|||$1`); });
+  return text.split('|||').filter(l => l.trim().length > 3).map(line => {
+    let part = line.trim();
+    let label = labels.find(lab => part.toLowerCase().startsWith(lab.toLowerCase()));
+    if (label) {
+      let content = part.substring(label.length).trim();
+      if (label.toLowerCase() === 'contact:') {
+          let phones = content.match(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g);
+          content = phones ? phones.map(p => `<a href="tel:${p}" class="tel-link">${p}</a>`).join(' | ') : content;
+          label = "CONTACT:";
+      } else if (label.toLowerCase() === 'edit event at:') {
+          return `<span class="note-line"><span class="note-label">CRM:</span><a href="${content}" target="_blank" style="color:#2563eb; font-weight:700;">Open MarketSharp</a></span>`;
+      }
+      return `<span class="note-line"><span class="note-label">${label}</span>${content}</span>`;
+    }
+    return `<span class="note-line">${part}</span>`;
+  }).join('');
+}
+
 async function syncCalendar(){
   if(!accessToken) return;
   var term = encodeURIComponent(prefs.searchTerm || 'Measure');
@@ -101,10 +125,14 @@ async function syncCalendar(){
   calEvents = (d.items||[]).map(ev => {
     var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
     return { 
-      id: ev.id, customer: ev.summary.replace(/final\s*measure|measure|fm/ig, '').replace(/^[:\s]+/, '').trim(), 
-      address: ev.location || '', startDate: start.slice(0,10), 
+      id: ev.id, 
+      customer: ev.summary.replace(/final\s*measure|measure|fm/ig, '').replace(/^[:\s]+/, '').trim(), 
+      address: ev.location || '', 
+      startDate: start.slice(0,10), 
       startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled', 
-      notesHtml: ev.description || '', hasWin: /window/i.test(ev.summary + ev.description), hasDoor: /door/i.test(ev.summary + ev.description) 
+      notesHtml: ev.description || '', 
+      hasWin: /window/i.test(ev.summary + ev.description), 
+      hasDoor: /door/i.test(ev.summary + ev.description) 
     };
   });
   prefs.calEvents = calEvents;
@@ -114,64 +142,49 @@ async function syncCalendar(){
 
 function render(){
   var root = document.getElementById('root'); root.innerHTML = '';
-  var app = document.createElement('div'); app.className = 'app';
+  var app = el('div',{className:'app'});
   
-  var hdr = document.createElement('div'); hdr.className = 'hdr';
+  var hdr = el('div',{className:'hdr'});
   hdr.innerHTML = '<div class="hdr-top"><span class="hdr-title">Visionaire Hub</span></div>';
-  var tabs = document.createElement('div'); tabs.className = 'vtabs';
+  var tabs = el('div',{className:'vtabs'});
   [['sched','Schedule'],['setup','Setup']].forEach(t => {
-    var btn = document.createElement('button'); btn.className = 'vtab ' + (view===t[0]?'on':''); btn.innerText = t[1];
-    btn.onclick = function(){ view=t[0]; render(); };
-    tabs.appendChild(btn);
+    var btn = el('button',{className:'vtab ' + (view===t[0]?'on':''), innerText:t[1]});
+    btn.onclick = function(){ view=t[0]; render(); }; tabs.appendChild(btn);
   });
   hdr.appendChild(tabs); app.appendChild(hdr);
 
-  var main = document.createElement('div'); main.className = 'main';
+  var main = el('div',{className:'main'});
   if(view === 'setup') {
-    var sc = document.createElement('div'); sc.className = 'sc';
-    sc.innerHTML = '<div class="sc-head">Configuration</div>';
-    var body = document.createElement('div'); body.className = 'sc-body';
-    
-    // Client ID
+    var sc = el('div',{className:'sc'}); sc.innerHTML = '<div class="sc-head">Configuration</div>';
+    var body = el('div',{className:'sc-body'});
     body.appendChild(el('span',{className:'lbl',innerText:'Google Client ID'}));
     var i1 = el('input',{className:'inp',value:prefs.clientId||''});
-    i1.oninput = function(e){ prefs.clientId = e.target.value; save(); };
-    body.appendChild(i1);
-
-    // Gemini Key
+    i1.oninput = function(e){ prefs.clientId = e.target.value; save(); }; body.appendChild(i1);
     body.appendChild(el('span',{className:'lbl',innerText:'Gemini API Key'}));
     var i2 = el('input',{className:'inp',type:'password',value:prefs.geminiKey||''});
-    i2.oninput = function(e){ prefs.geminiKey = e.target.value; save(); };
-    body.appendChild(i2);
-
-    // Manual FM Button
-    body.appendChild(el('span',{className:'lbl',innerText:'Manual Entry'}));
+    i2.oninput = function(e){ prefs.geminiKey = e.target.value; save(); }; body.appendChild(i2);
     var bM = el('button',{className:'btn-p',style:'background:var(--s800); margin-bottom:10px',innerText:'Create Manual FM'});
     bM.onclick = function(){ 
-      var n=prompt("Customer Name:"); 
-      if(n){ 
-        var id=Date.now(); 
-        var jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
-        jobs.unshift({id:id, customer:n, data:[]});
-        localStorage.setItem('visionaireJobs',JSON.stringify(jobs));
-        localStorage.setItem('activeJobId', JSON.stringify(id));
-        window.location.href='measure.html';
+      var n=prompt("Customer Name:"); if(n){ 
+        var id=Date.now(); var jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];
+        jobs.unshift({id:id, customer:n, data:[]}); localStorage.setItem('visionaireJobs',JSON.stringify(jobs));
+        localStorage.setItem('activeJobId', JSON.stringify(id)); window.location.href='measure.html';
       }
     };
     body.appendChild(bM);
-
-    var b1 = el('button',{className:'btn-p',innerText: accessToken ? '✓ Connected' : 'Connect Google Account'});
+    var b1 = el('button',{className:'btn-p',innerText: accessToken ? '✓ Connected' : 'Connect Google'});
     b1.onclick = signIn; body.appendChild(b1);
-    
     sc.appendChild(body); main.appendChild(sc);
   } else {
-    // Sync Bar
     var bar = el('div',{className:'sync-bar'});
     bar.innerHTML = '<div><div class="sync-title">System Ready</div><div class="sync-sub">Sync: '+(prefs.lastSync||'--')+'</div></div>';
+    var grp = el('div',{style:'display:flex; gap:8px'});
+    var pBtn = el('button',{className:'sync-btn',style:'background:var(--emerald)',innerText:'Prep'});
+    pBtn.onclick = function(){ alert('Drive Scan Logic goes here...'); };
     var sBtn = el('button',{className:'sync-btn',innerText:'Sync'});
-    sBtn.onclick = syncCalendar; bar.appendChild(sBtn); main.appendChild(bar);
+    sBtn.onclick = syncCalendar;
+    grp.appendChild(pBtn); grp.appendChild(sBtn); bar.appendChild(grp); main.appendChild(bar);
 
-    // Date Strip
     var strip = el('div',{className:'dstrip'});
     for(let i=-2; i<=10; i++){
       let d = new Date(); d.setDate(d.getDate()+i); let iso = d.toISOString().slice(0,10);
@@ -188,11 +201,12 @@ function render(){
       card.innerHTML = `<div class="cc-head"><div class="cc-bar" style="background:${barClr}"></div><div class="cc-body"><div class="cc-top"><div class="cc-name">${ev.customer}</div><div class="cc-time">${ev.startTime}</div></div></div></div>`;
       if(isExp){
         var det = el('div',{className:'cc-det'});
-        det.innerHTML = `<div class="dnotes"><span class="note-line"><span class="note-label">ADDRESS:</span><a href="https://maps.google.com/?q=${encodeURIComponent(ev.address)}" target="_blank" class="tel-link">${ev.address}</a></span>${ev.notesHtml}</div>`;
+        var noteContent = `<div class="dnotes"><span class="note-line"><span class="note-label">MAPS:</span><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.address)}" target="_blank" class="tel-link">${ev.address}</a></span>${cleanNotes(ev.notesHtml)}</div>`;
+        det.innerHTML = noteContent;
         card.appendChild(det);
       }
       var acts = el('div',{className:'cc-acts'});
-      var a1 = el('button',{className:'ca p',innerText:'Open Measure'});
+      var a1 = el('button',{className:'ca p',innerText:'FM Sheet'});
       a1.onclick = function(){ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='measure.html'; };
       var a2 = el('button',{className:'ca',innerText: isExp ? 'Less' : 'More'});
       a2.onclick = function(){ expandId = isExp ? null : ev.id; render(); };
@@ -201,7 +215,7 @@ function render(){
   }
   app.appendChild(main); root.appendChild(app);
 }
-function el(t,p){ var e=document.createElement(t); for(var k in p) e[k]=p[k]; return e; }
+function el(t,p){ var e=document.createElement(t); for(var k in p) if(k==='style')e.style.cssText=p[k]; else e[k]=p[k]; return e; }
 window.onload = render;
 </script>
 </body>
