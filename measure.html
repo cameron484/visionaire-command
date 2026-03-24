@@ -42,6 +42,9 @@
     .flags-title{font-size:0.6rem;font-weight:900;text-transform:uppercase;color:#92400e;margin-bottom:6px}
     .flags-body{font-size:0.7rem;font-weight:700;color:var(--s700);line-height:1.6;font-style:italic}
     .contract-link{display:block;width:100%;padding:11px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:12px;font-size:0.65rem;font-weight:900;text-transform:uppercase;text-align:center;text-decoration:none}
+    .source-badge{display:inline-block;font-size:0.55rem;font-weight:900;padding:2px 7px;border-radius:4px;margin-bottom:8px}
+    .source-badge.ms{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+    .source-badge.drive{background:#f3f4f6;color:#374151;border:1px solid #d1d5db}
     .wipe-btn{width:100%;padding:12px;background:transparent;border:2px dashed #fecaca;border-radius:12px;color:#dc2626;font-size:0.65rem;font-weight:900;text-transform:uppercase;cursor:pointer}
     .unit-card{background:white;border-radius:12px;border:1px solid #d1d5db;margin-bottom:10px;overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08)}
     .unit-card.win{border-left:10px solid var(--navy)}
@@ -150,14 +153,10 @@ var DOOR_T  = ["Single","Double / French","Sliding Patio","Single w/ Sidelights"
 var SWINGS  = ["RHI","LHI","RHO","LHO","Active/Passive – Right","Active/Passive – Left"];
 var JAMBS   = ['4-9/16"','6-9/16"','4-5/8"',"Custom"];
 
-var activeTab=    'measure';
-var expandedIdx=  0;
-var activeField=  null;
-var isPlaying=    false;
-var appLoading=   false;
-var isRecording=  false;
-var mediaRecorder=null;
-var audioChunks=  [];
+var MS_BASE = 'https://restapi.marketsharpm.com';
+var activeTab='measure', expandedIdx=0, activeField=null;
+var isPlaying=false, appLoading=false, isRecording=false;
+var mediaRecorder=null, audioChunks=[];
 
 function safeGet(k,fb){try{var v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
 function safeSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -178,7 +177,6 @@ function el(tag,props){
 function appendOpts(sel,arr,selected){arr.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;if(v===selected)o.selected=true;sel.appendChild(o);});}
 function formatSpecs(input){if(!input)return'No specs.';if(typeof input==='string')return input;return Object.entries(input).map(function(kv){return kv[0]+': '+kv[1];}).join('\n');}
 
-// Variance detection
 function parseDim(str){if(!str)return null;str=String(str).trim().replace(/['"]/g,'');if(/^\d+(\.\d+)?$/.test(str))return parseFloat(str);var m=str.match(/^(\d+)\s*[-\s]\s*(\d+)\/(\d+)$/);if(m)return parseInt(m[1])+parseInt(m[2])/parseInt(m[3]);var f=str.match(/^(\d+)\/(\d+)$/);if(f)return parseInt(f[1])/parseInt(f[2]);var n=parseFloat(str);return isNaN(n)?null:n;}
 function parseContractSize(s){if(!s)return null;var p=s.replace(/\*+$/,'').split(/\s*[xX×]\s*/);if(p.length<2)return null;var w=parseDim(p[0]),h=parseDim(p[1]);return(w!==null&&h!==null)?{w:w,h:h}:null;}
 function fracStr(val){var sign=val<0?'-':'';val=Math.abs(val);var whole=Math.floor(val),frac=val-whole;var fracs=[[0,''],[0.25,'1/4'],[0.5,'1/2'],[0.75,'3/4'],[1,'1']];var cl=fracs.reduce(function(a,b){return Math.abs(b[0]-frac)<Math.abs(a[0]-frac)?b:a;});if(cl[1]==='1'){whole++;cl=[0,''];}var p=[];if(whole>0)p.push(String(whole));if(cl[1])p.push(cl[1]);return sign+(p.length>0?p.join(' '):'0');}
@@ -190,7 +188,7 @@ function renderMain(){
   var job=getJob(),main=document.getElementById('main');
   main.innerHTML='';
   document.getElementById('jobTitle').textContent=job.customer||'Field Command';
-  if(appLoading){main.appendChild(el('div',{C:'loading',t:'Processing...'}));return;}
+  if(appLoading){main.appendChild(el('div',{C:'loading',t:'Loading contract...'}));return;}
   if(!job.data||!job.data.length){renderEmpty(main,job);return;}
   if(activeTab==='overview')renderOverview(main,job);
   if(activeTab==='measure')renderMeasure(main,job);
@@ -199,20 +197,42 @@ function renderMain(){
 
 function renderEmpty(main,job){
   var wrap=el('div',{C:'empty-state'});
-  var scanBtn=el('button',{t:'Scan PDF Contract'});scanBtn.style.cssText='background:#2563eb;color:white;border:none;border-radius:12px;padding:18px 32px;font-size:0.85rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';scanBtn.addEventListener('click',function(){autoLoadContract(job);});wrap.appendChild(scanBtn);
+  var scanBtn=el('button',{t:'Load Contract'});
+  scanBtn.style.cssText='background:#2563eb;color:white;border:none;border-radius:12px;padding:18px 32px;font-size:0.85rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';
+  scanBtn.addEventListener('click',function(){autoLoadContract(job);});
+  wrap.appendChild(scanBtn);
   var d1=el('div',{t:'— or —'});d1.style.cssText='font-size:0.65rem;color:#94a3b8;font-weight:700;margin:4px 0';wrap.appendChild(d1);
-  var driveBtn=el('button',{t:'Browse Drive'});driveBtn.style.cssText='background:white;color:#1a3a5c;border:2px solid #cbd5e1;border-radius:12px;padding:13px 28px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';driveBtn.addEventListener('click',function(){openDrivePicker(job);});wrap.appendChild(driveBtn);
-  var d2=el('div',{t:'— or —'});d2.style.cssText='font-size:0.65rem;color:#94a3b8;font-weight:700;margin:4px 0';wrap.appendChild(d2);
-  var manBtn=el('button',{t:'Manual FM Sheet'});manBtn.style.cssText='background:transparent;color:#94a3b8;border:2px dashed #cbd5e1;border-radius:12px;padding:13px 28px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';manBtn.addEventListener('click',function(){startManualSheet(job);});wrap.appendChild(manBtn);
+  var manBtn=el('button',{t:'Manual FM Sheet'});
+  manBtn.style.cssText='background:transparent;color:#94a3b8;border:2px dashed #cbd5e1;border-radius:12px;padding:13px 28px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';
+  manBtn.addEventListener('click',function(){startManualSheet(job);});
+  wrap.appendChild(manBtn);
   main.appendChild(wrap);
 }
 
 function renderOverview(main,job){
   var card=el('div',{C:'overview-card'});
-  if(job.summary){var row=el('div',{C:'briefing-row'+(isPlaying?' playing':'')});row.appendChild(el('div',{C:'briefing-icon',t:isPlaying?'⏸️':'🔊'}));var t=el('div');t.appendChild(el('div',{C:'briefing-title',t:'Technical Briefing'}));t.appendChild(el('div',{C:'briefing-sub',t:job.summary}));row.appendChild(t);row.addEventListener('click',function(){playBriefing(job.summary);});card.appendChild(row);}
-  var flags=el('div',{C:'flags-box'});flags.appendChild(el('div',{C:'flags-title',t:'⚠️ Critical Project Notes'}));flags.appendChild(el('div',{C:'flags-body',t:job.repairNotes||'No special repairs noted.'}));card.appendChild(flags);
-  if(job.contractLink){var lbl=job.contractFile?'📄 '+job.contractFile.replace(/_/g,' ').substring(0,50):'📄 Original Contract';card.appendChild(el('a',{C:'contract-link',t:lbl,href:job.contractLink,target:'_blank'}));}
-  var wipe=el('button',{C:'wipe-btn',t:'🗑️ Wipe Data & Rescan'});wipe.addEventListener('click',function(){wipeAndRescan(job);});card.appendChild(wipe);
+  if(job.summary){
+    var row=el('div',{C:'briefing-row'+(isPlaying?' playing':'')});
+    row.appendChild(el('div',{C:'briefing-icon',t:isPlaying?'⏸️':'🔊'}));
+    var t=el('div');t.appendChild(el('div',{C:'briefing-title',t:'Technical Briefing'}));
+    t.appendChild(el('div',{C:'briefing-sub',t:job.summary}));row.appendChild(t);
+    row.addEventListener('click',function(){playBriefing(job.summary);});card.appendChild(row);
+  }
+  var flags=el('div',{C:'flags-box'});
+  flags.appendChild(el('div',{C:'flags-title',t:'⚠️ Critical Project Notes'}));
+  flags.appendChild(el('div',{C:'flags-body',t:job.repairNotes||'No special repairs noted.'}));
+  card.appendChild(flags);
+  if(job.contractLink){
+    // Show badge indicating where contract came from
+    if(job.contractSource){
+      var src=el('div',{C:'source-badge '+(job.contractSource==='ms'?'ms':'drive'),t:job.contractSource==='ms'?'Source: MarketSharp CRM':'Source: Google Drive'});
+      card.appendChild(src);
+    }
+    var lbl=job.contractFile?'📄 '+job.contractFile.replace(/_/g,' ').substring(0,50):'📄 Original Contract';
+    card.appendChild(el('a',{C:'contract-link',t:lbl,href:job.contractLink,target:'_blank'}));
+  }
+  var wipe=el('button',{C:'wipe-btn',t:'🗑️ Wipe Data & Reload Contract'});
+  wipe.addEventListener('click',function(){wipeAndRescan(job);});card.appendChild(wipe);
   main.appendChild(card);
 }
 
@@ -241,8 +261,6 @@ function renderUnitCard(unit,idx,job){
   if(!isOpen)return card;
 
   var body=el('div',{C:'unit-body'});
-
-  // Dimensions
   var dg=el('div',{C:'dim-grid'});
   ['fmWidth','fmHeight'].forEach(function(field){
     var labels={fmWidth:'Width',fmHeight:'Height'};
@@ -254,18 +272,21 @@ function renderUnitCard(unit,idx,job){
     wrap.appendChild(disp);dg.appendChild(wrap);
   });
   var qw=el('div');qw.appendChild(el('span',{C:'field-label',t:'Qty'}));
-  var qi=el('input',{C:'input-box',type:'number',min:'1'});qi.value=unit.qty||'1';qi.style.cssText='text-align:center;font-size:1.1rem;font-weight:900;';qi.addEventListener('change',function(){updateItem(idx,'qty',this.value);});qw.appendChild(qi);dg.appendChild(qw);
+  var qi=el('input',{C:'input-box',type:'number',min:'1'});qi.value=unit.qty||'1';
+  qi.style.cssText='text-align:center;font-size:1.1rem;font-weight:900;';
+  qi.addEventListener('change',function(){updateItem(idx,'qty',this.value);});qw.appendChild(qi);dg.appendChild(qw);
   body.appendChild(dg);
 
-  // Variance
   var variance=checkVariance(unit);
   if(variance&&!unit.varianceConfirmed){
     var va=el('div',{C:'variance-alert'});va.appendChild(el('span',{C:'va-icon',t:'⚠️'}));
     var vt=el('div');vt.appendChild(el('div',{style:'font-weight:900;margin-bottom:4px',t:'Differs from contract'}));
     variance.forEach(function(l){vt.appendChild(el('div',{t:l}));});
     var vr=el('div',{C:'variance-confirm-row'});
-    var vok=el('button',{C:'va-btn ok',t:'✓ Confirmed Correct'});vok.addEventListener('click',function(e){e.stopPropagation();updateItem(idx,'varianceConfirmed',true);renderMain();});
-    var vn=el('button',{C:'va-btn note',t:'+ Add Note'});vn.addEventListener('click',function(e){e.stopPropagation();var n=prompt('Note about this variance:');if(n&&n.trim()){updateItem(idx,'extras',(unit.extras?unit.extras+'\n':'')+'VARIANCE: '+n.trim());updateItem(idx,'varianceConfirmed',true);renderMain();}});
+    var vok=el('button',{C:'va-btn ok',t:'✓ Confirmed Correct'});
+    vok.addEventListener('click',function(e){e.stopPropagation();updateItem(idx,'varianceConfirmed',true);renderMain();});
+    var vn=el('button',{C:'va-btn note',t:'+ Add Note'});
+    vn.addEventListener('click',function(e){e.stopPropagation();var n=prompt('Note about this variance:');if(n&&n.trim()){updateItem(idx,'extras',(unit.extras?unit.extras+'\n':'')+'VARIANCE: '+n.trim());updateItem(idx,'varianceConfirmed',true);renderMain();}});
     vr.appendChild(vok);vr.appendChild(vn);vt.appendChild(vr);va.appendChild(vt);body.appendChild(va);
   }
 
@@ -274,34 +295,26 @@ function renderUnitCard(unit,idx,job){
 
   if(unit.extras){body.appendChild(el('span',{C:'field-label',t:'Contract Specs / Notes'}));body.appendChild(el('div',{C:'specs-box',t:formatSpecs(unit.extras)}));}
 
-  // Voice note
   body.appendChild(el('span',{C:'field-label',t:'Voice Note → Repair Notes'}));
   var vrow=el('div',{C:'voice-row'});
   var vbtn=el('button',{C:'voice-btn'+(isRecording?' recording':'')});vbtn.textContent=isRecording?'⏹':'🎙';
   vbtn.addEventListener('click',function(e){e.stopPropagation();isRecording?stopVoiceNote(idx):startVoiceNote(idx);});vrow.appendChild(vbtn);
   var vs=el('div',{C:'voice-status'+(isRecording?' active':'')});vs.textContent=isRecording?'Recording... tap to stop':'Tap to record a field note';vrow.appendChild(vs);body.appendChild(vrow);
 
-  // Delete
   var del=el('button',{C:'delete-unit-btn',t:'🗑 Remove This Unit'});
   del.addEventListener('click',function(e){e.stopPropagation();if(confirm('Remove Unit '+(idx+1)+'?'))deleteUnit(idx);});
   body.appendChild(del);
-
   card.appendChild(body);
   return card;
 }
 
-// ── WINDOW FIELDS ──────────────────────────────────────────────────────────────
 function renderWindowFields(body,unit,idx){
-  // Window Type
   var wt=el('div');wt.appendChild(el('span',{C:'field-label',t:'Window Type'}));
   var ws=el('select',{C:'input-box'});appendOpts(ws,WIN_T,unit.style||unit.windowType);ws.addEventListener('change',function(){updateItem(idx,'style',this.value);});wt.appendChild(ws);body.appendChild(wt);
-  // Grids
   var gr=el('div');gr.appendChild(el('span',{C:'field-label',t:'Grids'}));
   var grs=el('select',{C:'input-box'});appendOpts(grs,GRIDS,unit.grids);grs.addEventListener('change',function(){updateItem(idx,'grids',this.value);renderMain();});gr.appendChild(grs);body.appendChild(gr);
-  // Glass
   var gl=el('div');gl.appendChild(el('span',{C:'field-label',t:'Glass'}));
   var gls=el('select',{C:'input-box'});appendOpts(gls,GLASS_O,unit.glass);gls.addEventListener('change',function(){updateItem(idx,'glass',this.value);});gl.appendChild(gls);body.appendChild(gl);
-  // Colors — ext + int always, grid color only if grids selected
   var hasGrids=unit.grids&&unit.grids!=='None';
   body.appendChild(el('span',{C:'field-label',t:'Colors'}));
   var cg=el('div',{C:'color-grid'+(hasGrids?' three':'')});
@@ -311,46 +324,34 @@ function renderWindowFields(body,unit,idx){
   var ii=el('input',{C:'input-box'});ii.value=unit.colorInterior||'';ii.placeholder='e.g. White';ii.addEventListener('change',function(){updateItem(idx,'colorInterior',this.value);});iw.appendChild(ii);cg.appendChild(iw);
   if(hasGrids){var gw=el('div');gw.appendChild(el('span',{C:'field-label',t:'Grid Color'}));var gi=el('input',{C:'input-box'});gi.value=unit.colorGrids||'';gi.placeholder='e.g. White';gi.addEventListener('change',function(){updateItem(idx,'colorGrids',this.value);});gw.appendChild(gi);cg.appendChild(gw);}
   body.appendChild(cg);
-  // OSJ / OSBM
   var pr=el('div',{C:'pill-row'});
   [['osj','OSJ'],['osbm','OSBM']].forEach(function(pair){var lbl=el('label',{C:'checkbox-pill'});var cb=el('input',{type:'checkbox'});cb.checked=!!unit[pair[0]];cb.addEventListener('change',function(){updateItem(idx,pair[0],this.checked);});lbl.appendChild(cb);lbl.appendChild(el('span',{t:pair[1]}));pr.appendChild(lbl);});
   body.appendChild(pr);
 }
 
-// ── DOOR FIELDS ────────────────────────────────────────────────────────────────
 function renderDoorFields(body,unit,idx){
-  // Door Type
   var dt=el('div');dt.appendChild(el('span',{C:'field-label',t:'Door Type'}));
   var dts=el('select',{C:'input-box'});appendOpts(dts,DOOR_T,unit.doorType);dts.addEventListener('change',function(){updateItem(idx,'doorType',this.value);});dt.appendChild(dts);body.appendChild(dt);
-  // Swing
   var sw=el('div');sw.appendChild(el('span',{C:'field-label',t:'Swing'}));
   var sws=el('select',{C:'input-box'});appendOpts(sws,SWINGS,unit.swing);sws.addEventListener('change',function(){updateItem(idx,'swing',this.value);});sw.appendChild(sws);body.appendChild(sw);
-  // Jamb
   var jb=el('div');jb.appendChild(el('span',{C:'field-label',t:'Jamb Depth'}));
   var jbs=el('select',{C:'input-box'});appendOpts(jbs,JAMBS,unit.jambDepth);jbs.addEventListener('change',function(){updateItem(idx,'jambDepth',this.value);});jb.appendChild(jbs);body.appendChild(jb);
-  // OSJ / OSBM
   var pr=el('div',{C:'pill-row'});
   [['osj','OSJ'],['osbm','OSBM']].forEach(function(pair){var lbl=el('label',{C:'checkbox-pill'});var cb=el('input',{type:'checkbox'});cb.checked=!!unit[pair[0]];cb.addEventListener('change',function(){updateItem(idx,pair[0],this.checked);});lbl.appendChild(cb);lbl.appendChild(el('span',{t:pair[1]}));pr.appendChild(lbl);});
   body.appendChild(pr);
 
-  // Component color blocks
   var components=unit.components||[];
   if(components.length===0){
-    // Simple 2-field fallback for manually added doors
     body.appendChild(el('span',{C:'field-label',t:'Colors'}));
     var cg=el('div',{C:'color-grid'});
     var ew=el('div');ew.appendChild(el('span',{C:'field-label',t:'Exterior'}));var ei=el('input',{C:'input-box'});ei.value=unit.colorExterior||'';ei.placeholder='Exterior color';ei.addEventListener('change',function(){updateItem(idx,'colorExterior',this.value);});ew.appendChild(ei);cg.appendChild(ew);
     var iw=el('div');iw.appendChild(el('span',{C:'field-label',t:'Interior'}));var ii=el('input',{C:'input-box'});ii.value=unit.colorInterior||'';ii.placeholder='Interior color';ii.addEventListener('change',function(){updateItem(idx,'colorInterior',this.value);});iw.appendChild(ii);cg.appendChild(iw);
-    body.appendChild(cg);
-    return;
+    body.appendChild(cg);return;
   }
-
-  // One block per component
   body.appendChild(el('span',{C:'field-label',t:'Component Colors'}));
   components.forEach(function(comp,ci){
     var block=el('div',{C:'component-block'});
     block.appendChild(el('div',{C:'component-title',t:comp.name+(comp.qty>1?' (x'+comp.qty+')':'')}));
-
     if(comp.singleColor){
       var cw=el('div');cw.appendChild(el('span',{C:'field-label',t:'Color'}));
       var ci2=el('input',{C:'input-box'});ci2.value=comp.color||'';ci2.placeholder='Color';
@@ -365,51 +366,199 @@ function renderDoorFields(body,unit,idx){
       var iw=el('div');iw.appendChild(el('span',{C:'field-label',t:'Interior'}));
       var ii=el('input',{C:'input-box'});ii.value=comp.colorInterior||'';ii.placeholder='Interior';
       ii.addEventListener('change',(function(cIdx){return function(){updateComp(idx,cIdx,'colorInterior',this.value);};})(ci));
-      iw.appendChild(ii);cg.appendChild(iw);
-      block.appendChild(cg);
+      iw.appendChild(ii);cg.appendChild(iw);block.appendChild(cg);
     }
-
     if(comp.hasGlass){
       var gw=el('div');gw.appendChild(el('span',{C:'field-label',t:'Glass'}));
       var gs=el('input',{C:'input-box'});gs.value=comp.glass||'';gs.placeholder='e.g. DLA-UV / Clear';
       gs.addEventListener('change',(function(cIdx){return function(){updateComp(idx,cIdx,'glass',this.value);};})(ci));
       gw.appendChild(gs);block.appendChild(gw);
     }
-
     if(comp.size){block.appendChild(el('span',{C:'field-label',t:'Component Size'}));block.appendChild(el('div',{C:'specs-box',t:comp.size}));}
-
     body.appendChild(block);
   });
 }
 
 function deleteUnit(idx){updateJob(function(j){j.data.splice(idx,1);});if(expandedIdx===idx)expandedIdx=null;else if(expandedIdx>idx)expandedIdx=expandedIdx-1;renderMain();}
-
 function addUnit(type){
   var newUnit={itemType:type,location:'New '+type,qty:'1',fmWidth:'',fmHeight:'',verified:false,extras:'',doorType:type==='Door'?'Single':'',swing:'',jambDepth:type==='Door'?'4-9/16"':'',grids:'None',glass:'None',osj:false,osbm:false,colorExterior:'',colorInterior:'',colorGrids:'',components:[],varianceConfirmed:false};
   updateJob(function(j){j.data.push(newUnit);});expandedIdx=getJob().data.length-1;renderMain();
 }
 
-// Voice note
-function startVoiceNote(idx){
-  if(!navigator.mediaDevices||!window.MediaRecorder){alert('Voice recording not supported.');return;}
-  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-    audioChunks=[];mediaRecorder=new MediaRecorder(stream);
-    mediaRecorder.ondataavailable=function(e){if(e.data.size>0)audioChunks.push(e.data);};
-    mediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop();});var blob=new Blob(audioChunks,{type:'audio/webm'});transcribeVoiceNote(blob,idx);};
-    mediaRecorder.start();isRecording=true;renderMain();
-  }).catch(function(err){alert('Mic access denied: '+err.message);});
-}
-function stopVoiceNote(idx){if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();isRecording=false;renderMain();}
-async function transcribeVoiceNote(blob,idx){
-  var p=safeGet('vhub_v2',{});if(!p.geminiKey){alert('Gemini key not set in Hub > Setup.');return;}
-  var reader=new FileReader();reader.onloadend=async function(){
-    var b64=reader.result.split(',')[1];
-    try{var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+p.geminiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Transcribe this field note from a window/door replacement technician. Clean it up for clarity. Return only the cleaned text, nothing else.'},{inlineData:{mimeType:blob.type||'audio/webm',data:b64}}]}]})});
-    var result=await res.json();var tx=result.candidates&&result.candidates[0]?result.candidates[0].content.parts[0].text.trim():null;
-    if(tx){var job=getJob();updateItem(idx,'extras',(job.data[idx].extras?job.data[idx].extras+'\n':'')+'FIELD NOTE: '+tx);renderMain();}else alert('Could not transcribe. Try again.');}catch(e){alert('Transcription error: '+e.message);}
-  };reader.readAsDataURL(blob);
+// ── MARKETSHARP + DRIVE CONTRACT LOADING ───────────────────────────────────────
+
+function msAuthHeader(){
+  var p=safeGet('vhub_v2',{});
+  return 'Basic '+btoa((p.msApiKey||'')+':'+(p.msSecretKey||''));
 }
 
+function parseEventContact(job){
+  // job.notesHtml comes from the calendar event description stored on the job
+  var text=(job.notesHtml||job.calNotes||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ');
+  var result={firstName:'',lastName:'',phone:''};
+
+  // "Contact: Gregory Saunders" pattern from your calendar events
+  var contactMatch=text.match(/Contact:\s*([A-Z][a-z'-]+)\s+([A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+)?)/);
+  if(contactMatch){
+    result.firstName=contactMatch[1];
+    result.lastName=contactMatch[2].split(/\s+/).pop();
+  } else {
+    // Fall back to job.customer name
+    var name=(job.customer||'').replace(/\(.*?\)/g,'').trim();
+    var parts=name.indexOf(',')>-1?name.split(',').map(function(s){return s.trim();}):null;
+    if(parts){result.lastName=parts[0];result.firstName=(parts[1]||'').split(' ')[0];}
+    else{var words=name.split(/\s+/);result.firstName=words[0]||'';result.lastName=words[words.length-1]||'';}
+  }
+
+  var phoneMatch=text.match(/\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}/);
+  if(phoneMatch) result.phone=phoneMatch[0].replace(/\D/g,'');
+
+  return result;
+}
+
+async function msSearchContact(contactInfo,p){
+  var params=new URLSearchParams({companyId:p.msCompanyId||'3208',lastName:contactInfo.lastName});
+  if(contactInfo.firstName) params.append('firstName',contactInfo.firstName);
+  var res=await fetch(MS_BASE+'/api/contacts?'+params.toString(),{
+    headers:{Authorization:msAuthHeader(),'Content-Type':'application/json'}
+  });
+  if(!res.ok) throw new Error('MS search HTTP '+res.status);
+  var data=await res.json();
+  var list=Array.isArray(data)?data:(data.items||data.contacts||data.value||[]);
+  if(!list.length) return null;
+  // Score by name match
+  list.sort(function(a,b){
+    function s(c){var score=0;var ln=(c.lastName||c.last_name||'').toLowerCase();var fn=(c.firstName||c.first_name||'').toLowerCase();if(ln===contactInfo.lastName.toLowerCase())score+=10;if(fn&&fn===contactInfo.firstName.toLowerCase())score+=8;return score;}
+    return s(b)-s(a);
+  });
+  return list[0].id||list[0].contactId||list[0].Id||null;
+}
+
+async function msFetchContractBlob(contactId,p){
+  var cid=p.msCompanyId||'3208';
+  var auth={Authorization:msAuthHeader(),'Content-Type':'application/json'};
+
+  // Get jobs
+  var jobsRes=await fetch(MS_BASE+'/api/contacts/'+contactId+'/jobs?companyId='+cid,{headers:auth});
+  if(!jobsRes.ok) throw new Error('MS jobs HTTP '+jobsRes.status);
+  var jobs=await jobsRes.json();
+  var jList=Array.isArray(jobs)?jobs:(jobs.items||jobs.jobs||jobs.value||[]);
+  if(!jList.length) throw new Error('No jobs found for contact '+contactId);
+  jList.sort(function(a,b){return new Date(b.createdDate||b.date||0)-new Date(a.createdDate||a.date||0);});
+  var jobId=jList[0].id||jList[0].jobId||jList[0].Id;
+
+  // Get contracts
+  var cRes=await fetch(MS_BASE+'/api/contracts?jobId='+jobId+'&companyId='+cid,{headers:auth});
+  if(!cRes.ok) throw new Error('MS contracts HTTP '+cRes.status);
+  var contracts=await cRes.json();
+  var cList=Array.isArray(contracts)?contracts:(contracts.items||contracts.contracts||contracts.value||[]);
+  if(!cList.length) throw new Error('No contracts found for job '+jobId);
+
+  function sc(c){var n=(c.name||c.fileName||c.description||'').toLowerCase();var s=0;if(/signed/i.test(n))s+=10;if(/agreement/i.test(n))s+=6;if(/contract/i.test(n))s+=4;if(/\bfm\b/.test(n))s-=20;if(/cancel/i.test(n))s-=25;return s;}
+  cList.sort(function(a,b){return sc(b)-sc(a);});
+  var best=cList[0];
+  var contractId=best.id||best.contractId||best.Id;
+
+  // Download PDF
+  var pdfRes=await fetch(MS_BASE+'/api/contracts/'+contractId+'/document?companyId='+cid,{headers:auth});
+  if(!pdfRes.ok) throw new Error('MS PDF download HTTP '+pdfRes.status);
+  var blob=await pdfRes.blob();
+  return{blob:blob,name:best.name||best.fileName||'Contract.pdf',contractLink:'https://mobile.marketsharpm.com',source:'ms'};
+}
+
+// ── AUTO LOAD — tries MS first, falls back to Drive ────────────────────────────
+async function autoLoadContract(job){
+  appLoading=true;renderMain();
+  var p=safeGet('vhub_v2',{});
+
+  // Try MarketSharp first
+  if(p.msApiKey&&p.msSecretKey){
+    try{
+      var contactInfo=parseEventContact(job);
+      if(contactInfo.lastName){
+        var contactId=await msSearchContact(contactInfo,p);
+        if(contactId){
+          var result=await msFetchContractBlob(contactId,p);
+          var reader=new FileReader();
+          reader.onloadend=async function(){
+            await processPDFBase64(reader.result.split(',')[1],p.geminiKey,job,result.contractLink,result.name,'ms');
+          };
+          reader.readAsDataURL(result.blob);
+          return;
+        }
+      }
+    } catch(msErr){
+      console.warn('MS lookup failed, trying Drive:',msErr.message);
+    }
+  }
+
+  // Fall back to Google Drive
+  var token=p.accessToken;
+  if(!token){appLoading=false;renderMain();return alert('Not connected to Google. Go to Hub > Setup.');}
+  try{
+    var driveResult=await findContractPDFDrive(token,job.customer);
+    if(!driveResult){appLoading=false;renderMain();showNotFoundBanner(job);return;}
+    var contractLink='https://drive.google.com/file/d/'+driveResult.id+'/view';
+    var fRes=await fetch('https://www.googleapis.com/drive/v3/files/'+driveResult.id+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+token}});
+    if(!fRes.ok) throw new Error('Drive download failed: '+fRes.status);
+    var blob=await fRes.blob();
+    var reader2=new FileReader();
+    reader2.onloadend=async function(){
+      await processPDFBase64(reader2.result.split(',')[1],p.geminiKey,job,contractLink,driveResult.name,'drive');
+    };
+    reader2.readAsDataURL(blob);
+  } catch(e){appLoading=false;renderMain();showNotFoundBanner(job,e.message);}
+}
+
+// Drive search (unchanged from original)
+var CUSTOMERS_FOLDER_ID='0B69WGNfZx9kuYmFJRFhfcGxWY0k';
+function parseCustomerName(raw){var clean=raw.replace(/\((?:SOLD|CANC[^)]*)\)/gi,'').replace(/\(\s*ph\s*\d+[^)]*\)/gi,'').replace(/'/g,'').replace(/[&\/]/g,' ').replace(/\d{3,}/g,' ').trim();var last='',first='';if(clean.indexOf(',')>-1){var parts=clean.split(',').map(function(s){return s.trim();});last=parts[0].replace(/\bph\s*\d+\b/gi,'').trim();var fp=(parts[1]||'').replace(/\bph\s*\d+\b/gi,'').trim();first=fp.split(/\s+/)[0]||'';}else{var words=clean.replace(/\bph\s*\d+\b/gi,'').trim().split(/\s+/).filter(function(w){return w.length>0;});if(words.length>=2){first=words[0];last=words[words.length-1];}else if(words.length===1){last=words[0];}}return{last:last.trim(),first:first.trim()};}
+function parsePhaseTag(raw){var m=raw.match(/\bph\s*(\d+)\b/i);return m?'Ph'+m[1]:null;}
+async function driveList(token,query){var url='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)+'&orderBy=modifiedTime desc&pageSize=20&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name,modifiedTime,mimeType)';var res=await fetch(url,{headers:{Authorization:'Bearer '+token}});var data=await res.json();if(data.error)throw new Error('Drive API: '+data.error.message);return data.files||[];}
+async function findContractPDFDrive(token,customerName){var n=parseCustomerName(customerName),phase=parsePhaseTag(customerName),last=n.last,first=n.first;if(!last)return null;var fq="mimeType='application/vnd.google-apps.folder' and '"+CUSTOMERS_FOLDER_ID+"' in parents and name contains '"+last.replace(/'/g,"\\'")+"'";var folders=await driveList(token,fq);var bestFolder=null;if(folders.length>0){function sf(fn){var s=0;fn=fn.toLowerCase();if(last&&fn.indexOf(last.toLowerCase())>-1)s+=10;if(first&&fn.indexOf(first.toLowerCase())>-1)s+=8;if(phase&&new RegExp('\\bph\\s*'+phase.replace('Ph','')+'\\b','i').test(fn))s+=5;if(/^ph\s*\d+/i.test(fn.trim()))s-=20;return s;}folders.sort(function(a,b){return sf(b.name)-sf(a.name);});if(sf(folders[0].name)>0)bestFolder=folders[0];}if(bestFolder){var pdfQ="mimeType='application/pdf' and '"+bestFolder.id+"' in parents";var pdfs=await driveList(token,pdfQ);if(pdfs.length>0){function ps(name){var s=0;if(/^signed/i.test(name))s+=12;else if(/signed/i.test(name))s+=8;if(/agreement/i.test(name))s+=6;if(/\bfm\b|\ fm\.pdf$|_fm\./i.test(name))s-=20;if(/^\(cancel/i.test(name.trim()))s-=25;return s;}pdfs.sort(function(a,b){return ps(b.name)-ps(a.name);});var vp=pdfs.filter(function(f){return!/^\(cancel/i.test(f.name.trim())&&!/\bfm\b|\ fm\.pdf$|_fm\./i.test(f.name);});return vp.length>0?vp[0]:pdfs[0];}}return null;}
+
+function showNotFoundBanner(job,errMsg){
+  var existing=document.getElementById('notFoundBanner');if(existing)existing.remove();
+  var n=parseCustomerName(job.customer);
+  var searched=n.last+(n.first?', '+n.first:'');
+  var banner=document.createElement('div');banner.id='notFoundBanner';
+  banner.style.cssText='background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px 14px;margin:0 10px 12px;font-size:0.72rem;font-weight:700;color:#dc2626;line-height:1.7';
+  banner.innerHTML='<strong>Contract not found</strong> — searched MarketSharp and Drive for <em>'+searched+'</em>'+(errMsg?'<br><span style="color:#94a3b8;font-weight:600">'+errMsg+'</span>':'')+'<br><span style="color:#64748b;font-weight:600">Use the Manual FM Sheet option to enter data by hand.</span>';
+  var main=document.querySelector('.main');if(main)main.insertBefore(banner,main.firstChild);
+}
+
+// Gemini PDF processing (unchanged)
+var GEMINI_PROMPT="You are analyzing a Visionaire Windows signed contract PDF.\n\nRULES:\n1. Detect contractType: 'windows', 'doors', or 'both' based on what product sections exist.\n2. COMBINATION UNIT RULE: An entry door with sidelites and/or storm door is ONE item (qty:1). Use the COMBINATION UNIT SIZE listed (e.g. '60 1/16 x 81 11/16') as contractSize, not the nominal slab size. The individual sub-items (ENTRY DOOR, SIDELITE, STORM DOOR) are components inside that one card.\n3. For each door item, build a components array. Each component: { name, qty, colorExterior, colorInterior, singleColor (true if only one color like storm door), hasGlass, glass, size (if component has its own size) }.\n4. Storm doors: singleColor=true, use 'color' not colorExterior/colorInterior.\n5. For window items: extract colorExterior, colorInterior, colorGrids (if grids present), grids type, glass type, style.\n6. repairNotes: flag any ROT, HEADER WORK, CUSTOM CONSTRUCTION, OSJ, OSBM.\n7. summary: one sentence project overview.\n8. Swing format: RHI, LHI, RHO, or LHO.\n9. If contract says 'Sizing to be Verified by Remeasure Tech', add *** to contractSize.\n\nReturn ONLY valid JSON with no markdown fences:\n{\"contractType\":\"doors\",\"summary\":\"...\",\"repairNotes\":\"...\",\"items\":[{\"itemType\":\"Door\",\"location\":\"Front Entry\",\"contractSize\":\"60 1/16 x 81 11/16\",\"qty\":\"1\",\"doorType\":\"Single w/ Sidelights\",\"swing\":\"RHI\",\"jambDepth\":\"4-9/16\\\"\",\"colorExterior\":\"\",\"colorInterior\":\"\",\"extras\":\"FrameSaver frame, 2\\\" brickmold\",\"components\":[]}],\"checklist\":{\"winColor\":\"\",\"glassType\":\"\",\"doorSwing\":\"\",\"doorJamb\":\"\"}}";
+
+async function processPDFBase64(base64,geminiKey,job,contractLink,fileName,source){
+  if(!geminiKey){appLoading=false;renderMain();return alert('Gemini key not set in Hub > Setup.');}
+  try{
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+geminiKey,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({contents:[{parts:[{text:GEMINI_PROMPT},{inlineData:{mimeType:'application/pdf',data:base64}}]}]})});
+    var result=await res.json();
+    var text=result.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim();
+    var parsed=JSON.parse(text);
+    updateJob(function(j){
+      j.contractType=parsed.contractType||'both';
+      j.data=parsed.items.map(function(i){return Object.assign({},{fmWidth:'',fmHeight:'',verified:false,osj:false,osbm:false,varianceConfirmed:false,colorExterior:'',colorInterior:'',colorGrids:'',components:[]},i);});
+      j.summary=parsed.summary;j.repairNotes=parsed.repairNotes;j.checklist=parsed.checklist;
+      j.syncTime=new Date().toLocaleString();j.contractLink=contractLink;
+      j.contractFile=fileName||'';j.contractSource=source||'';
+    });
+    appLoading=false;expandedIdx=0;setTab('measure');
+  } catch(e){appLoading=false;renderMain();alert('AI parsing failed: '+e.message);}
+}
+
+function startManualSheet(job){updateJob(function(j){j.data=[];j.summary='Manual entry.';j.repairNotes='';j.checklist={};j.syncTime=new Date().toLocaleString();j.contractLink=null;j.contractFile=null;j.isManual=true;j.contractType='both';});expandedIdx=0;setTab('measure');renderMain();}
+function wipeAndRescan(job){if(!confirm('Wipe this data and reload contract?'))return;updateJob(function(j){j.data=[];j.summary='';j.repairNotes='';j.syncTime=null;j.contractLink=null;j.checklist={};j.contractType=null;j.contractSource=null;});autoLoadContract(getJob());setTab('measure');expandedIdx=0;}
+
+// Voice note
+function startVoiceNote(idx){if(!navigator.mediaDevices||!window.MediaRecorder){alert('Voice recording not supported.');return;}navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){audioChunks=[];mediaRecorder=new MediaRecorder(stream);mediaRecorder.ondataavailable=function(e){if(e.data.size>0)audioChunks.push(e.data);};mediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop();});var blob=new Blob(audioChunks,{type:'audio/webm'});transcribeVoiceNote(blob,idx);};mediaRecorder.start();isRecording=true;renderMain();}).catch(function(err){alert('Mic access denied: '+err.message);});}
+function stopVoiceNote(idx){if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();isRecording=false;renderMain();}
+async function transcribeVoiceNote(blob,idx){var p=safeGet('vhub_v2',{});if(!p.geminiKey){alert('Gemini key not set.');return;}var reader=new FileReader();reader.onloadend=async function(){var b64=reader.result.split(',')[1];try{var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+p.geminiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Transcribe this field note from a window/door replacement technician. Clean it up for clarity. Return only the cleaned text, nothing else.'},{inlineData:{mimeType:blob.type||'audio/webm',data:b64}}]}]})});var result=await res.json();var tx=result.candidates&&result.candidates[0]?result.candidates[0].content.parts[0].text.trim():null;if(tx){var job=getJob();updateItem(idx,'extras',(job.data[idx].extras?job.data[idx].extras+'\n':'')+'FIELD NOTE: '+tx);renderMain();}else alert('Could not transcribe.');}catch(e){alert('Transcription error: '+e.message);}};reader.readAsDataURL(blob);}
+
+// Signoff
 function renderSignoff(main,job){
   var s=job.signoff||{};
   var card=el('div',{C:'signoff-card'});card.appendChild(el('div',{C:'signoff-label',t:'Alarm / Access Notes'}));
@@ -422,93 +571,17 @@ function renderSignoff(main,job){
   var up=el('button',{C:'upload-btn',t:'☁️ Upload to Drive'});up.addEventListener('click',uploadToDrive);main.appendChild(up);
   requestAnimationFrame(function(){initSignaturePad(cv,clr,job);if(s.sigData){var img=new Image();img.onload=function(){cv.getContext('2d').drawImage(img,0,0);};img.src=s.sigData;}});
 }
-function initSignaturePad(canvas,clearBtn,job){
-  canvas.width=canvas.offsetWidth||320;canvas.height=180;
-  var ctx=canvas.getContext('2d');ctx.strokeStyle='#1a3a5c';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
-  var drawing=false;
-  function getPos(e){var r=canvas.getBoundingClientRect();var sx=canvas.width/r.width,sy=canvas.height/r.height;var cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{x:(cx-r.left)*sx,y:(cy-r.top)*sy};}
-  function start(e){e.preventDefault();drawing=true;var p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
-  function move(e){e.preventDefault();if(!drawing)return;var p=getPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();}
-  function end(e){e.preventDefault();drawing=false;updateSignoff('sigData',canvas.toDataURL());}
-  canvas.addEventListener('mousedown',start);canvas.addEventListener('mousemove',move);canvas.addEventListener('mouseup',end);
-  canvas.addEventListener('touchstart',start,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',end,{passive:false});
-  clearBtn.addEventListener('click',function(){ctx.clearRect(0,0,canvas.width,canvas.height);updateSignoff('sigData',null);});
-}
+function initSignaturePad(canvas,clearBtn,job){canvas.width=canvas.offsetWidth||320;canvas.height=180;var ctx=canvas.getContext('2d');ctx.strokeStyle='#1a3a5c';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';var drawing=false;function getPos(e){var r=canvas.getBoundingClientRect();var sx=canvas.width/r.width,sy=canvas.height/r.height;var cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{x:(cx-r.left)*sx,y:(cy-r.top)*sy};}function start(e){e.preventDefault();drawing=true;var p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}function move(e){e.preventDefault();if(!drawing)return;var p=getPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();}function end(e){e.preventDefault();drawing=false;updateSignoff('sigData',canvas.toDataURL());}canvas.addEventListener('mousedown',start);canvas.addEventListener('mousemove',move);canvas.addEventListener('mouseup',end);canvas.addEventListener('touchstart',start,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',end,{passive:false});clearBtn.addEventListener('click',function(){ctx.clearRect(0,0,canvas.width,canvas.height);updateSignoff('sigData',null);});}
 
-function openKeypad(idx,field){
-  var labels={fmWidth:'Width (inches)',fmHeight:'Height (inches)'};
-  document.getElementById('keypadLabel').textContent=labels[field]||field;
-  var job=getJob();var val=job.data[idx]?String(job.data[idx][field]||''):'';
-  document.getElementById('keypadDisplay').textContent=val||'—';
-  document.getElementById('keypadTray').classList.add('open');
-}
+// Keypad
+function openKeypad(idx,field){var labels={fmWidth:'Width (inches)',fmHeight:'Height (inches)'};document.getElementById('keypadLabel').textContent=labels[field]||field;var job=getJob();var val=job.data[idx]?String(job.data[idx][field]||''):'';document.getElementById('keypadDisplay').textContent=val||'—';document.getElementById('keypadTray').classList.add('open');}
 function closeKeypad(){activeField=null;document.getElementById('keypadTray').classList.remove('open');}
-function kpress(val){
-  if(!activeField)return;
-  var job=getJob();var cur=String(job.data[activeField.index][activeField.field]||'');
-  if(val==='DEL')cur=cur.slice(0,-1);else if(val==='CLR')cur='';
-  else{if(val.includes('/')&&cur.length>0&&!cur.endsWith(' '))cur+=' ';cur+=val;}
-  updateItem(activeField.index,activeField.field,cur);
-  updateItem(activeField.index,'varianceConfirmed',false);
-  document.getElementById('keypadDisplay').textContent=cur||'—';
-  renderMain();
-}
-function playBriefing(text){
-  if(!window.speechSynthesis)return;
-  if(isPlaying){window.speechSynthesis.cancel();isPlaying=false;renderMain();return;}
-  window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.onend=function(){isPlaying=false;renderMain();};isPlaying=true;window.speechSynthesis.speak(u);renderMain();
-}
+function kpress(val){if(!activeField)return;var job=getJob();var cur=String(job.data[activeField.index][activeField.field]||'');if(val==='DEL')cur=cur.slice(0,-1);else if(val==='CLR')cur='';else{if(val.includes('/')&&cur.length>0&&!cur.endsWith(' '))cur+=' ';cur+=val;}updateItem(activeField.index,activeField.field,cur);updateItem(activeField.index,'varianceConfirmed',false);document.getElementById('keypadDisplay').textContent=cur||'—';renderMain();}
 
-// ── GEMINI PROMPT ─────────────────────────────────────────────────────────────
-var GEMINI_PROMPT = "You are analyzing a Visionaire Windows signed contract PDF.\n\nRULES:\n1. Detect contractType: 'windows', 'doors', or 'both' based on what product sections exist.\n2. COMBINATION UNIT RULE: An entry door with sidelites and/or storm door is ONE item (qty:1). Use the COMBINATION UNIT SIZE listed (e.g. '60 1/16 x 81 11/16') as contractSize, not the nominal slab size. The individual sub-items (ENTRY DOOR, SIDELITE, STORM DOOR) are components inside that one card.\n3. For each door item, build a components array. Each component: { name, qty, colorExterior, colorInterior, singleColor (true if only one color like storm door), hasGlass, glass, size (if component has its own size) }.\n4. Storm doors: singleColor=true, use 'color' not colorExterior/colorInterior.\n5. For window items: extract colorExterior, colorInterior, colorGrids (if grids present), grids type, glass type, style.\n6. repairNotes: flag any ROT, HEADER WORK, CUSTOM CONSTRUCTION, OSJ, OSBM.\n7. summary: one sentence project overview.\n8. Swing format: RHI, LHI, RHO, or LHO.\n9. If contract says 'Sizing to be Verified by Remeasure Tech', add *** to contractSize.\n\nReturn ONLY valid JSON with no markdown fences:\n{\"contractType\":\"doors\",\"summary\":\"...\",\"repairNotes\":\"...\",\"items\":[{\"itemType\":\"Door\",\"location\":\"Front Entry\",\"contractSize\":\"60 1/16 x 81 11/16\",\"qty\":\"1\",\"doorType\":\"Single w/ Sidelights\",\"swing\":\"RHI\",\"jambDepth\":\"4-9/16\\\"\",\"colorExterior\":\"\",\"colorInterior\":\"\",\"extras\":\"FrameSaver frame, 2\\\" brickmold, storm door included\",\"components\":[{\"name\":\"Frame\",\"qty\":1,\"colorExterior\":\"Textured Snow Mist White\",\"colorInterior\":\"Snow Mist White\",\"singleColor\":false,\"hasGlass\":false},{\"name\":\"Entry Door Slab\",\"qty\":1,\"colorExterior\":\"Mountain Berry Red\",\"colorInterior\":\"Snow Mist White\",\"singleColor\":false,\"hasGlass\":false},{\"name\":\"Sidelites\",\"qty\":2,\"colorExterior\":\"Mountain Berry Red\",\"colorInterior\":\"Snow Mist White\",\"singleColor\":false,\"hasGlass\":true,\"glass\":\"DLA-UV Gluechip Privacy\"},{\"name\":\"Storm Door\",\"qty\":1,\"color\":\"Mountain Berry Red\",\"singleColor\":true,\"hasGlass\":true,\"glass\":\"Clear\",\"size\":\"36 x 80\"}]}],\"checklist\":{\"winColor\":\"\",\"glassType\":\"\",\"doorSwing\":\"\",\"doorJamb\":\"\"}}";
+function playBriefing(text){if(!window.speechSynthesis)return;if(isPlaying){window.speechSynthesis.cancel();isPlaying=false;renderMain();return;}window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.onend=function(){isPlaying=false;renderMain();};isPlaying=true;window.speechSynthesis.speak(u);renderMain();}
 
-async function processPDFBase64(base64,apiKey,job,contractLink,fileName){
-  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+apiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:GEMINI_PROMPT},{inlineData:{mimeType:'application/pdf',data:base64}}]}]})});
-  var result=await res.json();
-  var text=result.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim();
-  try{
-    var parsed=JSON.parse(text);
-    updateJob(function(j){
-      j.contractType=parsed.contractType||'both';
-      j.data=parsed.items.map(function(i){return Object.assign({},{fmWidth:'',fmHeight:'',verified:false,osj:false,osbm:false,varianceConfirmed:false,colorExterior:'',colorInterior:'',colorGrids:'',components:[]},i);});
-      j.summary=parsed.summary;j.repairNotes=parsed.repairNotes;j.checklist=parsed.checklist;
-      j.syncTime=new Date().toLocaleString();j.contractLink=contractLink;j.contractFile=fileName||'';
-    });
-    appLoading=false;expandedIdx=0;setTab('measure');
-  }catch(e){appLoading=false;renderMain();alert('AI parsing failed. Response:\n'+text.substring(0,400));}
-}
-
-// Drive helpers (unchanged)
-var CUSTOMERS_FOLDER_ID='0B69WGNfZx9kuYmFJRFhfcGxWY0k';
-function parseCustomerName(raw){var clean=raw.replace(/\((?:SOLD|CANC[^)]*)\)/gi,'').replace(/\(\s*ph\s*\d+[^)]*\)/gi,'').replace(/'/g,'').replace(/[&\/]/g,' ').replace(/\d{3,}/g,' ').trim();var last='',first='';if(clean.indexOf(',')>-1){var parts=clean.split(',').map(function(s){return s.trim();});last=parts[0].replace(/\bph\s*\d+\b/gi,'').trim();var fp=(parts[1]||'').replace(/\bph\s*\d+\b/gi,'').trim();first=fp.split(/\s+/)[0]||'';}else{var words=clean.replace(/\bph\s*\d+\b/gi,'').trim().split(/\s+/).filter(function(w){return w.length>0;});if(words.length>=2){first=words[0];last=words[words.length-1];}else if(words.length===1){last=words[0];}}return{last:last.trim(),first:first.trim()};}
-function parsePhaseTag(raw){var m=raw.match(/\bph\s*(\d+)\b/i);return m?'Ph'+m[1]:null;}
-function canonicalFolderName(raw){var n=parseCustomerName(raw);return(n.last&&n.first)?n.last+', '+n.first:n.last||raw;}
-function scoreFolder(fn,tl,tf,phase){var s=0;fn=fn.toLowerCase();tl=tl.toLowerCase();tf=(tf||'').toLowerCase();if(tl&&fn.indexOf(tl)>-1)s+=10;if(tf&&fn.indexOf(tf)>-1)s+=8;if(phase&&new RegExp('\\bph\\s*'+phase.replace('Ph','')+'\\b','i').test(fn))s+=5;if(/^ph\s*\d+/i.test(fn.trim()))s-=20;if(/\(sold\)/i.test(fn))s-=1;return s;}
-async function driveList(token,query){var url='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)+'&orderBy=modifiedTime desc&pageSize=20&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name,modifiedTime,mimeType)';var res=await fetch(url,{headers:{Authorization:'Bearer '+token}});var data=await res.json();if(data.error)throw new Error('Drive API: '+data.error.message);return data.files||[];}
-async function findContractPDF(token,customerName){var n=parseCustomerName(customerName),phase=parsePhaseTag(customerName),last=n.last,first=n.first;if(!last)return null;var fq="mimeType='application/vnd.google-apps.folder' and '"+CUSTOMERS_FOLDER_ID+"' in parents and name contains '"+last.replace(/'/g,"\\'")+"'";var folders=await driveList(token,fq);var bestFolder=null;if(folders.length>0){folders.sort(function(a,b){return scoreFolder(b.name,last,first,phase)-scoreFolder(a.name,last,first,phase);});if(scoreFolder(folders[0].name,last,first,phase)>0)bestFolder=folders[0];}var targetFolder=bestFolder;if(phase){var pn=phase.replace('Ph','').replace('ph','');var sq="mimeType='application/vnd.google-apps.folder' and '"+CUSTOMERS_FOLDER_ID+"' in parents and name contains '"+last.replace(/'/g,"\\'")+"'";var sf=await driveList(token,sq);var pf=sf.find(function(f){return new RegExp('\\bph\\s*'+pn+'\\b','i').test(f.name)&&f.name.toLowerCase().indexOf(last.toLowerCase())>-1;});if(pf){targetFolder=pf;}else if(bestFolder){var cq="mimeType='application/vnd.google-apps.folder' and '"+bestFolder.id+"' in parents";var cf=await driveList(token,cq);var cp=cf.find(function(f){return new RegExp('\\bph\\s*'+pn+'\\b','i').test(f.name);});if(cp)targetFolder=cp;}}if(targetFolder){var pdfQ="mimeType='application/pdf' and '"+targetFolder.id+"' in parents";var pdfs=await driveList(token,pdfQ);if(pdfs.length>0){function ps(name){var s=0;if(/^signed/i.test(name))s+=12;else if(/signed/i.test(name))s+=8;if(/agreement/i.test(name))s+=6;if(/\bfm\b|\ fm\.pdf$|_fm\./i.test(name))s-=20;if(/^\(cancel/i.test(name.trim()))s-=25;if(/^\(check/i.test(name.trim()))s-=10;return s;}pdfs.sort(function(a,b){return ps(b.name)-ps(a.name);});var vp=pdfs.filter(function(f){return!/^\(cancel/i.test(f.name.trim())&&!/\bfm\b|\ fm\.pdf$|_fm\./i.test(f.name);});var pick=vp.length>0?vp[0]:pdfs[0];return{id:pick.id,name:pick.name};}}if(last&&first){var fbQ="mimeType='application/pdf' and name contains '"+last.replace(/'/g,"\\'")+"' and name contains '"+first.replace(/'/g,"\\'")+"'";var fb=await driveList(token,fbQ);if(fb.length>0){var sig=fb.find(function(f){return/signed.*agreement/i.test(f.name);});var best=sig||fb[0];if(phase){var pm=fb.find(function(f){return new RegExp('\\bph\\s*'+phase.replace('Ph','')+'\\b','i').test(f.name);});if(pm)best=pm;}return{id:best.id,name:best.name};}}return null;}
-async function autoLoadContract(job){appLoading=true;renderMain();try{var p=safeGet('vhub_v2',{});var token=p.accessToken;if(!token){appLoading=false;renderMain();return alert('Not connected. Go to Hub and sign in.');}var result=await findContractPDF(token,job.customer);if(!result){appLoading=false;renderMain();showNotFoundBanner(job);return;}var contractLink='https://drive.google.com/file/d/'+result.id+'/view';var fRes=await fetch('https://www.googleapis.com/drive/v3/files/'+result.id+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+token}});if(!fRes.ok)throw new Error('Download failed — status '+fRes.status);var blob=await fRes.blob();var reader=new FileReader();reader.onloadend=async function(){await processPDFBase64(reader.result.split(',')[1],p.geminiKey,job,contractLink,result.name);};reader.readAsDataURL(blob);}catch(e){appLoading=false;renderMain();showNotFoundBanner(job,e.message);}}
-function showNotFoundBanner(job,errMsg){var existing=document.getElementById('notFoundBanner');if(existing)existing.remove();var n=parseCustomerName(job.customer),phase=parsePhaseTag(job.customer);var searched=n.last+(n.first?', '+n.first:'')+(phase?' '+phase:'');var banner=document.createElement('div');banner.id='notFoundBanner';banner.style.cssText='background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px 14px;margin:0 10px 12px;font-size:0.72rem;font-weight:700;color:#dc2626;line-height:1.7';banner.innerHTML='<strong>Contract not found</strong> — searched for <em>'+searched+'</em>'+(errMsg?'<br><span style="color:#94a3b8;font-weight:600">'+errMsg+'</span>':'')+'<br><span style="color:#64748b;font-weight:600">Use Browse Drive or start a blank manual sheet.</span>';var main=document.querySelector('.main');if(main)main.insertBefore(banner,main.firstChild);}
-function openDrivePicker(job){var p=safeGet('vhub_v2',{});var token=p.accessToken;if(!token){alert('Not connected.');return;}if(!window.gapi){var s=document.createElement('script');s.src='https://apis.google.com/js/api.js';s.onload=function(){gapi.load('picker',function(){buildPicker(token,job);});};document.head.appendChild(s);}else if(!window.google||!window.google.picker)gapi.load('picker',function(){buildPicker(token,job);});else buildPicker(token,job);}
-function buildPicker(token,job){var p=safeGet('vhub_v2',{});var apiKey=p.googleApiKey||'';if(!apiKey){var url='https://drive.google.com/drive/folders/'+CUSTOMERS_FOLDER_ID;window.open(url,'_blank');var id=prompt('Paste the file ID from the Drive URL:');if(id&&id.trim())loadPDFById(id.trim(),canonicalFolderName(job.customer)+' Agreement.pdf',job);return;}var view=new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes('application/pdf').setIncludeFolders(false).setEnableTeamDrives(true);var picker=new google.picker.PickerBuilder().addView(view).setOAuthToken(token).setDeveloperKey(apiKey).setTitle('Select the signed contract PDF').setCallback(function(data){if(data.action===google.picker.Action.PICKED){var doc=data.docs[0];loadPDFById(doc.id,doc.name,job);}}).build();picker.setVisible(true);}
-async function loadPDFById(fileId,fileName,job){appLoading=true;renderMain();try{var p=safeGet('vhub_v2',{});var token=p.accessToken;var contractLink='https://drive.google.com/file/d/'+fileId+'/view';var fRes=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+token}});if(!fRes.ok)throw new Error('Download failed — status '+fRes.status);var blob=await fRes.blob();var reader=new FileReader();reader.onloadend=async function(){await processPDFBase64(reader.result.split(',')[1],p.geminiKey,job,contractLink,fileName);};reader.readAsDataURL(blob);}catch(e){appLoading=false;renderMain();alert('Could not load PDF: '+e.message);}}
-function startManualSheet(job){updateJob(function(j){j.data=[];j.summary='Manual entry.';j.repairNotes='';j.checklist={};j.syncTime=new Date().toLocaleString();j.contractLink=null;j.contractFile=null;j.isManual=true;j.contractType='both';});expandedIdx=0;setTab('measure');renderMain();}
-function wipeAndRescan(job){if(!confirm('Wipe this customer data and rescan?'))return;updateJob(function(j){j.data=[];j.summary='';j.repairNotes='';j.syncTime=null;j.contractLink=null;j.checklist={};j.contractType=null;});autoLoadContract(getJob());setTab('measure');expandedIdx=0;}
-
-async function uploadToDrive(){
-  var job=getJob();var p=safeGet('vhub_v2',{});var token=p.accessToken;if(!token)return alert('Session expired.');
-  var folderId='1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz';
-  var report='FINAL MEASURE: '+job.customer+'\nCaptured: '+new Date().toLocaleString()+'\n=====================================\n\n';
-  report+='ALARM NOTES: '+((job.signoff&&job.signoff.alarmNotes)||'None')+'\nINSTALL NOTES: '+((job.signoff&&job.signoff.finalNotes)||'None')+'\n\n';
-  (job.data||[]).forEach(function(u,i){
-    report+='UNIT '+(i+1)+' ['+u.itemType+']: '+u.location+'\nFM Size: '+u.fmWidth+' x '+u.fmHeight+'\nContract Size: '+(u.contractSize||'N/A')+'\n';
-    if(u.itemType==='Window'){report+='Color — Ext: '+(u.colorExterior||'—')+' / Int: '+(u.colorInterior||'—');if(u.colorGrids)report+=' / Grids: '+u.colorGrids;report+='\n';}
-    if(u.components&&u.components.length>0){u.components.forEach(function(c){report+='  '+c.name+(c.qty>1?' x'+c.qty:'')+': ';if(c.singleColor)report+=c.color||'—';else report+='Ext: '+(c.colorExterior||'—')+' / Int: '+(c.colorInterior||'—');if(c.glass)report+=' | Glass: '+c.glass;report+='\n';});}
-    report+='---\n';
-  });
-  var metadata={name:'FM_'+(job.customer||'unknown').replace(/\s+/g,'_')+'.txt',mimeType:'text/plain',parents:[folderId]};
-  var form=new FormData();form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));form.append('file',new Blob([report],{type:'text/plain'}));
-  try{var res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+token},body:form});if(res.ok)alert('✅ Uploaded!');else alert('Upload failed.');}catch(e){alert('Upload error: '+e.message);}
-}
+// Upload & Export
+async function uploadToDrive(){var job=getJob();var p=safeGet('vhub_v2',{});var token=p.accessToken;if(!token)return alert('Session expired.');var folderId='1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz';var report='FINAL MEASURE: '+job.customer+'\nCaptured: '+new Date().toLocaleString()+'\nContract Source: '+(job.contractSource||'unknown')+'\n=====================================\n\n';report+='ALARM NOTES: '+((job.signoff&&job.signoff.alarmNotes)||'None')+'\nINSTALL NOTES: '+((job.signoff&&job.signoff.finalNotes)||'None')+'\n\n';(job.data||[]).forEach(function(u,i){report+='UNIT '+(i+1)+' ['+u.itemType+']: '+u.location+'\nFM Size: '+u.fmWidth+' x '+u.fmHeight+'\nContract Size: '+(u.contractSize||'N/A')+'\n';if(u.itemType==='Window'){report+='Color — Ext: '+(u.colorExterior||'—')+' / Int: '+(u.colorInterior||'—');if(u.colorGrids)report+=' / Grids: '+u.colorGrids;report+='\n';}if(u.components&&u.components.length>0){u.components.forEach(function(c){report+='  '+c.name+(c.qty>1?' x'+c.qty:'')+': ';if(c.singleColor)report+=c.color||'—';else report+='Ext: '+(c.colorExterior||'—')+' / Int: '+(c.colorInterior||'—');if(c.glass)report+=' | Glass: '+c.glass;report+='\n';});}report+='---\n';});var metadata={name:'FM_'+(job.customer||'unknown').replace(/\s+/g,'_')+'.txt',mimeType:'text/plain',parents:[folderId]};var form=new FormData();form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));form.append('file',new Blob([report],{type:'text/plain'}));try{var res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+token},body:form});if(res.ok)alert('✅ Uploaded!');else alert('Upload failed.');}catch(e){alert('Upload error: '+e.message);}}
 function doExport(){var job=getJob();var lines=['FIELD MEASURE — '+job.customer,''];(job.data||[]).forEach(function(u,i){lines.push((i+1)+'. '+u.location+' ['+u.itemType+'] — '+u.fmWidth+' x '+u.fmHeight);});var text=lines.join('\n');if(navigator.clipboard)navigator.clipboard.writeText(text).then(function(){alert('Copied!');});else alert(text);}
 
 document.addEventListener('DOMContentLoaded',function(){setTab('measure');});
