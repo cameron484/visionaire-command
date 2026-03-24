@@ -55,7 +55,6 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      // --- SIGNATURE PAD LOGIC ---
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
@@ -102,7 +101,6 @@
         setIsPlaying(true); window.speechSynthesis.speak(utterance);
       };
 
-      // --- FULL PDF SCAN & AUTO-FILL LOGIC RESTORED ---
       const processPDFBase64 = async (base64, apiKey, job, contractLink) => {
         const promptText = `Analyze project for Visionaire Windows. DATA MAP: 1. Group sidelites/transoms into slabs. 2. Extract: Hands, Jambs, Glass, Colors. 3. summary: recap. 4. repairNotes: flags. Return JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
@@ -119,7 +117,8 @@
         setLoading(true);
         const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
         const token = latestPrefs.accessToken;
-        const cleanName = job.customer.split(':').pop().trim().split(' ')[0];
+        // Clean name and search specifically for newest 2026 Phase
+        const cleanName = job.customer.replace(/^[:\s]+/, '').split(' ')[0];
         const q = `fullText contains '${cleanName}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
         const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
         const dData = await dRes.json();
@@ -154,18 +153,17 @@
             <div className="flex justify-between items-center mb-3">
               <button onClick={() => window.location.href = 'index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Hub</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{displayName}</h1>
-              <button onClick={() => alert('Export Ready')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <div className="w-8"></div>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c]':'text-white opacity-60'}`}>{tab}</button>
+                <button key={tab} onClick={() => { setActiveTab(tab); setActiveField(null); }} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${activeTab===tab?'bg-[#f59e0b] text-[#1a3a5c] shadow':'text-white opacity-60'}`}>{tab}</button>
               ))}
             </div>
           </header>
 
           <main className="p-3 flex-1">
-            {loading ? <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase text-xs">Syncing...</div> :
-            !activeJob.data?.length ? (
+            {!activeJob.data?.length ? (
               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white mt-10">
                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 px-10 rounded-xl font-black text-sm uppercase">Scan Contract</button>
               </div>
@@ -204,6 +202,12 @@
                               <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
                               <div className="bg-slate-50 border rounded-lg flex flex-col items-center justify-center font-black">{unit.qty}</div>
                             </div>
+                            {unit.itemType === 'Door' && (
+                              <div className="flex gap-2">
+                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
+                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
+                              </div>
+                            )}
                             <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] italic border">{formatSpecs(unit.extras)}</div>
                             <textarea className="input-box mobile-note" placeholder="Notes..." value={unit.notes} onInput={e=>updateItem(idx,'notes',e.target.value)} />
                           </div>
@@ -217,7 +221,7 @@
                   <div className="bg-white rounded-2xl p-6 shadow-sm border space-y-8">
                     <div className="bg-red-50 p-4 rounded-xl border border-red-100 space-y-3">
                        <label className="flex items-center justify-between"><span className="font-black text-xs text-red-900 uppercase">Alarm Checkoff</span><input type="checkbox" className="w-6 h-6 accent-red-600" checked={signoffData.alarmChecked} onChange={e=>updateSignoff('alarmChecked', e.target.checked)} /></label>
-                       <textarea className="input-box mobile-note border-red-200" placeholder="Alarm notes..." value={signoffData.alarmNotes} onInput={e=>updateSignoff('alarmNotes', e.target.value)} />
+                       <textarea className="input-box mobile-note border-red-200" placeholder="Alarm notes..." value={signoffData.alarmNotes} onInput={(e)=>updateSignoff('alarmNotes', e.target.value)} />
                     </div>
                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
                        <h3 className="text-[10px] font-black text-blue-800 uppercase">Contract Specs</h3>
@@ -228,7 +232,7 @@
                     </div>
                     <div className="sig-container industrial-shadow"><canvas ref={canvasRef} className="sig-canvas" /></div>
                     <input type="text" className="input-box text-center uppercase" placeholder="Print Name" value={signoffData.printName} onChange={e=>updateSignoff('printName', e.target.value)} />
-                    <button onClick={uploadToDrive} disabled={loading} className="w-full py-5 bg-[#064e3b] text-white rounded-xl font-black uppercase">LOCK & SUBMIT</button>
+                    <button onClick={uploadToDrive} disabled={loading} className="w-full py-5 bg-[#064e3b] text-white rounded-xl font-black uppercase shadow-lg transition-transform active:scale-95">LOCK & SUBMIT</button>
                   </div>
                 )}
               </div>
@@ -236,7 +240,7 @@
           </main>
 
           <div className={`keypad-container bg-slate-100 p-3 shadow-2xl border-t-2 ${activeField ? 'keypad-open' : ''}`}>
-             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Keypad</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done</button></div>
+             <div className="flex justify-between items-center px-4 mb-2"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Mode</span><button onClick={() => setActiveField(null)} className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase shadow-lg">Done</button></div>
              <div className="grid grid-cols-7 gap-1.5 mb-3">{['1/8','1/4','3/8','1/2','5/8','3/4','7/8'].map(f => <button key={f} onClick={() => handleKeyPress(f)} className="bg-[#1a3a5c] text-white py-3 rounded-lg font-black text-[9px] shadow">{f}</button>)}</div>
              <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6,7,8,9,'CLR',0,'DEL'].map(n => (<button key={n} onClick={() => handleKeyPress(n)} className="bg-white py-3 rounded-lg font-black text-lg border">{n}</button>))}</div>
           </div>
