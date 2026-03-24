@@ -122,20 +122,28 @@ function loadGIS(cb){
   document.head.appendChild(s);
 }
 
-function signIn(){
-  if(!clientId){alert('Enter Client ID first.'); return;}
-  loadGIS(function(){
-    var client=google.accounts.oauth2.initTokenClient({
-      client_id:clientId,
-      scope:GCAL_SCOPE,
-      callback:function(resp){
-        if(resp.error) return console.error(resp.error);
-        accessToken=resp.access_token;
-        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{'Authorization':'Bearer '+accessToken}})
-          .then(r=>r.json()).then(info=>{userEmail=info.email||'Connected User'; save(); syncCalendar();})
-          .catch(()=>{userEmail='Connected User'; save(); syncCalendar();});
+function signIn() {
+  if (!clientId) return alert('Enter Client ID first.');
+  
+  // 1. Initialize the client first (this can happen once)
+  loadGIS(function() {
+    var client = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: GCAL_SCOPE,
+      callback: function(resp) {
+        if (resp.error) return console.error(resp.error);
+        accessToken = resp.access_token;
+        // Proceed with data fetch...
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{'Authorization':'Bearer '+accessToken}})
+          .then(r=>r.json()).then(info=>{userEmail=info.email; save(); syncCalendar();});
       }
     });
+
+    // 2. IMMEDIATELY request the token. 
+    // This MUST stay inside the click handler's direct execution path.
+    client.requestAccessToken({ prompt: 'select_account' });
+  });
+}
     client.requestAccessToken({prompt:'select_account'});
   });
 }
