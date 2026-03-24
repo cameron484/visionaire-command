@@ -13,6 +13,7 @@
     .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
     .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
     .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.7rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
+    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
     .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
     .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
     .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
@@ -23,15 +24,19 @@
     .keypad-open { transform: translateY(0); }
     .checkbox-pill { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 10px; font-weight: 700; color: #475569; }
     .checkbox-pill input { width: 16px; height: 16px; accent-color: #1a3a5c; }
+    .mobile-note { line-height: 1.5; resize: none; overflow: hidden; min-height: 80px; }
+    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
     const WIN_T = ["DH", "SH", "SL", "PIC", "CAS", "AWN", "HOP", "B/B", "T", "Other"];
     const GRIDS = ["None", "Contour", "Flat", "SDL", "Other"];
-    const GLASS_O = ["None", "Tempered", "Obscure – Standard", "Obscure – Rain", "Other"];
+    const GLASS_O = ["None", "Tempered", "Obscure – Standard", "Obscure – Rain", "Obscure – Flemish", "Obscure – Satin", "Other"];
+    const DOOR_T = ["Single", "Double / French", "Sliding Patio", "Single w/ Sidelights", "Double w/ Sidelights", "Bifold", "Other"];
     const SWINGS = ["RHI", "LHI", "RHO", "LHO", "Active/Passive – Right", "Active/Passive – Left"];
     const JAMBS = ["4-9/16\"", "6-9/16\"", "4-5/8\"", "Custom"];
 
@@ -43,13 +48,17 @@
       const [activeTab, setActiveTab] = useState('measure'); 
       const [expandedIndex, setExpandedIndex] = useState(0);
       const [activeField, setActiveField] = useState(null); 
+      const [loading, setLoading] = useState(false);
       const [isPlaying, setIsPlaying] = useState(false);
       const canvasRef = useRef(null);
       const isDrawing = useRef(false);
 
-      const activeJob = jobs.find(j => j.id === activeJobId) || { data: [] };
+      const activeJob = jobs.find(j => String(j.id) === String(activeJobId)) || { data: [], header: {}, signoff: {}, checklist: {} };
+      const signoffData = activeJob.signoff || {};
+
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
+      // MOBILE TOUCH SIGNATURE PAD
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
@@ -63,12 +72,21 @@
           };
           const start = (e) => { if(e.type==='touchstart') e.preventDefault(); isDrawing.current = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
           const move = (e) => { if (!isDrawing.current) return; if(e.type==='touchmove') e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
-          const end = () => { isDrawing.current = false; setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, signoff: { ...j.signoff, sigData: canvas.toDataURL() } } : j)); };
+          const end = () => { if(isDrawing.current) { isDrawing.current = false; setJobs(prev => prev.map(j => String(j.id) === String(activeJobId) ? { ...j, signoff: { ...j.signoff, sigData: canvas.toDataURL() } } : j)); } };
           canvas.addEventListener('touchstart', start, {passive:false}); canvas.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+          return () => window.removeEventListener('touchend', end);
         }
       }, [activeTab]);
 
-      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
+      const formatSpecs = (input) => {
+        if (!input) return "No specs.";
+        if (typeof input === 'string') return input;
+        return Object.entries(input).map(([k, v]) => `${k}: ${v}`).join('\n');
+      };
+
+      const updateSignoff = (key, value) => setJobs(prev => prev.map(j => String(j.id) === String(activeJobId) ? { ...j, signoff: { ...j.signoff, [key]: value } } : j));
+      const updateItem = (index, key, value) => setJobs(prev => prev.map(j => String(j.id) === String(activeJobId) ? { ...j, data: j.data.map((it, idx) => idx === index ? { ...it, [key]: value } : it) } : j));
+
       const handleKeyPress = (val) => {
         if (!activeField) return;
         const { index, field } = activeField;
@@ -77,9 +95,46 @@
         updateItem(index, field, cur);
       };
 
+      const playBriefing = (text) => {
+        if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); 
+        if (isPlaying) { setIsPlaying(false); return; }
+        const utterance = new SpeechSynthesisUtterance(text); utterance.onend = () => setIsPlaying(false);
+        setIsPlaying(true); window.speechSynthesis.speak(utterance);
+      };
+
+      const uploadToDrive = async () => {
+        setLoading(true);
+        try {
+          const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+          const token = latestPrefs.accessToken;
+          const folderId = "1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz";
+          if (!token) return alert("Session expired.");
+          
+          let report = `FINAL MEASURE: ${activeJob.customer}\nCaptured: ${new Date().toLocaleString()}\n=====================================\n\n`;
+          report += `ALARM NOTES: ${signoffData.alarmNotes || 'None'}\nINSTALL NOTES: ${signoffData.finalNotes || 'None'}\n\n`;
+          activeJob.data.forEach((unit, idx) => {
+            report += `UNIT ${idx + 1} [${unit.itemType}]: ${unit.location}\nSize: ${unit.fmWidth} x ${unit.fmHeight}\nOriginal Specs: ${formatSpecs(unit.extras)}\n---\n`;
+          });
+
+          const metadata = { name: `FM_${activeJob.customer.replace(/\s+/g, '_')}.txt`, mimeType: 'text/plain', parents: [folderId] };
+          const form = new FormData();
+          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+          form.append('file', new Blob([report], { type: 'text/plain' }));
+
+          const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+          if (res.ok) alert("✅ Uploaded successfully!"); else alert("Upload failed.");
+        } catch (e) { alert("Error."); } finally { setLoading(false); }
+      };
+
+      const handleNoteInput = (e, key) => {
+        e.target.style.height = 'inherit';
+        e.target.style.height = `${e.target.scrollHeight}px`;
+        updateSignoff(key, e.target.value);
+      };
+
       return (
         <div className="max-w-2xl mx-auto min-h-screen bg-[#f1f5f9] flex flex-col pb-20">
-          <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-[1001]">
+          <header className="bg-[#1a3a5c] text-white p-4 border-b-4 border-[#f59e0b] sticky top-0 z-50">
             <div className="flex justify-between items-center mb-3">
               <button onClick={() => window.location.href = './index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Hub</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{activeJob.customer}</h1>
@@ -93,72 +148,100 @@
           </header>
 
           <main className="p-3 flex-1">
-            {activeTab === 'overview' && (
-              <div className="bg-white p-4 rounded-xl space-y-4">
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
-                  <h3 className="text-[10px] font-black uppercase text-amber-800">⚠️ Repair Notes</h3>
-                  <div className="text-[11px] font-bold text-slate-700 mt-1 italic">{activeJob.repairNotes || "No special repairs."}</div>
-                </div>
-                {activeJob.summary && <div className="text-xs font-bold text-slate-600 p-2 bg-slate-50 rounded">Brief: {activeJob.summary}</div>}
-              </div>
-            )}
-
-            {activeTab === 'measure' && (
+            {loading ? (
+               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Processing...</div>
+            ) : (
               <div className="space-y-4">
-                {activeJob.data.map((unit, idx) => (
-                  <div key={idx} className="unit-card industrial-shadow" style={{borderLeft: unit.itemType === 'Door' ? '10px solid #064e3b' : '10px solid #1a3a5c'}}>
-                     <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
-                        <div className="flex items-center gap-3">
-                           <div className="unit-num" style={{background: unit.itemType === 'Door' ? '#064e3b' : '#1a3a5c'}}>{idx + 1}</div>
-                           <div><div className="text-xs font-black uppercase">{unit.location}</div><div className="text-[10px] font-bold text-slate-400">{unit.contractSize}</div></div>
-                        </div>
-                        <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
-                     </div>
-                     {expandedIndex === idx && (
-                       <div className="p-4 border-t space-y-4 bg-white">
-                          <div className="grid grid-cols-3 gap-3">
-                             <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
-                             <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
-                             <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
-                          </div>
-                          <div className="space-y-3">
-                            <div className="flex gap-2">
-                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
-                                <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
-                            </div>
-                            {unit.itemType === 'Door' ? (
-                                <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}>{opt(SWINGS)}</select></div>
-                            ) : (
-                                <div><span className="field-label">Type</span><select className="input-box" value={unit.winType} onChange={e=>updateItem(idx,'winType',e.target.value)}>{opt(WIN_T)}</select></div>
-                            )}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx,'grids',e.target.value)}>{opt(GRIDS)}</select></div>
-                                <div><span className="field-label">Glass</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx,'glass',e.target.value)}>{opt(GLASS_O)}</select></div>
-                            </div>
-                          </div>
+                
+                {/* OVERVIEW TAB */}
+                {activeTab === 'overview' && (
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                    {activeJob.summary && (
+                       <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
+                           <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
+                           <div className="font-black text-xs uppercase text-slate-800 tracking-tight">Technical Briefing: <span className="block text-[10px] font-bold text-slate-500 normal-case mt-1">{activeJob.summary}</span></div>
                        </div>
-                     )}
+                    )}
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2">
+                       <h3 className="text-[10px] font-black uppercase text-amber-800 tracking-widest">⚠️ Critical Project Notes</h3>
+                       <div className="text-[11px] font-bold text-slate-700 leading-relaxed italic">{activeJob.repairNotes || "No special repairs noted."}</div>
+                    </div>
+                    {activeJob.contractLink && <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {activeTab === 'signoff' && (
-              <div className="sig-container industrial-shadow m-2">
-                 <canvas ref={canvasRef} className="sig-canvas"></canvas>
-                 <button onClick={() => { const ctx = canvasRef.current.getContext('2d'); ctx.clearRect(0,0,canvasRef.current.width,canvasRef.current.height); }} className="absolute top-2 right-2 bg-slate-100 p-2 rounded text-[8px] font-black uppercase">Clear</button>
+                {/* MEASURE TAB */}
+                {activeTab === 'measure' && (
+                  <div className="space-y-4 pb-10">
+                    {activeJob.data.map((unit, idx) => (
+                      <div key={idx} className="unit-card industrial-shadow" style={{borderLeft: unit.itemType === 'Door' ? '12px solid #064e3b' : '12px solid #1a3a5c'}}>
+                         <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
+                            <div className="flex items-center gap-3">
+                               <div className="unit-num" style={{background: unit.itemType === 'Door' ? '#064e3b' : '#1a3a5c'}}>{idx + 1}</div>
+                               <div><div className="text-xs font-black uppercase">{unit.location} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px]">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400 leading-tight mt-1">{unit.contractSize}</div></div>
+                            </div>
+                            <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
+                         </div>
+                         {expandedIndex === idx && (
+                           <div className="p-4 border-t space-y-4 bg-white">
+                              <div className="grid grid-cols-3 gap-3">
+                                 <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
+                                 <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
+                                 <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="flex gap-2">
+                                  <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
+                                  <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
+                                </div>
+                                {unit.itemType === 'Door' ? (
+                                  <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}>{opt(SWINGS)}</select></div>
+                                ) : (
+                                  <div><span className="field-label">Type</span><select className="input-box" value={unit.winType} onChange={e=>updateItem(idx,'winType',e.target.value)}>{opt(WIN_T)}</select></div>
+                                )}
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx,'grids',e.target.value)}>{opt(GRIDS)}</select></div>
+                                  <div><span className="field-label">Glass</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx,'glass',e.target.value)}>{opt(GLASS_O)}</select></div>
+                                </div>
+                              </div>
+                           </div>
+                         )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* SIGNOFF TAB */}
+                {activeTab === 'signoff' && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                      <span className="field-label mb-2">Alarm & Sensor Notes</span>
+                      <textarea className="input-box mobile-note" placeholder="Note any security sensors..." value={signoffData.alarmNotes || ''} onChange={(e) => handleNoteInput(e, 'alarmNotes')}></textarea>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                      <span className="field-label mb-2">Install Crew Notes</span>
+                      <textarea className="input-box mobile-note" placeholder="Special instructions for install team..." value={signoffData.finalNotes || ''} onChange={(e) => handleNoteInput(e, 'finalNotes')}></textarea>
+                    </div>
+                    <div className="sig-container industrial-shadow m-2">
+                       <canvas ref={canvasRef} className="sig-canvas"></canvas>
+                       <button onClick={() => { const ctx = canvasRef.current.getContext('2d'); ctx.clearRect(0,0,canvasRef.current.width,canvasRef.current.height); }} className="absolute top-2 right-2 bg-slate-100 p-2 rounded text-[8px] font-black uppercase">Clear</button>
+                    </div>
+                    <button onClick={uploadToDrive} className="w-full bg-[#1a3a5c] text-white py-4 rounded-xl font-black uppercase tracking-wider shadow-lg">Upload FM to Drive</button>
+                  </div>
+                )}
               </div>
             )}
           </main>
 
           <div className={`keypad-container bg-slate-900 p-2 pb-6 grid grid-cols-4 gap-1 ${activeField ? 'keypad-open' : ''}`} style={{pointerEvents: activeField ? 'auto' : 'none'}}>
             {['7','8','9','/','4','5','6','-','1','2','3','CLR','0','.','DEL','DONE'].map(k => (
-              <button key={k} onClick={() => k === 'DONE' ? setActiveField(null) : handleKeyPress(k)} className={`py-4 rounded font-black text-xl ${k==='DONE'?'bg-amber-500 col-span-1':k==='CLR'||k==='DEL'?'bg-slate-700 text-white':'bg-white text-slate-900'}`}>{k}</button>
+              <button key={k} onClick={() => k === 'DONE' ? setActiveField(null) : handleKeyPress(k)} className={`py-4 rounded font-black text-xl ${k==='DONE'?'bg-amber-500 col-span-1 text-slate-900':k==='CLR'||k==='DEL'?'bg-slate-700 text-white':'bg-white text-slate-900'}`}>{k}</button>
             ))}
           </div>
         </div>
       );
     }
+
     const container = document.getElementById('root');
     const root = ReactDOM.createRoot(container);
     root.render(<VisionaireApp />);
