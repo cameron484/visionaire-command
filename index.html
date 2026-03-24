@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire — Customer Hub</title>
+  <title>Visionaire — Hub</title>
   <script>
     window.onerror = function(msg, url, line) {
       alert("Hub Error: " + msg + "\nLine: " + line);
@@ -12,160 +12,137 @@
   </script>
   <style>
     :root {
-      --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
-      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
-      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
-      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
-      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
-      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
+      --navy:#1a3a5c; --navy-mid:#2d5a8e; --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s500:#64748b; --s800:#1e293b;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
-    .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
-    .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
-    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
     
-    /* OFFICIAL GOOGLE BUTTON STYLES */
-    .google-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      background: white;
-      color: #3c4043;
-      border: 1px solid #dadce0;
-      border-radius: 4px;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color .2s;
-      width: 100%;
-      box-shadow: 0 1px 2px rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
-    }
-    .google-btn:active { background: #f8f9fa; box-shadow: 0 1px 2px rgba(60,64,67,0.3); }
-    .google-icon { width: 18px; height: 18px; }
+    /* HEADER */
+    .hdr{background:var(--navy);padding:14px 16px;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200;color:white}
+    .hdr-top{display:flex;align-items:center;justify-content:space-between}
+    .hdr-title{font-size:1.2rem;font-weight:900;font-style:italic;text-transform:uppercase}
+    .acct-badge{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:6px;font-size:0.6rem;font-weight:700}
+    .acct-dot{width:8px;height:8px;border-radius:50%;background:#4ade80}
+    .acct-dot.off{background:#94a3b8}
 
-    /* Layout & Component Styles */
-    .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
-    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
-    .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
-    .main{padding:14px 12px 100px}
-    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
-    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
-    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px; color:white; font-weight:900; text-transform:uppercase;}
-    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
-    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
-    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
+    .main{padding:16px}
+    .sc{background:white;border-radius:12px;border:1px solid var(--s200);overflow:hidden;margin-bottom:16px}
+    .sc-head{background:var(--navy);padding:12px;color:white;font-weight:800;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.05em}
+    .sc-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+    
+    .lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;color:var(--s500)}
+    .inp{width:100%;border:1.5px solid var(--s200);border-radius:8px;padding:10px;font-size:0.85rem;outline:none}
+    
+    /* OFFICIAL GOOGLE BUTTON */
+    .g-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      background: white; color: #3c4043; border: 1px solid #dadce0;
+      border-radius: 4px; padding: 12px; font-size: 14px; font-weight: 500;
+      cursor: pointer; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      margin-top: 10px;
+    }
+    .g-btn:active { background: #f8f9fa; }
+    .g-logo { width: 18px; height: 18px; }
+
+    .btn-p{background:var(--navy);color:white;border:none;border-radius:8px;padding:14px;font-weight:800;text-transform:uppercase;font-size:0.75rem;cursor:pointer}
+    .vtab-bar{display:flex;background:var(--navy);border-top:1px solid rgba(255,255,255,0.1)}
+    .vtab{flex:1;padding:12px;text-align:center;font-size:0.6rem;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer}
+    .vtab.on{color:var(--amber);border-bottom:3px solid var(--amber)}
   </style>
 </head>
 <body>
 <div id="root"></div>
+
 <script>
 var STORAGE_KEY = 'vhub_v2';
 var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
 
-var prefs        = loadPrefs();
-var accessToken  = prefs.accessToken || null;
-var userEmail    = prefs.userEmail   || null;
-var clientId     = prefs.clientId || '';
-var geminiKey    = prefs.geminiKey || '';
-var view         = accessToken ? 'sched' : 'setup';
-var calEvents    = prefs.calEvents || [];
-var loading      = false;
+var prefs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+var clientId = prefs.clientId || '';
+var geminiKey = prefs.geminiKey || '';
+var accessToken = prefs.accessToken || null;
+var userEmail = prefs.userEmail || null;
+var view = accessToken ? 'sched' : 'setup';
 
-function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return{};}}
 function save(){
-  var p = {accessToken, userEmail, clientId, geminiKey, calEvents};
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({clientId, geminiKey, accessToken, userEmail}));
 }
 
-// OFFICIAL SIGN IN TRIGGER (Hardened for Mobile)
-function signIn() {
-  if (!clientId) return alert("Please enter Client ID in Setup.");
-  
-  var s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client';
-  s.onload = function() {
+function loadGIS(cb){
+  if(window.google) return cb();
+  var s=document.createElement('script');
+  s.src='https://accounts.google.com/gsi/client';
+  s.onload=cb;
+  document.head.appendChild(s);
+}
+
+function signIn(){
+  if(!clientId) return alert("Enter Client ID first.");
+  loadGIS(() => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: GCAL_SCOPE,
       callback: (resp) => {
-        if (resp.access_token) {
+        if(resp.access_token){
           accessToken = resp.access_token;
-          fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          })
-          .then(r => r.json())
-          .then(info => {
-            userEmail = info.email;
-            save();
-            location.reload(); // Refresh to schedule view
-          });
+          fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{Authorization:`Bearer ${accessToken}`}})
+            .then(r=>r.json()).then(info => {
+              userEmail = info.email;
+              save();
+              location.reload();
+            });
         }
-      },
+      }
     });
-    client.requestAccessToken({ prompt: 'select_account' });
-  };
-  document.head.appendChild(s);
+    client.requestAccessToken({prompt:'select_account'});
+  });
 }
 
 function render(){
-  var root = document.getElementById('root');
-  root.innerHTML = '';
-  
-  var app = document.createElement('div'); app.className = 'app';
-  
-  // Header
-  var hdr = document.createElement('header'); hdr.className = 'hdr';
-  hdr.innerHTML = `
-    <div class="hdr-top">
-      <span class="hdr-title">Visionaire Hub</span>
-      <div class="acct-badge">
-        <span class="acct-dot ${accessToken ? '' : 'off'}"></span>
-        <span class="acct-txt">${userEmail || 'Not Signed In'}</span>
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="app">
+      <header class="hdr">
+        <div class="hdr-top">
+          <span class="hdr-title">Visionaire Hub</span>
+          <div class="acct-badge">
+            <span class="acct-dot ${accessToken ? '' : 'off'}"></span>
+            <span>${userEmail || 'Signed Out'}</span>
+          </div>
+        </div>
+      </header>
+      
+      <div class="vtab-bar">
+        <div class="vtab ${view==='sched'?'on':''}" onclick="if('${accessToken}'){ location.reload() }">Schedule</div>
+        <div class="vtab ${view==='setup'?'on':''}" onclick="alert('Setup is below')">Setup</div>
       </div>
+
+      <main class="main">
+        <div class="sc">
+          <div class="sc-head">Configuration & Login</div>
+          <div class="sc-body">
+            <span class="lbl">Client ID</span>
+            <input class="inp" id="ci" value="${clientId}" placeholder="Paste ID here...">
+            
+            <span class="lbl">Gemini Key</span>
+            <input class="inp" id="gk" type="password" value="${geminiKey}" placeholder="Paste Key here...">
+            
+            <button class="btn-p" onclick="clientId=document.getElementById('ci').value; geminiKey=document.getElementById('gk').value; save(); alert('Saved!');">Save Settings</button>
+            
+            <div style="border-top:1px solid #eee; margin:10px 0;"></div>
+            
+            <button class="g-btn" onclick="signIn()">
+              <img class="g-logo" src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg">
+              <span>Sign in with Google</span>
+            </button>
+            
+            ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:20px; font-size:10px; color:red; background:none; border:none; text-decoration:underline;">Disconnect Account</button>` : ''}
+          </div>
+        </div>
+      </main>
     </div>
   `;
-  app.appendChild(hdr);
-
-  var main = document.createElement('main'); main.className = 'main';
-
-  if (view === 'setup') {
-    var sc = document.createElement('div'); sc.className = 'sc';
-    sc.innerHTML = `<div class="sc-head">System Setup</div>`;
-    var body = document.createElement('div'); body.className = 'sc-body';
-    
-    body.innerHTML = `<span class="lbl">Google Client ID</span>`;
-    var cInput = document.createElement('input'); cInput.className = 'inp'; cInput.value = clientId;
-    cInput.onchange = (e) => { clientId = e.target.value; save(); };
-    body.appendChild(cInput);
-
-    body.innerHTML += `<span class="lbl" style="margin-top:10px">Gemini API Key</span>`;
-    var gInput = document.createElement('input'); gInput.className = 'inp'; gInput.type = 'password'; gInput.value = geminiKey;
-    gInput.onchange = (e) => { geminiKey = e.target.value; save(); };
-    body.appendChild(gInput);
-
-    // THE OFFICIAL BUTTON
-    var gBtn = document.createElement('button');
-    gBtn.className = 'google-btn';
-    gBtn.style.marginTop = '20px';
-    gBtn.onclick = signIn;
-    gBtn.innerHTML = `
-      <img class="google-icon" src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="Google">
-      <span>Sign in with Google</span>
-    `;
-    body.appendChild(gBtn);
-    
-    sc.appendChild(body);
-    main.appendChild(sc);
-  } else {
-    main.innerHTML = `<div style="text-align:center; padding:20px">Schedule View Active. <br><br> <button onclick="localStorage.clear(); location.reload();" style="font-size:10px; opacity:0.5">Reset App</button></div>`;
-  }
-
-  app.appendChild(main);
-  root.appendChild(app);
 }
 
 window.onload = render;
