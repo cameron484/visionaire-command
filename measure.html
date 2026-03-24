@@ -118,19 +118,19 @@
         } catch(e) { setLoading(false); alert("AI parsing failed."); }
       };
 
-      const autoLoadContract = async (job) => {
+    const autoLoadContract = async (job) => {
         setLoading(true);
         try {
           const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
           const token = latestPrefs.accessToken;
-          // ⚡ HARDENED SEARCH: Specifically looks for 2026 in the name
-          const q = `fullText contains '${job.customer.split(' ')[0]}' and name contains '2026' and mimeType='application/pdf'`;
-          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
-          const dData = await dRes.json();
-          if (!dData.files?.[0]) { setLoading(false); return alert("2026 Contract not found."); }
-          const fileId = dData.files[0].id;
-          const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
-          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          // Clean the name of colons for the search
+          const cleanName = job.customer.replace(/^[:\s]+/, '').split(' ')[0];
+          const q = `fullText contains '${cleanName}' and name contains '2026' and mimeType='application/pdf' and trashed = false`;
+          
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { 
+            headers: { Authorization: `Bearer ${token}` } 
+          });
+          // ... rest of loading logic
           const blob = await fRes.blob();
           const reader = new FileReader(); reader.readAsDataURL(blob);
           reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], latestPrefs.geminiKey, job, contractLink); };
