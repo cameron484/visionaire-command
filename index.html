@@ -4,21 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Visionaire Hub — Field Command</title>
+  
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
   <script>
     window.onerror = function(msg, url, line) {
-      alert("Hub Error: " + msg + "\nLine: " + line);
+      alert("System Error: " + msg + "\nLine: " + line);
       return false;
     };
 
-    // Google Redirect Callback
+    // 2. GOOGLE IDENTITY CALLBACK (Identity Handshake)
     window.handleCredentialResponse = (response) => {
       const payload = JSON.parse(window.atob(response.credential.split('.')[1]));
       let p = JSON.parse(localStorage.getItem('vhub_v2')) || {};
       p.userEmail = payload.email;
       localStorage.setItem('vhub_v2', JSON.stringify(p));
-      alert("Welcome " + payload.email + ". Opening Sync...");
-      signIn(); 
+      alert("Verified: " + payload.email + ". Now authorizing Calendar/Drive...");
+      signIn(); // Transition to Token Flow for API access
     };
   </script>
   <style>
@@ -53,7 +55,7 @@
     .sync-bar{background:#f8fafc;border:1px solid var(--s200);border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-btn{background:var(--navy);color:white;border:none;border-radius:6px;padding:8px 12px;font-size:0.65rem;font-weight:800;text-transform:uppercase}
     
-    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .cc{background:white;border-radius:16px;border:1.5px solid var(--s200);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
     .cc-head{display:flex;align-items:center;padding:12px;cursor:pointer}
     .cc-bar{width:6px;height:30px;border-radius:3px;margin-right:12px}
     .cc-name{font-size:1rem;font-weight:900;color:var(--navy);text-transform:uppercase;flex:1}
@@ -75,14 +77,14 @@ var clientId = prefs.clientId || '';
 var geminiKey = prefs.geminiKey || '';
 var accessToken = prefs.accessToken || null;
 var userEmail = prefs.userEmail || null;
-var view = accessToken ? 'sched' : 'setup';
 var calEvents = prefs.calEvents || [];
+var view = accessToken ? 'sched' : 'setup';
 
 function save(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify({clientId, geminiKey, accessToken, userEmail, calEvents}));
 }
 
-// BULLETPROOF REDIRECT LOGIN
+// 3. TOKEN FLOW (For Drive & Calendar Sync)
 function signIn() {
   if (!clientId) return;
   const client = google.accounts.oauth2.initTokenClient({
@@ -91,13 +93,40 @@ function signIn() {
       if (resp.access_token) {
         accessToken = resp.access_token;
         save();
-        location.reload(); 
+        syncCalendar(); // Auto-sync after login
       }
     }
   });
   client.requestAccessToken({prompt: ''});
 }
 
+// 4. CALENDAR SYNC LOGIC (Restored)
+function syncCalendar() {
+  if (!accessToken) return;
+  const past = new Date(); past.setDate(past.getDate() - 7);
+  const future = new Date(); future.setDate(future.getDate() + 30);
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${past.toISOString()}&timeMax=${future.toISOString()}&singleEvents=true&orderBy=startTime&q=Measure`;
+  
+  fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
+    .then(r => r.json())
+    .then(data => {
+      calEvents = (data.items || []).map(ev => {
+        const start = ev.start.dateTime || ev.start.date || '';
+        return {
+          id: ev.id,
+          customer: ev.summary.replace(/final measure|measure/ig, '').trim(),
+          startTime: start.includes('T') ? new Date(start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Scheduled',
+          startDate: start.slice(0, 10),
+          notes: ev.description || ''
+        };
+      });
+      save();
+      window.view = 'sched';
+      render();
+    }).catch(() => alert("Calendar Sync Failed."));
+}
+
+// 5. OFFICIAL GOOGLE BUTTON RENDERER
 function renderGoogleBtn() {
   if (!clientId || accessToken) return;
   if (typeof google !== 'undefined' && google.accounts) {
@@ -113,49 +142,31 @@ function renderGoogleBtn() {
   }
 }
 
-// ⚡ NUMBER 4: HARDENED CONTRACT FINDER (Ph2, REVISED, Signed Priority)
+// 6. NUMBER 4 DRIVE LOGIC (Ph2 & Signed Priority)
 async function processSingleJob(ev, manualKeyword = null) {
-  let token = accessToken;
-  if (!token) return;
-
-  // Extract search target (Last Name logic from Screenshot 22)
+  if (!accessToken) return;
   let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
-  let nameParts = cleanName.split(/\s+/);
-  let searchTarget = manualKeyword || (nameParts.length > 1 ? nameParts[0] : cleanName);
+  let searchTarget = manualKeyword || cleanName.split(/\s+/)[0];
 
-  // Hardened Query: Looking for Last Name + 2026 + (Ph 2, Signed, REVISED, or Agreement)
   const q = `mimeType='application/pdf' and name contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement' or name contains 'REVISED' or name contains 'Ph 2')`;
   
   try {
-    const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=name desc, createdTime desc&pageSize=10&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+    const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=name desc&pageSize=10&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const dData = await dRes.json();
-    
-    // Priority Picker: If a Ph 2 file exists, pick it first. Otherwise, pick the most recent REVISED or Signed.
-    let bestFile = dData.files?.find(f => f.name.toLowerCase().includes('ph 2')) || 
-                   dData.files?.find(f => f.name.toLowerCase().includes('revised')) || 
-                   dData.files?.[0];
+    let bestFile = dData.files?.find(f => f.name.toLowerCase().includes('ph 2')) || dData.files?.[0];
+    if (!bestFile) return alert("No 2026 Contract found.");
 
-    if (!bestFile) return alert("No 2026 Contract found for " + searchTarget);
-
-    const fileId = bestFile.id;
-    const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
-
-    // Download file
-    const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+    const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${bestFile.id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const blob = await fRes.blob();
     const base64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
 
-    // Analyize with Gemini-2.5-Flash
     const promptText = `Analyze project for Visionaire Windows. Return ONLY JSON: {"summary":"...","repairNotes":"...","items":[]}`;
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
     const result = await res.json();
-    const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim());
 
-    // Save
     let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-    const jobData = { id: ev.id, customer: ev.customer, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:''})), summary: parsed.summary, repairNotes: parsed.repairNotes, contractLink: contractLink };
-    
+    const jobData = { id: ev.id, customer: ev.customer, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:''})), summary: parsed.summary, repairNotes: parsed.repairNotes, contractLink: `https://drive.google.com/file/d/${bestFile.id}/view` };
     const idx = jobs.findIndex(j => j.id === ev.id);
     if (idx > -1) jobs[idx] = jobData; else jobs.unshift(jobData);
     localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
@@ -210,35 +221,30 @@ function render(){
           <input class="inp" id="ci" value="${clientId}">
           <span class="lbl">Gemini Key</span>
           <input class="inp" id="gk" type="password" value="${geminiKey}">
-          <button class="btn-p" onclick="window.clientId=document.getElementById('ci').value; window.geminiKey=document.getElementById('gk').value; save(); location.reload();">Save & Enable Login</button>
+          <button class="btn-p" onclick="window.clientId=document.getElementById('ci').value; window.geminiKey=document.getElementById('gk').value; save(); location.reload();">Save & Show Login</button>
           <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;"><div id="google-btn-slot"></div></div>
+          ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:30px; color:red; font-size:10px; border:none; background:none; text-decoration:underline; width:100%;">Full Reset</button>` : ''}
         </div>
       </div>
     `;
     renderGoogleBtn();
   } else {
-    main.innerHTML = `<div class="sync-bar"><div><div style="font-size:0.7rem; font-weight:800;">Google Hub</div></div><button class="sync-btn" onclick="signIn()">Sync Cal</button></div>`;
+    main.innerHTML = `<div class="sync-bar"><div><div style="font-size:0.7rem; font-weight:800;">Visionaire Schedule</div></div><button class="sync-btn" onclick="syncCalendar()">Sync Cal</button></div>`;
     
-    // Example Customer Card with Rescan Logic
-    let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-    if(jobs.length === 0) {
-      main.innerHTML += `<div class="empty-state">No jobs found. Use Manual FM or Sync.</div>`;
+    const displayList = window.view === 'sched' ? calEvents : []; // Show calendar events in schedule view
+    if(displayList.length === 0) {
+      main.innerHTML += `<div class="empty-state">No appointments found. Tap 'Sync Cal'.</div>`;
     } else {
-      jobs.forEach(job => {
+      displayList.forEach(ev => {
         const card = document.createElement('div'); card.className = 'cc';
-        const isReady = job.data?.length > 0;
         card.innerHTML = `
           <div class="cc-head" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
             <div class="cc-bar" style="background:var(--navy)"></div>
-            <div class="cc-name">${job.customer} ${isReady ? '<span class="ready-badge">READY</span>' : ''}</div>
+            <div class="cc-name">${ev.customer}</div>
+            <div class="cc-time">${ev.startTime}</div>
           </div>
           <div class="cc-det" style="display:none">
-            <div>${job.summary || 'No scan data yet.'}</div>
-            <div class="rescan-box">
-              <input class="inp" style="padding:5px; font-size:10px;" id="ref-${job.id}" placeholder="Specific keyword...">
-              <button class="sync-btn" style="font-size:8px;" onclick="processSingleJob({id:'${job.id}', customer:'${job.customer}'}, document.getElementById('ref-${job.id}').value)">Scan Ph2 / REVISED</button>
-            </div>
-            <button class="btn-p" style="width:100%; margin-top:10px; padding:10px;" onclick="localStorage.setItem('activeJobId', JSON.stringify('${job.id}')); window.location.href='./measure.html';">Open FM Sheet</button>
+            <button class="btn-p" style="width:100%;" onclick="processSingleJob({id:'${ev.id}', customer:'${ev.customer}'})">Scan 2026 Contract</button>
           </div>
         `;
         main.appendChild(card);
