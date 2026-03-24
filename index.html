@@ -20,7 +20,7 @@
       --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain;touch-action:manipulation}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
@@ -39,13 +39,8 @@
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
     .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
-    .g-btn {
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      background: white; color: #3c4043; border: 1px solid #dadce0;
-      border-radius: 12px; padding: 13px 16px; font-size: 0.85rem; font-weight: 700;
-      cursor: pointer; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .g-logo { width: 18px; height: 18px; }
+    .g-btn-official { display: flex; align-items: center; justify-content: center; gap: 12px; background: white; color: #3c4043; border: 1px solid #dadce0; border-radius: 4px; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%; box-shadow: 0 1px 2px rgba(60,64,67,0.3); transition: background-color .2s; }
+    .g-btn-official:active { background: #f8f9fa; }
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
     .sync-sub{font-size:0.55rem;color:var(--s500);margin-top:1px;font-weight:700}
@@ -77,9 +72,10 @@
     .note-line { display: block; padding-bottom: 6px; border-bottom: 1px dashed var(--s200); margin-bottom: 6px; }
     .note-label { font-weight: 800; color: var(--navy); text-transform: uppercase; font-size: 0.65rem; display: block; margin-bottom: 1px; }
     .tel-link { color: #2563eb; text-decoration: underline; font-weight: 700; }
+    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
     .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200);}
+    .preload-bar { background: #1a3a5c; color: white; padding: 10px; text-align: center; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
     .ready-badge { background: #dcfce7; color: #166534; font-size: 0.55rem; padding: 2px 6px; border-radius: 4px; font-weight: 900; margin-left: 8px; border: 1px solid #86efac; }
-    .preload-bar { background: #1a3a5c; color: white; padding: 10px; text-align: center; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; }
   </style>
 </head>
 <body>
@@ -118,36 +114,33 @@ function todayStr(){
 }
 
 function signIn() {
-  clientId = document.getElementById('ci') ? document.getElementById('ci').value : clientId;
-  geminiKey = document.getElementById('gk') ? document.getElementById('gk').value : geminiKey;
+  clientId = document.getElementById('ci-input') ? document.getElementById('ci-input').value : clientId;
+  geminiKey = document.getElementById('gk-input') ? document.getElementById('gk-input').value : geminiKey;
   save();
-
-  if (!clientId) return alert("Please enter Client ID in Setup.");
+  if (!clientId) return alert("Enter Client ID in Setup first.");
 
   const startLogin = () => {
     try {
       const client = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: GCAL_SCOPE,
+        client_id: clientId, scope: GCAL_SCOPE,
         callback: (resp) => {
           if (resp.access_token) {
             accessToken = resp.access_token;
             fetch('https://www.googleapis.com/oauth2/v2/userinfo', {headers:{Authorization:`Bearer ${accessToken}`}})
               .then(r => r.json()).then(info => {
-                userEmail = info.email;
-                save();
-                syncCalendar();
+                userEmail = info.email; save(); syncCalendar();
               });
           }
         }
       });
       client.requestAccessToken({ prompt: 'select_account' });
-    } catch (e) { alert("Google library error. Try refreshing."); }
+    } catch (e) { alert("Google connection error. Refresh page."); }
   };
 
   if (typeof google === 'undefined') {
     const s = document.createElement('script');
     s.src = 'https://accounts.google.com/gsi/client';
+    s.crossOrigin = "anonymous";
     s.onload = startLogin;
     document.head.appendChild(s);
   } else { startLogin(); }
@@ -158,15 +151,13 @@ function syncCalendar(){
   loading=true; render();
   var past = new Date(); past.setDate(past.getDate()-7);
   var future = new Date(); future.setDate(future.getDate()+30);
-  var term = encodeURIComponent(searchTerm || 'Measure');
-  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q='+term;
+  var url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q='+encodeURIComponent(searchTerm);
   fetch(url,{headers:{'Authorization':'Bearer '+accessToken}})
     .then(r=>r.json()).then(data=>{
       calEvents=(data.items||[]).map(parseEv);
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       save(); loading=false; view='sched'; render();
-    })
-    .catch(e => { loading=false; render(); alert("Sync Error"); });
+    }).catch(e => { loading=false; render(); alert("Sync Error"); });
 }
 
 async function preloadToday() {
@@ -174,10 +165,10 @@ async function preloadToday() {
   const dayEvs = calEvents.filter(e => e.startDate === selDate);
   const existingJobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
   const targets = dayEvs.filter(ev => !existingJobs.find(j => j.id === ev.id && j.data?.length > 0));
-  if (targets.length === 0) return alert("Already loaded!");
+  if (targets.length === 0) return alert("Everything pre-loaded!");
   preloading = true;
   for (let i = 0; i < targets.length; i++) {
-    preloadProgress = `Prep: (${i+1}/${targets.length}) Scanning ${targets[i].customer}...`;
+    preloadProgress = `Prep: (${i+1}/${targets.length}) ${targets[i].customer}...`;
     render();
     try { await processSingleJob(targets[i]); } catch (err) {}
   }
@@ -197,8 +188,8 @@ async function processSingleJob(ev) {
   if (!fileId) return;
   const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
   const blob = await fRes.blob();
-  const base64 = await new Promise(r => { const reader = new FileReader(); reader.onloadend = () => r(reader.result.split(',')[1]); reader.readAsDataURL(blob); });
-  const promptText = `Analyze project for Visionaire. Return JSON: {"summary":"...","repairNotes":"...","items":[],"checklist":{}}`;
+  const base64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
+  const promptText = `Analyze project details for Visionaire tech. Return ONLY JSON: {"summary":"...","repairNotes":"...","items":[],"checklist":{}}`;
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
   const result = await res.json();
   const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -216,10 +207,7 @@ function parseEv(ev){
   return { id: ev.id, customer: rawName || 'Unnamed', address: ev.location || '', startDate: start.slice(0,10), startTime: start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled', notesHtml: ev.description || '', hasWin: /window/i.test(ev.summary + ev.description), hasDoor: /door/i.test(ev.summary + ev.description) };
 }
 
-function cleanNotes(html) {
-  if (!html) return "";
-  return html.replace(/<[^>]+>/g, ' ').trim();
-}
+function cleanNotes(html) { return html ? html.replace(/<[^>]+>/g, ' ').trim() : ""; }
 
 function render(){
   var root=document.getElementById('root'); root.innerHTML='';
@@ -243,22 +231,19 @@ function render(){
   var main=el('div',{C:'main'});
   if(view==='setup'){
     var scBody=el('div',{C:'sc-body'});
-    scBody.appendChild(el('span',{C:'lbl',t:'Client ID'}));
-    scBody.appendChild(el('input',{C:'inp',id:'ci',value:clientId}));
-    scBody.appendChild(el('span',{C:'lbl',t:'Gemini Key'}));
-    scBody.appendChild(el('input',{C:'inp',id:'gk',type:'password',value:geminiKey}));
-    
-    var gBtn = el('button', {C:'g-btn', click: signIn});
-    gBtn.innerHTML = `<img class="g-logo" src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg"><span>Sign in with Google</span>`;
+    scBody.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
+    scBody.appendChild(el('input',{C:'inp',id:'ci-input',value:clientId}));
+    scBody.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
+    scBody.appendChild(el('input',{C:'inp',id:'gk-input',type:'password',value:geminiKey}));
+    var gBtn = el('button', {C:'g-btn-official', click: signIn});
+    gBtn.innerHTML = `<img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" style="width:18px"><span>Sign in with Google</span>`;
     scBody.appendChild(gBtn);
-    
-    if(accessToken) scBody.appendChild(el('button',{C:'ca',t:'Reset Everything',style:'color:red;margin-top:10px',click:()=>{localStorage.clear(); location.reload();}}));
-    
-    var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'System Setup'})); sc.appendChild(scBody);
+    if(accessToken) scBody.appendChild(el('button',{C:'ca',t:'Log Out & Reset',style:'color:red;margin-top:20px;border:none;background:none;text-decoration:underline',click:()=>{localStorage.clear(); location.reload();}}));
+    var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'Hub Configuration'})); sc.appendChild(scBody);
     main.appendChild(sc);
   } else {
     var sb=el('div',{C:'sync-bar'});
-    var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:'Calendar Sync'})); si.appendChild(el('div',{C:'sync-sub', t:'Last: '+(lastSync||'--')}));
+    var si=el('div'); si.appendChild(el('div',{C:'sync-title',t:'Google Sync'})); si.appendChild(el('div',{C:'sync-sub', t:'Last Sync: '+(lastSync||'--')}));
     sb.appendChild(si);
     var grp = el('div', {style: 'display:flex; gap: 8px;'});
     grp.appendChild(el('button',{C:'sync-btn', style:'background:#059669', t:'Prep',click:preloadToday}));
