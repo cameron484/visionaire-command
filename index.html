@@ -186,14 +186,15 @@ async function processSingleJob(ev) {
   let token = latestPrefs.accessToken;
   let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
   let searchTarget = cleanName.split(/\s+/).reduce((a, b) => a.length > b.length ? a : b);
+  
+  // ⚡ HARDENED SEARCH: Specifically looks for 2026 in the name and sorts by Creation Date
   const q = `fullText contains '${searchTarget}' and name contains '2026' and mimeType='application/pdf'`;
-  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+  const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
   const dData = await dRes.json();
   const fileId = dData.files?.[0]?.id;
   if (!fileId) return;
 
   const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
-
   const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
   const blob = await fRes.blob();
   const base64 = await new Promise((resolve) => {
