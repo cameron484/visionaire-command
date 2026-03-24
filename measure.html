@@ -1,36 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire Field Command</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body { overscroll-behavior-y: contain; background: #eef2f6; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
-    .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
-    .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.7rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
-    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
-    .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
-    .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-    .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
-    .active-input { border: 3px solid #1a3a5c !important; background: #f0f9ff; }
-    .sig-container { background: #fff; border: 2px dashed #cbd5e1; border-radius: 1rem; touch-action: none; position: relative; }
-    .sig-canvas { width: 100%; height: 180px; border-radius: 1rem; }
-    .keypad-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .keypad-open { transform: translateY(0); }
-    .checkbox-pill { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 10px; font-weight: 700; color: #475569; }
-    .checkbox-pill input { width: 16px; height: 16px; accent-color: #1a3a5c; }
-    .mobile-note { line-height: 1.5; resize: none; overflow: hidden; min-height: 80px; }
-    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Visionaire Field Command</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { overscroll-behavior-y: contain; background: #eef2f6; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .industrial-shadow { box-shadow: 0 4px 20px rgba(26, 58, 92, 0.15); }
+    .field-label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.2rem; }
+    .input-box { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 0.5rem; padding: 0.7rem; font-size: 0.85rem; font-weight: 700; color: #1e293b; background: white; outline: none; }
+    .input-box:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,0.1); }
+    .unit-card { background: white; border-radius: 0.75rem; border: 1px solid #d1d5db; margin-bottom: 0.75rem; overflow: hidden; }
+    .unit-header { background: #f8fafc; padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .unit-num { width: 32px; height: 32px; background: #1a3a5c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
+    .active-input { border: 3px solid #1a3a5c !important; background: #f0f9ff; }
+    .sig-container { background: #fff; border: 2px dashed #cbd5e1; border-radius: 1rem; touch-action: none; position: relative; }
+    .sig-canvas { width: 100%; height: 180px; border-radius: 1rem; }
+    .keypad-container { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .keypad-open { transform: translateY(0); }
+    .checkbox-pill { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 10px; font-weight: 700; color: #475569; }
+    .checkbox-pill input { width: 16px; height: 16px; accent-color: #1a3a5c; }
+    .mobile-note { line-height: 1.5; resize: none; overflow: hidden; min-height: 80px; }
+    .contract-spec-box { white-space: pre-line; line-height: 1.6; }
+  </style>
 </head>
 <body>
-  <div id="root"></div>
-   <script type="text/babel">
+  <div id="root"></div>
+  <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
     const WIN_T = ["DH", "SH", "SL", "PIC", "CAS", "AWN", "HOP", "B/B", "T", "Other"];
@@ -40,7 +40,7 @@
     const SWINGS = ["RHI", "LHI", "RHO", "LHO", "Active/Passive – Right", "Active/Passive – Left"];
     const JAMBS = ["4-9/16\"", "6-9/16\"", "4-5/8\"", "Custom"];
 
-    // --- CRITICAL FIX: Missing Helper Function ---
+    // --- Helper Function (Defined early for Babel) ---
     const opt = (arr, val) => arr.map(o => <option key={o} value={o}>{o}</option>);
 
     function VisionaireApp() {
@@ -61,13 +61,12 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
-      // --- IMPROVED SIGNATURE PAD LOGIC ---
+      // --- SIGNATURE PAD LOGIC ---
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; 
           const ctx = canvas.getContext('2d');
           
-          // Setup canvas dimensions
           const resize = () => {
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width;
@@ -173,13 +172,16 @@
           const reader = new FileReader(); reader.readAsDataURL(blob);
           reader.onloadend = async () => { 
              const base64 = reader.result.split(',')[1];
-             const promptText = `Analyze as Visionaire specialist... [Prompt truncated for brevity]`;
+             const promptText = `Analyze as a Visionaire Windows specialist. 1. Combine sidelites/transoms into one 'Door'. 2. 'summary': 1-sentence recap. 3. 'repairNotes': Extract ROT, HEADER, or CUSTOM CONSTRUCTION. Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
+             // Using gemini-2.5-flash as requested
              const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${latestPrefs.geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
              const result = await res.json();
              const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
-             const parsed = JSON.parse(text);
-             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, repairNotes: parsed.repairNotes, checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink } : j));
-             setLoading(false);
+             try {
+               const parsed = JSON.parse(text);
+               setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, repairNotes: parsed.repairNotes, checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink } : j));
+               setLoading(false);
+             } catch(e) { setLoading(false); alert("AI parsing failed."); }
           };
         } catch (e) { setLoading(false); alert("Error scanning."); }
       };
@@ -220,6 +222,7 @@
                        <h3 className="text-[10px] font-black uppercase text-amber-800 tracking-widest">⚠️ Critical Project Notes</h3>
                        <div className="text-[11px] font-bold text-slate-700 leading-relaxed italic">{activeJob.repairNotes || "No special repairs noted."}</div>
                     </div>
+                    {activeJob.contractLink && <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>}
                   </div>
                 )}
 
@@ -239,49 +242,4 @@
                               <div className="grid grid-cols-3 gap-3">
                                  <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
                                  <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
-                                 <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
-                              </div>
-                              {unit.itemType === 'Door' ? (
-                                <div className="space-y-3">
-                                  <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}>{opt(SWINGS, unit.swing)}</select></div>
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  <div><span className="field-label">Window Type</span><select className="input-box" value={unit.winType} onChange={e=>updateItem(idx,'winType',e.target.value)}>{opt(WIN_T, unit.winType)}</select></div>
-                                </div>
-                              )}
-                           </div>
-                         )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {activeTab === 'signoff' && (
-                  <div className="space-y-6">
-                    <div className="sig-container industrial-shadow">
-                      <canvas ref={canvasRef} className="sig-canvas"></canvas>
-                      <button onClick={() => { const ctx = canvasRef.current.getContext('2d'); ctx.clearRect(0,0,canvasRef.current.width,canvasRef.current.height); updateSignoff('sigData', null); }} className="absolute top-2 right-2 bg-slate-100 p-2 rounded text-[8px] font-black uppercase">Clear</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
-          
-          {/* CUSTOM KEYPAD - FIXED VISIBILITY */}
-          <div className={`keypad-container bg-slate-900 p-2 pb-6 grid grid-cols-4 gap-1 ${activeField ? 'keypad-open' : ''}`} style={{pointerEvents: activeField ? 'auto' : 'none'}}>
-            {['7','8','9','/','4','5','6','-','1','2','3','CLR','0','.','DEL','DONE'].map(k => (
-              <button key={k} onClick={() => k === 'DONE' ? setActiveField(null) : handleKeyPress(k)} className={`py-4 rounded font-black text-xl ${k==='DONE'?'bg-amber-500 text-slate-900 col-span-1':k==='CLR'||k==='DEL'?'bg-slate-700 text-white':'bg-white text-slate-900'}`}>{k}</button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-            const container = document.getElementById('root');
-    const root = ReactDOM.createRoot(container);
-    root.render(<VisionaireApp />);
-  </script> 
-</body>
-</html>
+                                 <div onClick={() => setActiveField({index: idx, field: 'qty
