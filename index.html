@@ -307,4 +307,13 @@ function rSched(main){
   if(loading){main.appendChild(el('div',{C:'lrow',t:'Updating Schedule...'})); return;}
   rDateStrip(main);
   var dayEvs = calEvents.filter(e=>e.startDate===selDate);
-  if(dayEvs.lengt
+    if(dayEvs.length === 0) {
+     main.appendChild(el('div', {C: 'empty-state', t: 'No measurements today.'}));
+  } else { dayEvs.forEach(ev=>main.appendChild(rCard(ev))); }
+}
+
+function el(tag,props){ var e=document.createElement(tag); for(var k in props){ if(k==='C')e.className=props[k]; else if(k==='t')e.textContent=props[k]; else if(k==='click')e.addEventListener('click',props[k]); else if(k==='style')e.style.cssText=props[k]; else e[k]=props[k]; } return e; }
+document.addEventListener('DOMContentLoaded',render);
+</script>
+</body>
+</html>
