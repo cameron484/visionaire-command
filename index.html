@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire Hub — Field Command</title>
+  <title>Visionaire Hub</title>
   
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   
@@ -13,25 +13,21 @@
       return false;
     };
 
-    // 2. GOOGLE IDENTITY CALLBACK (Identity Handshake)
+    // This handles the IDENTITY (Who you are)
     window.handleCredentialResponse = (response) => {
       const payload = JSON.parse(window.atob(response.credential.split('.')[1]));
       let p = JSON.parse(localStorage.getItem('vhub_v2')) || {};
       p.userEmail = payload.email;
       localStorage.setItem('vhub_v2', JSON.stringify(p));
-      alert("Verified: " + payload.email + ". Now authorizing Calendar/Drive...");
-      signIn(); // Transition to Token Flow for API access
+      alert("Verified: " + payload.email + "\nNow tapping 'Sync' to finish connection.");
+      render(); 
     };
   </script>
   <style>
-    :root {
-      --navy:#1a3a5c; --navy-mid:#2d5a8e; --amber:#f59e0b;
-      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s500:#64748b;
-    }
+    :root { --navy:#1a3a5c; --amber:#f59e0b; --s100:#f1f5f9; --s200:#e2e8f0; --s500:#64748b; }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--s100);overscroll-behavior-y:contain;touch-action:manipulation}
     .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
-    
     .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200;color:white}
     .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
     .hdr-title{font-size:1.2rem;font-weight:900;font-style:italic;text-transform:uppercase}
@@ -39,30 +35,17 @@
     .acct-dot{width:8px;height:8px;border-radius:50%;background:#4ade80}
     .acct-dot.off{background:#94a3b8}
     .acct-txt{font-size:0.6rem;font-weight:700}
-
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
     .vtab{flex:1;padding:12px 4px;font-size:0.65rem;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
-
     .main{padding:16px}
     .sc{background:white;border-radius:14px;border:1.5px solid var(--s200);overflow:hidden;margin-bottom:16px}
     .sc-head{background:var(--navy);padding:12px;color:white;font-weight:900;text-transform:uppercase;font-size:0.7rem}
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:12px}
-    .lbl{font-size:0.6rem;font-weight:800;text-transform:uppercase;color:var(--s500)}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:8px;padding:10px;font-size:0.85rem;outline:none}
     .btn-p{background:var(--navy);color:white;border:none;border-radius:8px;padding:14px;font-weight:800;text-transform:uppercase;font-size:0.75rem;cursor:pointer}
-    
     .sync-bar{background:#f8fafc;border:1px solid var(--s200);border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-btn{background:var(--navy);color:white;border:none;border-radius:6px;padding:8px 12px;font-size:0.65rem;font-weight:800;text-transform:uppercase}
-    
-    .cc{background:white;border-radius:16px;border:1.5px solid var(--s200);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    .cc-head{display:flex;align-items:center;padding:12px;cursor:pointer}
-    .cc-bar{width:6px;height:30px;border-radius:3px;margin-right:12px}
-    .cc-name{font-size:1rem;font-weight:900;color:var(--navy);text-transform:uppercase;flex:1}
-    .cc-time{font-size:0.6rem;font-weight:800;background:var(--navy);color:white;padding:3px 7px;border-radius:4px}
-    .cc-det{padding:12px;background:var(--s50);border-top:1px solid var(--s200);font-size:0.75rem}
-    .rescan-box{margin-top:10px; padding-top:10px; border-top:1px dashed #ccc; display:flex; gap:5px;}
-    .ready-badge { background: #dcfce7; color: #166534; font-size: 0.55rem; padding: 2px 6px; border-radius: 4px; font-weight: 900; margin-left: 8px; border: 1px solid #86efac; }
   </style>
 </head>
 <body>
@@ -78,132 +61,65 @@ var geminiKey = prefs.geminiKey || '';
 var accessToken = prefs.accessToken || null;
 var userEmail = prefs.userEmail || null;
 var calEvents = prefs.calEvents || [];
-var view = accessToken ? 'sched' : 'setup';
+window.view = accessToken ? 'sched' : 'setup';
 
 function save(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify({clientId, geminiKey, accessToken, userEmail, calEvents}));
 }
 
-// 3. TOKEN FLOW (For Drive & Calendar Sync)
+// TOKEN FLOW (Handles the popup properly)
 function signIn() {
-  if (!clientId) return;
+  if (!clientId) return alert("Enter Client ID first.");
   const client = google.accounts.oauth2.initTokenClient({
-    client_id: clientId, scope: GCAL_SCOPE,
+    client_id: clientId,
+    scope: GCAL_SCOPE,
     callback: (resp) => {
       if (resp.access_token) {
         accessToken = resp.access_token;
         save();
-        syncCalendar(); // Auto-sync after login
+        syncCalendar();
       }
     }
   });
-  client.requestAccessToken({prompt: ''});
+  client.requestAccessToken({prompt: 'select_account'});
 }
 
-// 4. CALENDAR SYNC LOGIC (Restored)
 function syncCalendar() {
   if (!accessToken) return;
-  const past = new Date(); past.setDate(past.getDate() - 7);
-  const future = new Date(); future.setDate(future.getDate() + 30);
-  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${past.toISOString()}&timeMax=${future.toISOString()}&singleEvents=true&orderBy=startTime&q=Measure`;
-  
+  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&q=Measure`;
   fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
     .then(r => r.json())
     .then(data => {
-      calEvents = (data.items || []).map(ev => {
-        const start = ev.start.dateTime || ev.start.date || '';
-        return {
-          id: ev.id,
-          customer: ev.summary.replace(/final measure|measure/ig, '').trim(),
-          startTime: start.includes('T') ? new Date(start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Scheduled',
-          startDate: start.slice(0, 10),
-          notes: ev.description || ''
-        };
-      });
-      save();
-      window.view = 'sched';
-      render();
-    }).catch(() => alert("Calendar Sync Failed."));
+      calEvents = (data.items || []).map(ev => ({
+        id: ev.id, customer: ev.summary.replace(/measure/ig, '').trim(),
+        startTime: (ev.start.dateTime || '').slice(11, 16) || 'Scheduled', startDate: (ev.start.dateTime || ev.start.date || '').slice(0, 10)
+      }));
+      save(); window.view = 'sched'; render();
+    }).catch(() => alert("Sync Failed"));
 }
 
-// 5. OFFICIAL GOOGLE BUTTON RENDERER
 function renderGoogleBtn() {
   if (!clientId || accessToken) return;
   if (typeof google !== 'undefined' && google.accounts) {
     google.accounts.id.initialize({
       client_id: clientId,
       callback: window.handleCredentialResponse,
-      ux_mode: "redirect",
-      login_uri: window.location.href
+      ux_mode: "popup" // BACK TO POPUP
     });
     google.accounts.id.renderButton(document.getElementById("google-btn-slot"), { theme: "outline", size: "large", width: "100%" });
-  } else {
-    setTimeout(renderGoogleBtn, 500);
-  }
-}
-
-// 6. NUMBER 4 DRIVE LOGIC (Ph2 & Signed Priority)
-async function processSingleJob(ev, manualKeyword = null) {
-  if (!accessToken) return;
-  let cleanName = ev.customer.replace(/[^a-zA-Z\s]/g, ' ').trim();
-  let searchTarget = manualKeyword || cleanName.split(/\s+/)[0];
-
-  const q = `mimeType='application/pdf' and name contains '${searchTarget}' and name contains '2026' and (name contains 'Signed' or name contains 'Agreement' or name contains 'REVISED' or name contains 'Ph 2')`;
-  
-  try {
-    const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=name desc&pageSize=10&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const dData = await dRes.json();
-    let bestFile = dData.files?.find(f => f.name.toLowerCase().includes('ph 2')) || dData.files?.[0];
-    if (!bestFile) return alert("No 2026 Contract found.");
-
-    const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${bestFile.id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const blob = await fRes.blob();
-    const base64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result.split(',')[1]); rd.readAsDataURL(blob); });
-
-    const promptText = `Analyze project for Visionaire Windows. Return ONLY JSON: {"summary":"...","repairNotes":"...","items":[]}`;
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
-    const result = await res.json();
-    const parsed = JSON.parse(result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim());
-
-    let jobs = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-    const jobData = { id: ev.id, customer: ev.customer, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:''})), summary: parsed.summary, repairNotes: parsed.repairNotes, contractLink: `https://drive.google.com/file/d/${bestFile.id}/view` };
-    const idx = jobs.findIndex(j => j.id === ev.id);
-    if (idx > -1) jobs[idx] = jobData; else jobs.unshift(jobData);
-    localStorage.setItem('visionaireJobs', JSON.stringify(jobs));
-    alert("Scanned: " + bestFile.name);
-    render();
-  } catch (err) { alert("Scan failed."); }
-}
-
-function handleManualFM() {
-  var n = prompt("Customer Name:");
-  if(n){
-    var j = JSON.parse(localStorage.getItem('visionaireJobs')) || [];
-    var id = Date.now();
-    j.unshift({id:id, customer:n, data:[]});
-    localStorage.setItem('visionaireJobs', JSON.stringify(j));
-    localStorage.setItem('activeJobId', JSON.stringify(id));
-    window.location.href='./measure.html';
-  }
+  } else { setTimeout(renderGoogleBtn, 500); }
 }
 
 function render(){
-  const root = document.getElementById('root');
-  root.innerHTML = '';
+  const root = document.getElementById('root'); root.innerHTML = '';
   const wrap = document.createElement('div'); wrap.className = 'app';
-  
   wrap.innerHTML = `
     <header class="hdr">
-      <div class="hdr-top">
-        <span class="hdr-title">Visionaire Hub</span>
-        <div class="acct-badge">
-          <div class="acct-dot ${accessToken ? '' : 'off'}"></div>
-          <span class="acct-txt">${userEmail || 'Signed Out'}</span>
-        </div>
+      <div class="hdr-top"><span class="hdr-title">Visionaire Hub</span>
+        <div class="acct-badge"><div class="acct-dot ${accessToken ? '' : 'off'}"></div><span class="acct-txt">${userEmail || 'Signed Out'}</span></div>
       </div>
       <div class="vtabs">
         <button class="vtab ${window.view==='sched'?'on':''}" onclick="window.view='sched'; render();">Schedule</button>
-        <button class="vtab" onclick="handleManualFM()">Manual FM</button>
         <button class="vtab ${window.view==='setup'?'on':''}" onclick="window.view='setup'; render();">Setup</button>
       </div>
     </header>
@@ -215,45 +131,29 @@ function render(){
   if (window.view === 'setup') {
     main.innerHTML = `
       <div class="sc">
-        <div class="sc-head">Configuration</div>
+        <div class="sc-head">Settings</div>
         <div class="sc-body">
-          <span class="lbl">Client ID</span>
-          <input class="inp" id="ci" value="${clientId}">
-          <span class="lbl">Gemini Key</span>
-          <input class="inp" id="gk" type="password" value="${geminiKey}">
-          <button class="btn-p" onclick="window.clientId=document.getElementById('ci').value; window.geminiKey=document.getElementById('gk').value; save(); location.reload();">Save & Show Login</button>
+          <input class="inp" id="ci" value="${clientId}" placeholder="Client ID">
+          <input class="inp" id="gk" type="password" value="${geminiKey}" placeholder="Gemini Key">
+          <button class="btn-p" onclick="window.clientId=document.getElementById('ci').value; window.geminiKey=document.getElementById('gk').value; save(); location.reload();">Save & Load Button</button>
           <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;"><div id="google-btn-slot"></div></div>
-          ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:30px; color:red; font-size:10px; border:none; background:none; text-decoration:underline; width:100%;">Full Reset</button>` : ''}
+          ${accessToken ? `<button onclick="localStorage.clear(); location.reload();" style="margin-top:20px; color:red; font-size:10px; border:none; background:none; text-decoration:underline; width:100%;">Full Reset</button>` : ''}
         </div>
       </div>
     `;
     renderGoogleBtn();
   } else {
-    main.innerHTML = `<div class="sync-bar"><div><div style="font-size:0.7rem; font-weight:800;">Visionaire Schedule</div></div><button class="sync-btn" onclick="syncCalendar()">Sync Cal</button></div>`;
-    
-    const displayList = window.view === 'sched' ? calEvents : []; // Show calendar events in schedule view
-    if(displayList.length === 0) {
-      main.innerHTML += `<div class="empty-state">No appointments found. Tap 'Sync Cal'.</div>`;
-    } else {
-      displayList.forEach(ev => {
-        const card = document.createElement('div'); card.className = 'cc';
-        card.innerHTML = `
-          <div class="cc-head" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
-            <div class="cc-bar" style="background:var(--navy)"></div>
-            <div class="cc-name">${ev.customer}</div>
-            <div class="cc-time">${ev.startTime}</div>
-          </div>
-          <div class="cc-det" style="display:none">
-            <button class="btn-p" style="width:100%;" onclick="processSingleJob({id:'${ev.id}', customer:'${ev.customer}'})">Scan 2026 Contract</button>
-          </div>
-        `;
-        main.appendChild(card);
-      });
-    }
+    main.innerHTML = `<div class="sync-bar"><div style="font-size:0.7rem; font-weight:800;">Visionaire Schedule</div><button class="sync-btn" onclick="syncCalendar()">Sync Cal</button></div>`;
+    calEvents.forEach(ev => {
+      const card = document.createElement('div'); card.className = 'sc';
+      card.innerHTML = `<div style="padding:15px; display:flex; justify-content:space-between; align-items:center;">
+        <div><div style="font-weight:900; color:#1a3a5c;">${ev.customer}</div><div style="font-size:10px; color:#64748b;">${ev.startDate}</div></div>
+        <div style="font-weight:800; font-size:11px;">${ev.startTime}</div>
+      </div>`;
+      main.appendChild(card);
+    });
   }
 }
-
-window.view = view;
 window.onload = render;
 </script>
 </body>
