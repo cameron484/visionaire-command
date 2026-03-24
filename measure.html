@@ -103,7 +103,18 @@
     .kbtn.red{background:#dc2626;color:white}
     .kbtn.wide{grid-column:span 2}
     .keypad-done{width:100%;margin-top:8px;padding:12px;background:var(--amber);color:var(--navy);border:none;border-radius:10px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer}
-  </style>
+  /* NEW STYLES: Centered Layout & Verification Colors */
+    .unit-info { flex:1; padding:0 10px; display: flex; flex-direction: column; align-items: center; }
+    .unit-loc { text-align: center; }
+    .size-compare { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; width: 100%; }
+    
+    .contract-size-badge { font-size: 0.6rem; font-weight: 800; color: var(--s600); background: var(--s100); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--s200); display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
+    .tech-size-badge { font-size: 0.65rem; font-weight: 900; color: var(--navy); background: #e0f2fe; padding: 4px 8px; border-radius: 6px; border: 1px solid #bae6fd; display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
+    
+    /* Color Coding when Verified */
+    .variance-quote { color: #dc2626 !important; background: #fef2f2 !important; border-color: #fca5a5 !important; text-decoration: line-through; }
+    .variance-tech { color: #16a34a !important; background: #dcfce7 !important; border-color: #86efac !important; }
+    .input-box.variance-tech-input { color: #16a34a; border-color: #16a34a; background: #f0fdf4; }</style>
 </head>
 <body>
 <div class="app">
@@ -246,31 +257,60 @@ function renderMeasure(main,job){
 }
 
 function renderUnitCard(unit,idx,job){
-  var isDoor=unit.itemType==='Door',isOpen=expandedIdx===idx;
-  var card=el('div',{C:'unit-card '+(isDoor?'door':'win')});
-  var hdr=el('div',{C:'unit-header'});
-  var num=el('div',{C:'unit-num '+(isDoor?'door':''),t:String(idx+1)});
-  var info=el('div',{C:'unit-info'});
-  var loc=el('div',{C:'unit-loc'});loc.textContent=unit.location||'Unit '+(idx+1);
-  loc.appendChild(el('span',{C:'unit-type-badge '+(isDoor?'door':''),t:unit.itemType||'Window'}));
-  info.appendChild(loc);
-  if(unit.contractSize)info.appendChild(el('div',{C:'unit-size',t:unit.contractSize}));
-  hdr.appendChild(num);hdr.appendChild(info);hdr.appendChild(el('div',{style:'color:#cbd5e1;font-size:0.7rem',t:isOpen?'▲':'▼'}));
-  hdr.addEventListener('click',function(){expandedIdx=(expandedIdx===idx)?null:idx;activeField=null;closeKeypad();renderMain();});
-  card.appendChild(hdr);
-  if(!isOpen)return card;
+  var isDoor=unit.itemType==='Door',isOpen=expandedIdx===idx;
+  var card=el('div',{C:'unit-card '+(isDoor?'door':'win')});
+  var hdr=el('div',{C:'unit-header'});
+  var num=el('div',{C:'unit-num '+(isDoor?'door':''),t:String(idx+1)});
+  
+  var info=el('div',{C:'unit-info'});
+  var loc=el('div',{C:'unit-loc'});loc.textContent=unit.location||'Unit '+(idx+1);
+  loc.appendChild(el('span',{C:'unit-type-badge '+(isDoor?'door':''),t:unit.itemType||'Window'}));
+  info.appendChild(loc);
 
-  var body=el('div',{C:'unit-body'});
-  var dg=el('div',{C:'dim-grid'});
-  ['fmWidth','fmHeight'].forEach(function(field){
-    var labels={fmWidth:'Width',fmHeight:'Height'};
-    var wrap=el('div');wrap.appendChild(el('span',{C:'field-label',t:labels[field]}));
-    var isAct=activeField&&activeField.index===idx&&activeField.field===field;
-    var disp=el('div',{C:'input-box dim-display'+(isAct?' active-input':'')});
-    disp.textContent=unit[field]?String(unit[field]):(field==='fmWidth'?'W"':'H"');
-    disp.addEventListener('click',function(e){e.stopPropagation();activeField={index:idx,field:field};openKeypad(idx,field);renderMain();});
-    wrap.appendChild(disp);dg.appendChild(wrap);
-  });
+  // --- NEW: Centered Size Comparison ---
+  var sizeWrap = el('div', {C: 'size-compare'});
+  var sizeLabel = isDoor ? 'Unit Size' : 'Opening Size';
+
+  // 1. Contract / Quote Size (turns red when verified)
+  if (unit.contractSize) {
+    var cSize = el('div', {C: 'contract-size-badge' + (unit.varianceConfirmed ? ' variance-quote' : '')});
+    cSize.innerHTML = '📄 ' + sizeLabel + ': ' + unit.contractSize;
+    sizeWrap.appendChild(cSize);
+  }
+
+  // 2. Tech Measurement (turns green when verified)
+  var techW = unit.fmWidth || '?';
+  var techH = unit.fmHeight || '?';
+  if (unit.fmWidth || unit.fmHeight) {
+    var tSize = el('div', {C: 'tech-size-badge' + (unit.varianceConfirmed ? ' variance-tech' : '')});
+    tSize.innerHTML = '📏 FM: ' + techW + ' x ' + techH;
+    sizeWrap.appendChild(tSize);
+  }
+  info.appendChild(sizeWrap);
+  // -------------------------------------
+
+  hdr.appendChild(num);hdr.appendChild(info);hdr.appendChild(el('div',{style:'color:#cbd5e1;font-size:0.7rem',t:isOpen?'▲':'▼'}));
+  hdr.addEventListener('click',function(){expandedIdx=(expandedIdx===idx)?null:idx;activeField=null;closeKeypad();renderMain();});
+  card.appendChild(hdr);
+  if(!isOpen)return card;
+
+  var body=el('div',{C:'unit-body'});
+  var dg=el('div',{C:'dim-grid'});
+  ['fmWidth','fmHeight'].forEach(function(field){
+    var labels={fmWidth:'Width',fmHeight:'Height'};
+    var wrap=el('div');wrap.appendChild(el('span',{C:'field-label',t:labels[field]}));
+    var isAct=activeField&&activeField.index===idx&&activeField.field===field;
+    
+    // --- NEW: Green text for the large active input boxes when verified ---
+    var vcClass = unit.varianceConfirmed ? ' variance-tech-input' : '';
+    var disp=el('div',{C:'input-box dim-display'+(isAct?' active-input':'') + vcClass});
+    
+    disp.textContent=unit[field]?String(unit[field]):(field==='fmWidth'?'W"':'H"');
+    disp.addEventListener('click',function(e){e.stopPropagation();activeField={index:idx,field:field};openKeypad(idx,field);renderMain();});
+    wrap.appendChild(disp);dg.appendChild(wrap);
+  });
+
+  // ... (The rest of the function involving variance check, qty, and fields stays exactly the same)
   var qw=el('div');qw.appendChild(el('span',{C:'field-label',t:'Qty'}));
   var qi=el('input',{C:'input-box',type:'number',min:'1'});qi.value=unit.qty||'1';
   qi.style.cssText='text-align:center;font-size:1.1rem;font-weight:900;';
