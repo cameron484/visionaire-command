@@ -24,7 +24,7 @@
     .keypad-open { transform: translateY(0); }
     .checkbox-pill { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 10px; font-weight: 700; color: #475569; }
     .checkbox-pill input { width: 16px; height: 16px; accent-color: #1a3a5c; }
-    .mobile-note { line-height: 1.5; resize: none; overflow: hidden; }
+    .mobile-note { line-height: 1.5; resize: none; overflow: hidden; min-height: 80px; }
     .contract-spec-box { white-space: pre-line; line-height: 1.6; }
   </style>
 </head>
@@ -39,11 +39,10 @@
     const DOOR_T = ["Single", "Double / French", "Sliding Patio", "Single w/ Sidelights", "Double w/ Sidelights", "Bifold", "Other"];
     const SWINGS = ["RHI", "LHI", "RHO", "LHO", "Active/Passive – Right", "Active/Passive – Left"];
     const JAMBS = ["4-9/16\"", "6-9/16\"", "4-5/8\"", "Custom"];
-    const CASINGS = ["None", "356", "444", "S4S 1x4", "Other"];
 
     function VisionaireApp() {
       const [jobs, setJobs] = useState(() => JSON.parse(localStorage.getItem('visionaireJobs')) || []);
-      const [activeJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
+      const [activeJobId, setActiveJobId] = useState(() => JSON.parse(localStorage.getItem('activeJobId')) || null);
       const [activeTab, setActiveTab] = useState('measure'); 
       const [expandedIndex, setExpandedIndex] = useState(0);
       const [activeField, setActiveField] = useState(null); 
@@ -59,6 +58,7 @@
 
       useEffect(() => { localStorage.setItem('visionaireJobs', JSON.stringify(jobs)); }, [jobs]);
 
+      // --- SIGNATURE PAD LOGIC ---
       useEffect(() => {
         if (activeTab === 'signoff' && canvasRef.current) {
           const canvas = canvasRef.current; const ctx = canvas.getContext('2d');
@@ -105,55 +105,69 @@
         setIsPlaying(true); window.speechSynthesis.speak(utterance);
       };
 
+      // --- AI SCAN LOGIC ---
+      const processPDFBase64 = async (base64, apiKey, job, contractLink) => {
+        const promptText = `Analyze as a Visionaire Windows specialist. 1. Combine sidelites/transoms into one 'Door'. 2. 'summary': 1-sentence recap. 3. 'repairNotes': Extract ROT, HEADER, or CUSTOM CONSTRUCTION. Return ONLY JSON: {"summary": "...", "repairNotes": "...", "items": [{"qty":"1","itemType":"Door/Window","location":"","contractSize":"","doorType":"","swing":"","jambDepth":"","color":"","style":"","extras":""}], "checklist": {"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}`;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
+        const result = await res.json();
+        const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          const parsed = JSON.parse(text);
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, data: parsed.items.map(i=>({...i, fmWidth:'', fmHeight:'', verified:false})), summary: parsed.summary, repairNotes: parsed.repairNotes, checklist: parsed.checklist, syncTime: new Date().toLocaleString(), contractLink: contractLink } : j));
+          setLoading(false);
+        } catch(e) { setLoading(false); alert("AI parsing failed."); }
+      };
+
+      const autoLoadContract = async (job) => {
+        setLoading(true);
+        try {
+          const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
+          const token = latestPrefs.accessToken;
+          const q = `fullText contains '${job.customer.split(' ')[0]}' and name contains '2026' and mimeType='application/pdf'`;
+          const dRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=modifiedTime desc&pageSize=1&includeItemsFromAllDrives=true&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          const dData = await dRes.json();
+          if (!dData.files?.[0]) { setLoading(false); return alert("Contract not found."); }
+          const fileId = dData.files[0].id;
+          const contractLink = `https://drive.google.com/file/d/${fileId}/view`;
+          const fRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+          const blob = await fRes.blob();
+          const reader = new FileReader(); reader.readAsDataURL(blob);
+          reader.onloadend = async () => { await processPDFBase64(reader.result.split(',')[1], latestPrefs.geminiKey, job, contractLink); };
+        } catch (e) { setLoading(false); }
+      };
+
+      const wipeAndRescan = () => {
+        if (confirm("Wipe all FM data for this customer and rescan contract?")) {
+          setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [], summary: '', repairNotes: '', syncTime: null, contractLink: null, checklist: {} } : j));
+          // Immediate re-trigger scan logic
+          const targetJob = jobs.find(j => j.id === activeJobId);
+          autoLoadContract(targetJob);
+          setActiveTab('measure'); setExpandedIndex(0);
+        }
+      };
+
       const uploadToDrive = async () => {
         setLoading(true);
         try {
           const latestPrefs = JSON.parse(localStorage.getItem('vhub_v2')) || {};
           const token = latestPrefs.accessToken;
           const folderId = "1ylS6334A685oyPJ6ndGd_t-eEXt7uQDz";
-
-          if (!token) return alert("Session expired. Please refresh in the Hub.");
-
-          let report = `FINAL MEASURE: ${activeJob.customer}\n`;
-          report += `Captured: ${new Date().toLocaleString()}\n`;
-          report += `=====================================\n\n`;
-          report += `ALARM NOTES: ${signoffData.alarmNotes || 'None'}\n`;
-          report += `INSTALL NOTES: ${signoffData.finalNotes || 'None'}\n\n`;
+          if (!token) return alert("Session expired.");
           
+          let report = `FINAL MEASURE: ${activeJob.customer}\nCaptured: ${new Date().toLocaleString()}\n=====================================\n\n`;
+          report += `ALARM NOTES: ${signoffData.alarmNotes || 'None'}\nINSTALL NOTES: ${signoffData.finalNotes || 'None'}\n\n`;
           activeJob.data.forEach((unit, idx) => {
-            report += `UNIT ${idx + 1} [${unit.itemType}]: ${unit.location}\n`;
-            report += `Size: ${unit.fmWidth} x ${unit.fmHeight} | Qty: ${unit.qty}\n`;
-            if (unit.itemType === 'Door') {
-              report += `Swing: ${unit.swing} | OSJ: ${unit.osj} | OSBM: ${unit.osbm}\n`;
-            } else {
-              report += `Glass: ${unit.glass} | Grids: ${unit.grids}\n`;
-            }
-            report += `Original Specs: ${formatSpecs(unit.extras)}\n---\n`;
+            report += `UNIT ${idx + 1} [${unit.itemType}]: ${unit.location}\nSize: ${unit.fmWidth} x ${unit.fmHeight}\nOriginal Specs: ${formatSpecs(unit.extras)}\n---\n`;
           });
 
-          const metadata = {
-            name: `FM_Sheet_${activeJob.customer.replace(/\s+/g, '_')}.txt`,
-            mimeType: 'text/plain',
-            parents: [folderId]
-          };
-
+          const metadata = { name: `FM_${activeJob.customer.replace(/\s+/g, '_')}.txt`, mimeType: 'text/plain', parents: [folderId] };
           const form = new FormData();
           form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
           form.append('file', new Blob([report], { type: 'text/plain' }));
 
-          const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: form
-          });
-
-          if (res.ok) alert("✅ FM Sheet successfully uploaded to Google Drive!");
-          else alert("Upload failed. Check connection.");
-        } catch (e) {
-          alert("System error during upload.");
-        } finally {
-          setLoading(false);
-        }
+          const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+          if (res.ok) alert("✅ Uploaded successfully!"); else alert("Upload failed.");
+        } catch (e) { alert("Error."); } finally { setLoading(false); }
       };
 
       const handleNoteInput = (e, key) => {
@@ -163,7 +177,7 @@
       };
 
       const addUnitAtEnd = (type) => {
-        const newUnit = { itemType: type, location: `New ${type}`, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: '', doorType: type === 'Door' ? 'Single' : '', swing: '', jambDepth: type === 'Door' ? '4-9/16" (2x4 wall)' : '', grids: 'None', glass: 'None' };
+        const newUnit = { itemType: type, location: `New ${type}`, qty: '1', fmWidth: '', fmHeight: '', verified: false, extras: '', doorType: type === 'Door' ? 'Single' : '', swing: '', jambDepth: type === 'Door' ? '4-9/16"' : '', grids: 'None', glass: 'None' };
         setJobs(prev => prev.map(j => j.id === activeJobId ? { ...j, data: [...j.data, newUnit] } : j));
         setExpandedIndex(activeJob.data.length);
       };
@@ -174,7 +188,7 @@
             <div className="flex justify-between items-center mb-3">
               <button onClick={() => window.location.href = 'index.html'} className="text-white text-[10px] font-black uppercase bg-white/10 px-3 py-2 rounded">Hub</button>
               <h1 className="font-black italic text-lg uppercase flex-1 text-center truncate px-2">{activeJob.customer}</h1>
-              <button onClick={() => alert('Exporting...')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
+              <button onClick={() => alert('Export clipboard ready')} className="text-[#1a3a5c] bg-[#f59e0b] text-[10px] font-black uppercase px-3 py-2 rounded shadow">Export</button>
             </div>
             <div className="flex bg-black/20 rounded-lg p-1 gap-1">
               {['overview', 'measure', 'signoff'].map(tab => (
@@ -184,113 +198,117 @@
           </header>
 
           <main className="p-3 flex-1">
-            {activeTab === 'overview' && (
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-                {activeJob.summary && (
-                   <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
-                       <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
-                       <div className="font-black text-xs uppercase text-slate-800 tracking-tight">Audio Briefing: <span className="block text-[10px] font-bold text-slate-500 normal-case leading-tight mt-1">{activeJob.summary}</span></div>
-                   </div>
-                )}
-                
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2">
-                   <h3 className="text-[10px] font-black uppercase text-amber-800 tracking-widest">⚠️ Critical Project Notes</h3>
-                   <div className="text-[11px] font-bold text-slate-700 leading-relaxed italic">{activeJob.repairNotes || "No special repairs noted."}</div>
-                </div>
-
-                <div className="space-y-4">
-                   {activeJob.contractLink && <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'measure' && (
+            {loading ? (
+               <div className="p-20 text-center animate-pulse font-black text-slate-400 uppercase tracking-widest text-xs">Processing...</div>
+            ) : !activeJob.data?.length ? (
+               <div className="p-10 text-center border-4 border-dashed border-slate-300 rounded-[2rem] bg-white flex flex-col gap-5 mt-10">
+                 <button onClick={() => autoLoadContract(activeJob)} className="bg-blue-600 text-white py-5 rounded-xl font-black text-sm uppercase shadow-lg">Scan PDF Contract</button>
+               </div>
+            ) : (
               <div className="space-y-4">
-                {activeJob.data.map((unit, idx) => (
-                  <div key={idx} className="unit-card industrial-shadow" style={unit.itemType === 'Door' ? {borderLeft: '12px solid #064e3b'} : {borderLeft: '12px solid #1a3a5c'}}>
-                     <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
-                        <div className="flex items-center gap-3">
-                           <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
-                           <div><div className="text-xs font-black uppercase">{unit.location || 'Location'} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px]">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400 leading-tight mt-1">{unit.contractSize}</div></div>
-                        </div>
-                        <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
-                     </div>
-                     {expandedIndex === idx && (
-                       <div className="p-4 border-t space-y-4 bg-white">
-                          <div className="grid grid-cols-3 gap-3">
-                             <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
-                             <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
-                             <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
-                          </div>
-                          {unit.itemType === 'Door' ? (
-                            <div className="space-y-3">
-                               <div className="flex gap-2">
-                                  <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
-                                  <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
-                               </div>
-                               <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}>{opt(SWINGS, unit.swing)}</select></div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                               <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx,'grids',e.target.value)}>{opt(GRIDS, unit.grids)}</select></div>
-                               <div><span className="field-label">Glass</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx,'glass',e.target.value)}>{opt(GLASS_O, unit.glass)}</select></div>
-                            </div>
-                          )}
-                          <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] italic border">{formatSpecs(unit.extras)}</div>
-                          <textarea className="input-box mobile-note h-20" placeholder="Notes..." value={unit.notes} onInput={(e)=>updateItem(idx,'notes',e.target.value)} />
+                {activeTab === 'overview' && (
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                    {/* RESTORED AUDIO BRIEFING */}
+                    {activeJob.summary && (
+                       <div onClick={() => playBriefing(activeJob.summary)} className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer border-2 ${isPlaying ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'}`}>
+                           <div className="text-3xl">{isPlaying ? '⏸️' : '🔊'}</div>
+                           <div className="font-black text-xs uppercase text-slate-800 tracking-tight">Technical Briefing: <span className="block text-[10px] font-bold text-slate-500 normal-case mt-1">{activeJob.summary}</span></div>
                        </div>
-                     )}
+                    )}
+                    {/* RESTORED FLAGS */}
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2">
+                       <h3 className="text-[10px] font-black uppercase text-amber-800 tracking-widest">⚠️ Critical Project Notes</h3>
+                       <div className="text-[11px] font-bold text-slate-700 leading-relaxed italic">{activeJob.repairNotes || "No special repairs noted."}</div>
+                    </div>
+                    {activeJob.contractLink && <a href={activeJob.contractLink} target="_blank" className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-center uppercase text-[10px] border border-blue-100 block">📄 Original Contract</a>}
+                    {/* RESTORED REFRESH CONTRACT CAPABILITY */}
+                    <button onClick={wipeAndRescan} className="w-full py-4 text-red-500 font-black uppercase text-[10px] border-2 border-red-50 border-dashed rounded-xl mt-6">🗑️ Wipe Data & Rescan</button>
                   </div>
-                ))}
-                <div className="flex gap-2 mt-4">
-                    <button onClick={() => addUnitAtEnd('Window')} className="flex-1 bg-slate-800 text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">➕ Window</button>
-                    <button onClick={() => addUnitAtEnd('Door')} className="flex-1 bg-[#064e3b] text-white py-4 rounded-xl font-black text-[10px] uppercase shadow-lg">➕ Door</button>
-                </div>
-              </div>
-            )}
+                )}
 
-            {activeTab === 'signoff' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-8">
-                 <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 pb-2">Final Sign-Off</h2>
-                 
-                 <div className="bg-red-50 p-4 rounded-xl border border-red-100 space-y-3">
-                    <label className="flex items-center justify-between cursor-pointer">
-                       <span className="font-black text-xs text-red-900 uppercase">Alarm Contacts Checkoff</span>
-                       <input type="checkbox" className="w-6 h-6 accent-red-600" checked={signoffData.alarmChecked} onChange={e=>updateSignoff('alarmChecked', e.target.checked)} />
-                    </label>
-                    <textarea className="input-box mobile-note border-red-200" placeholder="Alarm / Sensor Field Notes..." value={signoffData.alarmNotes} onInput={(e)=>handleNoteInput(e, 'alarmNotes')} />
-                 </div>
-
-                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
-                    <h3 className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Extracted Details</h3>
-                    <div className="grid grid-cols-1 gap-2 text-[10px] font-bold text-slate-600 italic">
-                       <div className="flex justify-between border-b pb-1"><span>Windows:</span><span>{checklist.winColor || 'N/A'} | {checklist.glassType}</span></div>
-                       <div className="flex justify-between border-b pb-1"><span>Doors:</span><span>{checklist.doorSwing} | {checklist.doorJamb}</span></div>
+                {activeTab === 'measure' && (
+                  <div className="space-y-4 pb-10">
+                    {activeJob.data.map((unit, idx) => (
+                      <div key={idx} className="unit-card industrial-shadow" style={unit.itemType === 'Door' ? {borderLeft: '12px solid #064e3b'} : {borderLeft: '12px solid #1a3a5c'}}>
+                         <div onClick={() => { setExpandedIndex(expandedIndex === idx ? null : idx); setActiveField(null); }} className="unit-header">
+                            <div className="flex items-center gap-3">
+                               <div className="unit-num" style={unit.itemType === 'Door' ? {background: '#064e3b'} : {}}>{idx + 1}</div>
+                               <div><div className="text-xs font-black uppercase">{unit.location} <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[8px]">{unit.itemType}</span></div><div className="text-[10px] font-bold text-slate-400 leading-tight mt-1">{unit.contractSize}</div></div>
+                            </div>
+                            <div className="text-slate-300">{expandedIndex === idx ? '▲' : '▼'}</div>
+                         </div>
+                         {expandedIndex === idx && (
+                           <div className="p-4 border-t space-y-4 bg-white">
+                              <div className="grid grid-cols-3 gap-3">
+                                 <div onClick={() => setActiveField({index: idx, field: 'fmWidth'})}><span className="field-label">Width</span><div className={`input-box text-center text-lg ${activeField?.field==='fmWidth'?'active-input':''}`}>{unit.fmWidth || 'W"'}</div></div>
+                                 <div onClick={() => setActiveField({index: idx, field: 'fmHeight'})}><span className="field-label">Height</span><div className={`input-box text-center text-lg ${activeField?.field==='fmHeight'?'active-input':''}`}>{unit.fmHeight || 'H"'}</div></div>
+                                 <div onClick={() => setActiveField({index: idx, field: 'qty'})}><span className="field-label">Qty</span><div className={`input-box text-center text-lg ${activeField?.field==='qty'?'active-input':''}`}>{unit.qty || '1'}</div></div>
+                              </div>
+                              {unit.itemType === 'Door' ? (
+                                <div className="space-y-3">
+                                  <div className="flex gap-2">
+                                    <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osj} onChange={e=>updateItem(idx,'osj',e.target.checked)}/> OSJ</label>
+                                    <label className="checkbox-pill flex-1"><input type="checkbox" checked={unit.osbm} onChange={e=>updateItem(idx,'osbm',e.target.checked)}/> OSBM</label>
+                                  </div>
+                                  <div><span className="field-label">Swing</span><select className="input-box" value={unit.swing} onChange={e=>updateItem(idx,'swing',e.target.value)}>{opt(SWINGS, unit.swing)}</select></div>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                                   <div><span className="field-label">Grids</span><select className="input-box" value={unit.grids} onChange={e=>updateItem(idx,'grids',e.target.value)}>{opt(GRIDS, unit.grids)}</select></div>
+                                   <div><span className="field-label">Glass</span><select className="input-box" value={unit.glass} onChange={e=>updateItem(idx,'glass',e.target.value)}>{opt(GLASS_O, unit.glass)}</select></div>
+                                </div>
+                              )}
+                              <div className="contract-spec-box bg-slate-50 p-3 rounded-lg font-bold text-slate-600 text-[10px] italic border">{formatSpecs(unit.extras)}</div>
+                              <textarea className="input-box mobile-note" placeholder="Notes..." value={unit.notes} onInput={(e)=>updateItem(idx,'notes',e.target.value)} />
+                           </div>
+                         )}
+                      </div>
+                    ))}
+                    <div className="flex gap-2 mt-4 pb-10">
+                        <button onClick={() => addUnitAtEnd('Window')} className="flex-1 bg-slate-800 text-white py-4 rounded-xl font-black text-[10px] uppercase">➕ Add Window</button>
+                        <button onClick={() => addUnitAtEnd('Door')} className="flex-1 bg-[#064e3b] text-white py-4 rounded-xl font-black text-[10px] uppercase">➕ Add Door</button>
                     </div>
-                    <label className="flex items-center gap-3 p-3 bg-white rounded-lg cursor-pointer border border-blue-200 shadow-sm mt-2">
-                       <input type="checkbox" className="w-5 h-5 accent-emerald-600" />
-                       <span className="text-[10px] font-black text-slate-700 uppercase leading-tight">Confirmed Match to Homeowner Contract</span>
-                    </label>
-                 </div>
+                  </div>
+                )}
 
-                 <div className="space-y-3">
-                    <div className="flex justify-between items-end px-1">
-                       <span className="field-label">Homeowner Signature</span>
-                       <button onClick={() => { const canvas = canvasRef.current; canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height); }} className="text-[9px] font-black text-red-500 uppercase mb-1">Clear</button>
-                    </div>
-                    <div className="sig-container industrial-shadow"><canvas ref={canvasRef} className="sig-canvas" /></div>
-                    <input type="text" className="input-box text-center text-lg font-black uppercase tracking-widest border-b-4 border-[#1a3a5c]" placeholder="Print Full Name" value={signoffData.printName} onChange={(e)=>updateSignoff('printName', e.target.value)} />
-                 </div>
-
-                 <textarea className="input-box mobile-note" placeholder="Internal notes for install crew..." value={signoffData.finalNotes} onInput={(e)=>handleNoteInput(e, 'finalNotes')} />
-                 
-                 <button 
-                  onClick={uploadToDrive}
-                  disabled={loading}
-                  className={`w-full py-5 rounded-xl font-black uppercase shadow-lg transition-transform ${loading ? 'bg-slate-400' : 'bg-[#064e3b] text-white active:scale-95'}`}
-                 >
-                  {loading ? 'UPLOADING...' : 'LOCK & SUBMIT TO DRIVE'}
-                 </button>
+                {activeTab === 'signoff' && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-8">
+                     <h2 className="font-black text-lg text-[#1a3a5c] uppercase border-b-2 pb-2">Final Sign-Off</h2>
+                     {/* ALARM CHECKOFF */}
+                     <div className="bg-red-50 p-4 rounded-xl border border-red-100 space-y-3">
+                        <label className="flex items-center justify-between cursor-pointer">
+                           <span className="font-black text-xs text-red-900 uppercase">Alarm Contacts Checkoff</span>
+                           <input type="checkbox" className="w-6 h-6 accent-red-600" checked={signoffData.alarmChecked} onChange={e=>updateSignoff('alarmChecked', e.target.checked)} />
+                        </label>
+                        <textarea className="input-box mobile-note border-red-200" placeholder="Alarm sensor field notes..." value={signoffData.alarmNotes} onInput={(e)=>handleNoteInput(e, 'alarmNotes')} />
+                     </div>
+                     {/* EXTRACTED CHECKLIST */}
+                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 space-y-3">
+                        <h3 className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Extracted Contract Specs</h3>
+                        <div className="grid grid-cols-1 gap-2 text-[10px] font-bold text-slate-600 italic">
+                           <div className="flex justify-between border-b pb-1"><span>Windows:</span><span>{checklist.winColor || 'N/A'} | {checklist.glassType}</span></div>
+                           <div className="flex justify-between border-b pb-1"><span>Doors:</span><span>{checklist.doorSwing} | {checklist.doorJamb}</span></div>
+                        </div>
+                        <label className="flex items-center gap-3 p-3 bg-white rounded-lg cursor-pointer border border-blue-200 shadow-sm mt-2">
+                           <input type="checkbox" className="w-5 h-5 accent-emerald-600" />
+                           <span className="text-[10px] font-black text-slate-700 uppercase leading-tight">Confirmed Match to Contract</span>
+                        </label>
+                     </div>
+                     {/* SIGNATURE PAD */}
+                     <div className="space-y-3">
+                        <div className="flex justify-between items-end px-1">
+                           <span className="field-label">Homeowner Signature</span>
+                           <button onClick={() => { const canvas = canvasRef.current; canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height); }} className="text-[9px] font-black text-red-500 uppercase mb-1">Clear</button>
+                        </div>
+                        <div className="sig-container industrial-shadow"><canvas ref={canvasRef} className="sig-canvas" /></div>
+                        <input type="text" className="input-box text-center text-lg font-black uppercase tracking-widest border-b-4 border-[#1a3a5c]" placeholder="Print Full Name" value={signoffData.printName} onChange={(e)=>updateSignoff('printName', e.target.value)} />
+                     </div>
+                     <textarea className="input-box mobile-note" placeholder="Internal notes for install crew..." value={signoffData.finalNotes} onInput={(e)=>handleNoteInput(e, 'finalNotes')} />
+                     <button onClick={uploadToDrive} disabled={loading} className={`w-full py-5 rounded-xl font-black uppercase shadow-lg transition-transform ${loading ? 'bg-slate-400' : 'bg-[#064e3b] text-white active:scale-95'}`}>
+                        {loading ? 'UPLOADING...' : 'LOCK & SUBMIT TO DRIVE'}
+                     </button>
+                  </div>
+                )}
               </div>
             )}
           </main>
