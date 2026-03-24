@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Visionaire — Customer Hub</title>
+  <script>
+    window.onerror = function(msg, url, line) {
+      alert("Hub Error: " + msg + "\nLine: " + line);
+      return false;
+    };
+  </script>
   <style>
     :root {
       --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
@@ -23,6 +29,28 @@
     .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
     .acct-dot.off{background:var(--s400)}
     .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    
+    /* Official Google Button Styles */
+    .g-btn-official {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: white;
+      color: #3c4043;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 1px 2px rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+      transition: background-color .2s;
+    }
+    .g-btn-official:active { background: #f8f9fa; }
+    .g-logo { width: 18px; height: 18px; }
+
     .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
     .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
     .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
@@ -33,9 +61,6 @@
     .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
     .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;}
     .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}
-    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
-    .btn-disc{width:100%;padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:var(--redl);color:var(--red);font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
     .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
     .sync-sub{font-size:0.55rem;color:var(--s500);margin-top:1px;font-weight:700}
@@ -157,7 +182,7 @@ function syncCalendar(){
       lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
       save(); loading=false; render();
     })
-    .catch(e => { loading=false; render(); alert("Sync Error: Check Connection"); });
+    .catch(e => { loading=false; render(); alert("Sync Error"); });
 }
 
 async function preloadToday() {
@@ -207,9 +232,7 @@ async function processSingleJob(ev) {
     reader.readAsDataURL(blob);
   });
 
-  const promptText = `Analyze project details for Visionaire Windows tech. DATA MAP: 1. Determine 'itemType'... [Prompt truncated for brevity]`;
-  
-  // Using gemini-2.5-flash as specified
+  const promptText = `Analyze project details for Visionaire Windows tech. DATA MAP: 1. Determine 'itemType'... [Prompt truncated]`;
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: "application/pdf", data: base64 } }] }] }) });
   const result = await res.json();
   const text = result.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -280,13 +303,30 @@ function rHeader(){
 function rSetup(main){
   var body=el('div',{C:'sc-body'});
   body.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
-  var ci=el('input',{C:'inp',value:clientId}); ci.addEventListener('input',e=>{clientId=e.target.value;save();});
+  var ci=el('input',{C:'inp',id:'setup-client-id',value:clientId}); 
+  ci.addEventListener('input',e=>{clientId=e.target.value;save();});
   body.appendChild(ci);
-  if(accessToken&&userEmail){ body.appendChild(el('button',{C:'g-btn conn',t:'✓ Connected', click: signOut})); } else { body.appendChild(el('button',{C:'g-btn',t:'Connect Google', click: signIn})); }
-  body.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
-  var gk=el('input',{C:'inp',type:'password',value:geminiKey}); gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
+  
+  if(accessToken&&userEmail){ 
+    var discBtn = el('button',{C:'btn-disc',t:'Disconnect Account', click: signOut});
+    body.appendChild(discBtn);
+  } else { 
+    // Official Google Button
+    var gBtn = el('button', {C:'g-btn-official', click: signIn});
+    gBtn.innerHTML = `
+      <img class="g-logo" src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="Google">
+      <span>Sign in with Google</span>
+    `;
+    body.appendChild(gBtn);
+  }
+
+  body.appendChild(el('span',{C:'lbl',t:'Gemini API Key',style:'margin-top:10px'}));
+  var gk=el('input',{C:'inp',type:'password',value:geminiKey}); 
+  gk.addEventListener('input',e=>{geminiKey=e.target.value;save();});
   body.appendChild(gk);
-  body.appendChild(el('button',{C:'btn-p',t:'Save Hub Config',click:()=>{save();syncCalendar();}}));
+  
+  body.appendChild(el('button',{C:'btn-p',t:'Save Hub Config',style:'margin-top:5px',click:()=>{save();syncCalendar();}}));
+  
   var sc=el('div',{C:'sc'}); sc.appendChild(el('div',{C:'sc-head',t:'Hub Settings'})); sc.appendChild(body);
   main.appendChild(sc);
 }
@@ -340,12 +380,12 @@ function rCard(ev){
     var det=el('div',{C:'cc-det'});
     var n = el('div',{C:'dnotes'}); 
     let notesHtml = "";
-    if(ev.address) notesHtml += '<span class="note-line"><span class="note-label">MAPS:</span><a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb;">' + ev.address + '</a></span>';
+    if(ev.address) notesHtml += '<span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q=' + encodeURIComponent(ev.address) + '" target="_blank" style="color:#2563eb;">' + ev.address + '</a></span>';
     notesHtml += cleanNotes(ev.notesHtml);
     n.innerHTML = notesHtml || "No notes."; det.appendChild(n); card.appendChild(det);
   }
   var acts=el('div',{C:'cc-acts'});
-  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='measure.html'; }}));
+  acts.appendChild(el('button',{C:'ca p',t:'FM Sheet',click:()=>{ localStorage.setItem('activeJobId', JSON.stringify(ev.id)); window.location.href='./measure.html'; }}));
   acts.appendChild(el('button',{C:'ca',t:isExp?'Less':'More',click:()=>{expandId=isExp?null:ev.id;render();}}));
   card.appendChild(acts); return card;
 }
