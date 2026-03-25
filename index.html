@@ -1,697 +1,678 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Visionaire — Customer Hub</title>
-  <style>
-    :root {
-      --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
-      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
-      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
-      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
-      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
-      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
-    }
-    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
-    .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
-    .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
-    .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
-    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
-    .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
-    .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
-    .acct-dot.off{background:var(--s400)}
-    .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
-    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
-    .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
-    .main{padding:14px 12px 100px}
-    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
-    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
-    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px;color:white;font-weight:900;text-transform:uppercase;font-size:0.8rem}
-    .sc-head.ms{background:linear-gradient(135deg,#064e3b 0%,#065f46 100%)}
-    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
-    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;color:var(--s800)}
-    .inp:focus{border-color:var(--navy)}
-    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer}
-    .btn-ms-test{width:100%;background:#065f46;color:white;border:none;border-radius:12px;padding:12px;font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
-    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
-    .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-    .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
-    .sync-sub{font-size:0.55rem;color:var(--s500);margin-top:1px;font-weight:700}
-    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase;cursor:pointer}
-    .ms-status{border-radius:10px;padding:10px 12px;font-size:0.68rem;font-weight:700}
-    .ms-status.ok{background:#d1fae5;border:1px solid #6ee7b7;color:#065f46}
-    .ms-status.err{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626}
-    .ms-status.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
-    .source-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.5rem;padding:2px 6px;border-radius:4px;font-weight:900;margin-left:6px;vertical-align:middle}
-    .source-badge.ms{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
-    .source-badge.drive{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
-    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px;scrollbar-width:none}
-    .dstrip::-webkit-scrollbar{display:none}
-    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;min-width:55px}
-    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
-    .dchip.ev{border-color:var(--amber)}
-    .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
-    .dchip.on .dc-d,.dchip.on .dc-n{color:white}
-    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
-    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    .cc-head{display:flex;align-items:stretch}
-    .cc-bar{width:8px;flex-shrink:0}
-    .cc-bar.win{background:linear-gradient(180deg,var(--navy) 0%,var(--navy-mid) 100%)}
-    .cc-bar.door{background:linear-gradient(180deg,var(--emerald) 0%,var(--emerald-mid) 100%)}
-    .cc-bar.both{background:linear-gradient(180deg,var(--navy) 0%,var(--emerald) 100%)}
-    .cc-body{flex:1;padding:12px 12px 12px 10px}
-    .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
-    .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1}
-    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap}
-    .cc-acts{display:flex;border-top:1px solid var(--border)}
-    .ca{flex:1;padding:12px 4px;border:none;background:transparent;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center}
-    .ca:not(:last-child){border-right:1px solid var(--border)}
-    .ca.p{color:var(--navy)}
-    .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
-    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--s700);line-height:1.7}
-    .note-line{display:block;padding-bottom:6px;border-bottom:1px dashed var(--s200);margin-bottom:6px}
-    .note-label{font-weight:800;color:var(--navy);text-transform:uppercase;font-size:0.65rem;display:block;margin-bottom:1px}
-    .tel-link{color:#2563eb;text-decoration:underline;font-weight:700}
-    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
-    .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200)}
-    .preload-bar{background:#1a3a5c;color:white;padding:10px;text-align:center;font-size:0.7rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em}
-    .ready-badge{background:#dcfce7;color:#166534;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:900;margin-left:8px;border:1px solid #86efac}
-    .err-badge{background:#fef2f2;color:#dc2626;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:900;margin-left:8px;border:1px solid #fca5a5}
-    .cal-chip{background:var(--s100);border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:0.65rem;font-weight:800;color:var(--s600);cursor:pointer;white-space:nowrap;margin:3px}
-    .cal-chip.on{background:var(--navy);border-color:var(--navy);color:white}
-    .info-box{font-size:0.7rem;color:var(--s600);line-height:1.6;background:var(--s50);border-radius:8px;padding:10px;border:1px solid var(--border)}
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Visionaire — Customer Hub</title>
+  <style>
+    :root {
+      --navy:#1a3a5c; --navy-dark:#0f2236; --navy-mid:#2d5a8e; --navy-light:#e8f0f8;
+      --emerald:#064e3b; --emerald-mid:#065f46; --emerald-light:#ecfdf5;
+      --amber:#f59e0b; --amber-dark:#d97706; --amber-light:#fef3c7;
+      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
+      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
+      --red:#dc2626; --redl:#fef2f2; --green:#16a34a; --border:#e2e8f0;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--s100);overscroll-behavior-y:contain}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;background:white;box-shadow:0 0 60px rgba(26,58,92,0.12)}
+    .hdr{background:var(--navy);padding:14px 16px 0;border-bottom:4px solid var(--amber);position:sticky;top:0;z-index:200}
+    .hdr-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px}
+    .hdr-title{font-size:1.25rem;font-weight:900;font-style:italic;letter-spacing:-0.03em;color:white;text-transform:uppercase;line-height:1}
+    .acct-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 9px}
+    .acct-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0}
+    .acct-dot.off{background:var(--s400)}
+    .acct-txt{font-size:0.58rem;font-weight:700;color:rgba(255,255,255,0.75);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .vtabs{display:flex;border-top:1px solid rgba(255,255,255,0.08)}
+    .vtab{flex:1;padding:10px 4px;font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:3px solid transparent;transition:all 0.15s}
+    .vtab.on{color:var(--amber);border-bottom-color:var(--amber)}
+    .main{padding:14px 12px 100px}
+    .lbl{font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--s500);display:block;margin-bottom:4px}
+    .sc{background:white;border-radius:18px;border:1.5px solid var(--border);overflow:hidden;box-shadow:0 4px 20px rgba(26,58,92,0.08);margin-bottom:14px}
+    .sc-head{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:20px 18px 16px;color:white;font-weight:900;text-transform:uppercase;font-size:0.8rem}
+    .sc-head.ms{background:linear-gradient(135deg,#064e3b 0%,#065f46 100%)}
+    .sc-body{padding:16px;display:flex;flex-direction:column;gap:13px}
+    .inp{width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font-size:0.85rem;font-family:inherit;background:var(--s50);outline:none;color:var(--s800)}
+    .inp:focus{border-color:var(--navy)}
+    .btn-p{width:100%;background:var(--navy);color:white;border:none;border-radius:12px;padding:14px;font-size:0.82rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer}
+    .btn-ms-test{width:100%;background:#065f46;color:white;border:none;border-radius:12px;padding:12px;font-size:0.75rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
+    .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:white;border:1.5px solid var(--s200);border-radius:12px;padding:13px 16px;font-size:0.85rem;font-weight:700;color:var(--s700);cursor:pointer;transition:all 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .g-btn.conn{background:#dcfce7;border-color:#86efac;color:#166534}
+    .sync-bar{background:var(--navy-light);border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .sync-title{font-size:0.72rem;font-weight:800;color:var(--navy)}
+    .sync-sub{font-size:0.55rem;color:var(--s500);margin-top:1px;font-weight:700}
+    .sync-btn{background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 13px;font-size:0.65rem;font-weight:800;text-transform:uppercase;cursor:pointer}
+    .ms-status{border-radius:10px;padding:10px 12px;font-size:0.68rem;font-weight:700}
+    .ms-status.ok{background:#d1fae5;border:1px solid #6ee7b7;color:#065f46}
+    .ms-status.err{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626}
+    .ms-status.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+    .source-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.5rem;padding:2px 6px;border-radius:4px;font-weight:900;margin-left:6px;vertical-align:middle}
+    .source-badge.ms{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
+    .source-badge.drive{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+    .dstrip{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:14px;scrollbar-width:none}
+    .dstrip::-webkit-scrollbar{display:none}
+    .dchip{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:8px 11px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;min-width:55px}
+    .dchip.on{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 12px rgba(26,58,92,0.25)}
+    .dchip.ev{border-color:var(--amber)}
+    .dc-d{font-size:0.57rem;font-weight:800;text-transform:uppercase;color:var(--s400)}
+    .dchip.on .dc-d,.dchip.on .dc-n{color:white}
+    .dc-n{font-size:1.1rem;font-weight:900;color:var(--s700)}
+    .cc{background:white;border-radius:16px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .cc-head{display:flex;align-items:stretch}
+    .cc-bar{width:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:900;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.3)}
+    .cc-bar.win{background:var(--navy)}
+    .cc-bar.door{background:var(--emerald)}
+    .cc-bar.both{background:var(--amber)}
+    .cc-body{flex:1;padding:12px 12px 12px 10px}
+    .cc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
+    .cc-name{font-size:1.15rem;font-weight:900;color:var(--s800);text-transform:uppercase;line-height:1.15;flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+    .cc-time{font-size:0.64rem;font-weight:800;color:white;background:var(--navy);border-radius:6px;padding:3px 7px;white-space:nowrap}
+    .cc-acts{display:flex;border-top:1px solid var(--border)}
+    .ca{flex:1;padding:18px 4px;border:none;background:transparent;font-size:0.75rem;font-weight:900;text-transform:uppercase;color:var(--s500);cursor:pointer;text-align:center;transition:background 0.15s}
+    .ca:active{background:var(--s100)}
+    .ca:not(:last-child){border-right:1px solid var(--border)}
+    .ca.p{color:var(--navy)}
+    .qty-badge{font-size:0.55rem;background:var(--s100);color:var(--s600);border:1px solid var(--border);padding:2px 6px;border-radius:6px;font-weight:800;}
+    .cc-det{padding:12px;border-top:1px solid var(--border);background:var(--s50);display:flex;flex-direction:column;gap:10px}
+    .dnotes{background:white;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--s700);line-height:1.7}
+    .note-line{display:block;padding-bottom:6px;border-bottom:1px dashed var(--s200);margin-bottom:6px}
+    .note-label{font-weight:800;color:var(--navy);text-transform:uppercase;font-size:0.65rem;display:block;margin-bottom:1px}
+    .tel-link{color:#2563eb;text-decoration:underline;font-weight:700}
+    .lrow{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px 20px}
+    .empty-state{text-align:center;padding:40px 20px;color:var(--s500);font-weight:700;font-size:0.85rem;background:white;border-radius:16px;border:2px dashed var(--s200)}
+    .preload-bar{background:#1a3a5c;color:white;padding:10px;text-align:center;font-size:0.7rem;font-weight:900;text-transform:uppercase;letter-spacing:0.1em}
+    .ready-badge{background:#dcfce7;color:#166534;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:900;margin-left:8px;border:1px solid #86efac}
+    .err-badge{background:#fef2f2;color:#dc2626;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:900;margin-left:8px;border:1px solid #fca5a5}
+    .cal-chip{background:var(--s100);border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:0.65rem;font-weight:800;color:var(--s600);cursor:pointer;white-space:nowrap;margin:3px}
+    .cal-chip.on{background:var(--navy);border-color:var(--navy);color:white}
+    .info-box{font-size:0.7rem;color:var(--s600);line-height:1.6;background:var(--s50);border-radius:8px;padding:10px;border:1px solid var(--border)}
+  </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
 var STORAGE_KEY = 'vhub_v2';
-var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
-var MS_BASE     = 'https://restapi.marketsharpm.com';
+var GCAL_SCOPE  = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email';
+var MS_BASE     = 'https://restapi.marketsharpm.com';
 
-var prefs           = loadPrefs();
-var view            = prefs.accessToken ? 'sched' : 'setup';
-var calEvents       = prefs.calEvents     || [];
-var loading         = false;
-var preloading      = false;
+var prefs           = loadPrefs();
+var view            = prefs.accessToken ? 'sched' : 'setup';
+var calEvents       = prefs.calEvents     || [];
+var loading         = false;
+var preloading      = false;
 var preloadProgress = '';
-var preloadErrors   = [];
-var lastSync        = prefs.lastSync      || null;
-var lastDriveSync   = prefs.lastDriveSync || null;
-var selDate         = todayStr();
-var expandId        = null;
-var accessToken     = prefs.accessToken   || null;
-var userEmail       = prefs.userEmail     || null;
-var geminiKey       = prefs.geminiKey     || '';
-var clientId        = prefs.clientId      || '';
-var searchTerm      = prefs.searchTerm    || 'Measure';
-var calendarIds     = prefs.calendarIds   || ['primary'];
-var availableCals   = prefs.availableCals || [];
+var preloadErrors   = [];
+var lastSync        = prefs.lastSync      || null;
+var lastDriveSync   = prefs.lastDriveSync || null;
+var selDate         = todayStr();
+var expandId        = null;
+var accessToken     = prefs.accessToken   || null;
+var userEmail       = prefs.userEmail     || null;
+var geminiKey       = prefs.geminiKey     || '';
+var clientId        = prefs.clientId      || '';
+var searchTerm      = prefs.searchTerm    || 'Measure';
+var calendarIds     = prefs.calendarIds   || ['primary'];
+var availableCals   = prefs.availableCals || [];
 // MarketSharp credentials — entered by user in Settings, stored in localStorage only
 // NEVER paste these values directly into this file
-var msApiKey    = prefs.msApiKey    || '';
+var msApiKey    = prefs.msApiKey    || '';
 var msSecretKey = prefs.msSecretKey || '';
 var msCompanyId = prefs.msCompanyId || '3208';
 var msTestResult = null;
 
 function loadPrefs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return {};}}
 function save(){
-  prefs.accessToken=accessToken; prefs.userEmail=userEmail; prefs.geminiKey=geminiKey;
-  prefs.clientId=clientId; prefs.searchTerm=searchTerm; prefs.lastSync=lastSync;
-  prefs.lastDriveSync=lastDriveSync; prefs.calEvents=calEvents;
-  prefs.calendarIds=calendarIds; prefs.availableCals=availableCals;
-  prefs.msApiKey=msApiKey; prefs.msSecretKey=msSecretKey; prefs.msCompanyId=msCompanyId;
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));}catch(e){}
+  prefs.accessToken=accessToken; prefs.userEmail=userEmail; prefs.geminiKey=geminiKey;
+  prefs.clientId=clientId; prefs.searchTerm=searchTerm; prefs.lastSync=lastSync;
+  prefs.lastDriveSync=lastDriveSync; prefs.calEvents=calEvents;
+  prefs.calendarIds=calendarIds; prefs.availableCals=availableCals;
+  prefs.msApiKey=msApiKey; prefs.msSecretKey=msSecretKey; prefs.msCompanyId=msCompanyId;
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(prefs));}catch(e){}
 }
 
 function todayStr(){
-  var d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
 // ─── NAME PARSING ──────────────────────────────────────────────────────────────
 function parseCustomerName(raw){
-  var clean=raw.replace(/\(.*?\)/g,'').replace(/\bph\s*\d+\b/gi,'').replace(/[&\/]/g,' ').replace(/\d{3,}/g,' ').trim();
-  var last='',first='';
-  if(clean.indexOf(',')>-1){
-    var parts=clean.split(',').map(function(s){return s.trim();});
-    last=parts[0].split(/\s+/)[0];
-    first=parts[1]?parts[1].split(/\s+/)[0]:'';
-  } else {
-    var words=clean.split(/\s+/).filter(function(w){return w.length>1;});
-    if(words.length>=2){first=words[0];last=words[words.length-1];}
-    else if(words.length===1){last=words[0];}
-  }
-  return {last:last.trim(),first:first.trim()};
+  var clean=raw.replace(/\(.*?\)/g,'').replace(/\bph\s*\d+\b/gi,'').replace(/[&\/]/g,' ').replace(/\d{3,}/g,' ').trim();
+  var last='',first='';
+  if(clean.indexOf(',')>-1){
+    var parts=clean.split(',').map(function(s){return s.trim();});
+    last=parts[0].split(/\s+/)[0];
+    first=parts[1]?parts[1].split(/\s+/)[0]:'';
+  } else {
+    var words=clean.split(/\s+/).filter(function(w){return w.length>1;});
+    if(words.length>=2){first=words[0];last=words[words.length-1];}
+    else if(words.length===1){last=words[0];}
+  }
+  return {last:last.trim(),first:first.trim()};
 }
 function parsePhaseTag(raw){var m=raw.match(/\bph\s*(\d+)\b/i);return m?'Ph'+m[1]:null;}
 
 // ─── MARKETSHARP API ────────────────────────────────────────────────────────────
-// Credentials are read from localStorage at call time — never stored in this file.
-// Auth: companyId + userKey + secretKey as query params (MarketSharp standard).
-
 function msParams(){
-  return 'companyId='+encodeURIComponent(msCompanyId)+'&userKey='+encodeURIComponent(msApiKey)+'&secretKey='+encodeURIComponent(msSecretKey);
+  return 'companyId='+encodeURIComponent(msCompanyId)+'&userKey='+encodeURIComponent(msApiKey)+'&secretKey='+encodeURIComponent(msSecretKey);
 }
 
-// Attempt to find and download a contract PDF for a customer name.
-// Returns { blob, name, contractLink, jobId } or throws with a clear message.
 async function msFetchContractForCustomer(customerName){
-  if(!msApiKey||!msSecretKey) throw new Error('MarketSharp credentials not set in Setup');
-  var n=parseCustomerName(customerName);
-  if(!n.last) throw new Error('Could not parse last name from: '+customerName);
+  if(!msApiKey||!msSecretKey) throw new Error('MarketSharp credentials not set in Setup');
+  var n=parseCustomerName(customerName);
+  if(!n.last) throw new Error('Could not parse last name from: '+customerName);
 
-  // 1. Search contacts by last name (+ first name if available)
-  var searchUrl=MS_BASE+'/api/contacts/search?'+msParams()+'&lastName='+encodeURIComponent(n.last)+(n.first?'&firstName='+encodeURIComponent(n.first):'');
-  var r1=await fetch(searchUrl,{headers:{Accept:'application/json'}});
+  var searchUrl=MS_BASE+'/api/contacts/search?'+msParams()+'&lastName='+encodeURIComponent(n.last)+(n.first?'&firstName='+encodeURIComponent(n.first):'');
+  var r1=await fetch(searchUrl,{headers:{Accept:'application/json'}});
 
-  // Handle alternate endpoint path if needed
-  if(r1.status===404){
-    searchUrl=MS_BASE+'/api/v1/contacts?'+msParams()+'&lastName='+encodeURIComponent(n.last);
-    r1=await fetch(searchUrl,{headers:{Accept:'application/json'}});
-  }
-  if(!r1.ok) throw new Error('MS contact search returned '+r1.status+'. Verify credentials in Setup.');
+  if(r1.status===404){
+    searchUrl=MS_BASE+'/api/v1/contacts?'+msParams()+'&lastName='+encodeURIComponent(n.last);
+    r1=await fetch(searchUrl,{headers:{Accept:'application/json'}});
+  }
+  if(!r1.ok) throw new Error('MS contact search returned '+r1.status+'. Verify credentials in Setup.');
 
-  var contacts=await r1.json();
-  // Handle both array response and {data:[...]} wrapper
-  if(!Array.isArray(contacts)) contacts=contacts.data||contacts.contacts||contacts.results||contacts.items||[];
-  if(!contacts.length) throw new Error('No MarketSharp contact found for "'+customerName+'"');
+  var contacts=await r1.json();
+  if(!Array.isArray(contacts)) contacts=contacts.data||contacts.contacts||contacts.results||contacts.items||[];
+  if(!contacts.length) throw new Error('No MarketSharp contact found for "'+customerName+'"');
 
-  // Score — prefer exact first+last match
-  contacts.sort(function(a,b){
-    function score(c){
-      var s=0,ln=(c.lastName||c.LastName||'').toLowerCase(),fn=(c.firstName||c.FirstName||'').toLowerCase();
-      if(n.last&&ln===n.last.toLowerCase())s+=10;
-      if(n.first&&fn===n.first.toLowerCase())s+=8;
-      return s;
-    }
-    return score(b)-score(a);
-  });
-  var contact=contacts[0];
-  var cid=contact.id||contact.Id||contact.contactId||contact.ContactId;
+  contacts.sort(function(a,b){
+    function score(c){
+      var s=0,ln=(c.lastName||c.LastName||'').toLowerCase(),fn=(c.firstName||c.FirstName||'').toLowerCase();
+      if(n.last&&ln===n.last.toLowerCase())s+=10;
+      if(n.first&&fn===n.first.toLowerCase())s+=8;
+      return s;
+    }
+    return score(b)-score(a);
+  });
+  var contact=contacts[0];
+  var cid=contact.id||contact.Id||contact.contactId||contact.ContactId;
 
-  // 2. Get jobs for this contact
-  var jobsUrl=MS_BASE+'/api/contacts/'+cid+'/jobs?'+msParams();
-  var r2=await fetch(jobsUrl,{headers:{Accept:'application/json'}});
-  if(!r2.ok) throw new Error('MS jobs fetch returned '+r2.status);
-  var jobs=await r2.json();
-  if(!Array.isArray(jobs)) jobs=jobs.data||jobs.jobs||jobs.results||jobs.items||[];
-  if(!jobs.length) throw new Error('No jobs found in MS for contact '+cid);
+  var jobsUrl=MS_BASE+'/api/contacts/'+cid+'/jobs?'+msParams();
+  var r2=await fetch(jobsUrl,{headers:{Accept:'application/json'}});
+  if(!r2.ok) throw new Error('MS jobs fetch returned '+r2.status);
+  var jobs=await r2.json();
+  if(!Array.isArray(jobs)) jobs=jobs.data||jobs.jobs||jobs.results||jobs.items||[];
+  if(!jobs.length) throw new Error('No jobs found in MS for contact '+cid);
 
-  // Most recent job first
-  jobs.sort(function(a,b){
-    var da=new Date(a.saleDate||a.SaleDate||a.createdDate||a.CreatedDate||0);
-    var db=new Date(b.saleDate||b.SaleDate||b.createdDate||b.CreatedDate||0);
-    return db-da;
-  });
-  var job=jobs[0];
-  var jid=job.id||job.Id||job.jobId||job.JobId;
+  jobs.sort(function(a,b){
+    var da=new Date(a.saleDate||a.SaleDate||a.createdDate||a.CreatedDate||0);
+    var db=new Date(b.saleDate||b.SaleDate||b.createdDate||b.CreatedDate||0);
+    return db-da;
+  });
+  var job=jobs[0];
+  var jid=job.id||job.Id||job.jobId||job.JobId;
 
-  // 3. Get contract for this job
-  var contractUrl=MS_BASE+'/api/contracts/byJob/'+jid+'?'+msParams();
-  var r3=await fetch(contractUrl,{headers:{Accept:'application/json'}});
-  if(!r3.ok){
-    // Try alternate path
-    contractUrl=MS_BASE+'/api/jobs/'+jid+'/contracts?'+msParams();
-    r3=await fetch(contractUrl,{headers:{Accept:'application/json'}});
-  }
-  if(!r3.ok) throw new Error('MS contract fetch returned '+r3.status+' for job '+jid);
-  var contractData=await r3.json();
-  if(!Array.isArray(contractData)) contractData=contractData.data||contractData.contracts||[contractData];
-  if(!contractData.length) throw new Error('No contract documents found for job '+jid);
+  var contractUrl=MS_BASE+'/api/contracts/byJob/'+jid+'?'+msParams();
+  var r3=await fetch(contractUrl,{headers:{Accept:'application/json'}});
+  if(!r3.ok){
+    contractUrl=MS_BASE+'/api/jobs/'+jid+'/contracts?'+msParams();
+    r3=await fetch(contractUrl,{headers:{Accept:'application/json'}});
+  }
+  if(!r3.ok) throw new Error('MS contract fetch returned '+r3.status+' for job '+jid);
+  var contractData=await r3.json();
+  if(!Array.isArray(contractData)) contractData=contractData.data||contractData.contracts||[contractData];
+  if(!contractData.length) throw new Error('No contract documents found for job '+jid);
 
-  // Score: prefer signed agreements
-  function scoreDoc(d){
-    var nm=(d.name||d.Name||d.fileName||d.FileName||'').toLowerCase();
-    var s=0;
-    if(/signed/i.test(nm))s+=10;
-    if(/agreement/i.test(nm))s+=6;
-    if(/contract/i.test(nm))s+=4;
-    if(/\bfm\b/i.test(nm))s-=20;
-    if(/cancel/i.test(nm))s-=25;
-    return s;
-  }
-  contractData.sort(function(a,b){return scoreDoc(b)-scoreDoc(a);});
-  var doc=contractData[0];
-  var docId=doc.id||doc.Id||doc.documentId||doc.DocumentId;
-  var docName=doc.name||doc.Name||doc.fileName||doc.FileName||('Contract_'+jid+'.pdf');
+  function scoreDoc(d){
+    var nm=(d.name||d.Name||d.fileName||d.FileName||'').toLowerCase();
+    var s=0;
+    if(/signed/i.test(nm))s+=10;
+    if(/agreement/i.test(nm))s+=6;
+    if(/contract/i.test(nm))s+=4;
+    if(/\bfm\b/i.test(nm))s-=20;
+    if(/cancel/i.test(nm))s-=25;
+    return s;
+  }
+  contractData.sort(function(a,b){return scoreDoc(b)-scoreDoc(a);});
+  var doc=contractData[0];
+  var docId=doc.id||doc.Id||doc.documentId||doc.DocumentId;
+  var docName=doc.name||doc.Name||doc.fileName||doc.FileName||('Contract_'+jid+'.pdf');
 
-  // 4. Download the PDF
-  var dlUrl=MS_BASE+'/api/documents/'+docId+'/download?'+msParams();
-  var r4=await fetch(dlUrl);
-  if(!r4.ok) throw new Error('MS document download returned '+r4.status);
-  var blob=await r4.blob();
-  return {blob:blob,name:docName,contractLink:dlUrl,jobId:jid};
+  var dlUrl=MS_BASE+'/api/documents/'+docId+'/download?'+msParams();
+  var r4=await fetch(dlUrl);
+  if(!r4.ok) throw new Error('MS document download returned '+r4.status);
+  var blob=await r4.blob();
+  return {blob:blob,name:docName,contractLink:dlUrl,jobId:jid};
 }
 
-// Test connection — safe ping that doesn't expose customer data
 async function testMSConnection(){
-  msTestResult={status:'info',msg:'Connecting to MarketSharp...'};
-  render();
-  try{
-    if(!msApiKey||!msSecretKey){throw new Error('Enter your API Key and Secret Key first');}
-    var url=MS_BASE+'/api/contacts/search?'+msParams()+'&lastName=zztest&pageSize=1';
-    var res=await fetch(url,{headers:{Accept:'application/json'}});
-    if(res.status===401||res.status===403) throw new Error('Invalid credentials. Check API Key and Secret Key.');
-    if(res.status===404){
-      // Try v1 path
-      var url2=MS_BASE+'/api/v1/contacts?'+msParams()+'&lastName=zztest&pageSize=1';
-      var res2=await fetch(url2,{headers:{Accept:'application/json'}});
-      if(res2.status===401||res2.status===403) throw new Error('Invalid credentials.');
-      if(!res2.ok&&res2.status!==404) throw new Error('Unexpected status: '+res2.status+'. Contact MarketSharp support for API endpoint details.');
-    }
-    msTestResult={status:'ok',msg:'Connected! Company ID '+msCompanyId+' authenticated successfully.'};
-  }catch(e){
-    msTestResult={status:'err',msg:e.message};
-  }
-  save();
-  render();
+  msTestResult={status:'info',msg:'Connecting to MarketSharp...'};
+  render();
+  try{
+    if(!msApiKey||!msSecretKey){throw new Error('Enter your API Key and Secret Key first');}
+    var url=MS_BASE+'/api/contacts/search?'+msParams()+'&lastName=zztest&pageSize=1';
+    var res=await fetch(url,{headers:{Accept:'application/json'}});
+    if(res.status===401||res.status===403) throw new Error('Invalid credentials. Check API Key and Secret Key.');
+    if(res.status===404){
+      var url2=MS_BASE+'/api/v1/contacts?'+msParams()+'&lastName=zztest&pageSize=1';
+      var res2=await fetch(url2,{headers:{Accept:'application/json'}});
+      if(res2.status===401||res2.status===403) throw new Error('Invalid credentials.');
+      if(!res2.ok&&res2.status!==404) throw new Error('Unexpected status: '+res2.status+'. Contact MarketSharp support for API endpoint details.');
+    }
+    msTestResult={status:'ok',msg:'Connected! Company ID '+msCompanyId+' authenticated successfully.'};
+  }catch(e){
+    msTestResult={status:'err',msg:e.message};
+  }
+  save();
+  render();
 }
 
 // ─── GOOGLE AUTH ───────────────────────────────────────────────────────────────
 function loadGIS(cb){
-  if(window.google&&window.google.accounts){cb();return;}
-  var s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=cb;document.head.appendChild(s);
+  if(window.google&&window.google.accounts){cb();return;}
+  var s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=cb;document.head.appendChild(s);
 }
 function signIn(){
-  if(!clientId){alert('Enter Client ID first.');return;}
-  loadGIS(function(){
-    var client=google.accounts.oauth2.initTokenClient({
-      client_id:clientId,scope:GCAL_SCOPE,
-      callback:function(resp){
-        if(resp.error){alert('Sign-in error: '+resp.error);return;}
-        accessToken=resp.access_token;
-        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+accessToken}})
-          .then(function(r){return r.json();})
-          .then(function(info){userEmail=info.email||'Connected';save();fetchCalendarList(function(){syncCalendar();});})
-          .catch(function(){userEmail='Connected';save();syncCalendar();});
-      }
-    });
-    client.requestAccessToken({prompt:'select_account'});
-  });
+  if(!clientId){alert('Enter Client ID first.');return;}
+  loadGIS(function(){
+    var client=google.accounts.oauth2.initTokenClient({
+      client_id:clientId,scope:GCAL_SCOPE,
+      callback:function(resp){
+        if(resp.error){alert('Sign-in error: '+resp.error);return;}
+        accessToken=resp.access_token;
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+accessToken}})
+          .then(function(r){return r.json();})
+          .then(function(info){userEmail=info.email||'Connected';save();fetchCalendarList(function(){syncCalendar();});})
+          .catch(function(){userEmail='Connected';save();syncCalendar();});
+      }
+    });
+    client.requestAccessToken({prompt:'select_account'});
+  });
 }
 function signOut(){
-  accessToken=null;userEmail=null;calEvents=[];availableCals=[];
-  prefs.accessToken=null;prefs.userEmail=null;prefs.calEvents=[];prefs.availableCals=[];
-  save();view='setup';render();
+  accessToken=null;userEmail=null;calEvents=[];availableCals=[];
+  prefs.accessToken=null;prefs.userEmail=null;prefs.calEvents=[];prefs.availableCals=[];
+  save();view='setup';render();
 }
 
-// ─── CALENDAR LIST ─────────────────────────────────────────────────────────────
 function fetchCalendarList(cb){
-  if(!accessToken){if(cb)cb();return;}
-  fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList',{headers:{Authorization:'Bearer '+accessToken}})
-    .then(function(r){return r.json();})
-    .then(function(data){
-      availableCals=(data.items||[]).map(function(c){return{id:c.id,summary:c.summary};});
-      if(!calendarIds.length)calendarIds=['primary'];
-      save();if(cb)cb();
-    }).catch(function(){if(cb)cb();});
+  if(!accessToken){if(cb)cb();return;}
+  fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList',{headers:{Authorization:'Bearer '+accessToken}})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      availableCals=(data.items||[]).map(function(c){return{id:c.id,summary:c.summary};});
+      if(!calendarIds.length)calendarIds=['primary'];
+      save();if(cb)cb();
+    }).catch(function(){if(cb)cb();});
 }
 
-// ─── SYNC ──────────────────────────────────────────────────────────────────────
 function syncCalendar(){
-  if(!accessToken)return;
-  loading=true;render();
-  var past=new Date();past.setDate(past.getDate()-7);
-  var future=new Date();future.setDate(future.getDate()+30);
-  var term=encodeURIComponent(searchTerm||'Measure');
-  var fetches=calendarIds.map(function(calId){
-    var url='https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(calId)+'/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q='+term;
-    return fetch(url,{headers:{Authorization:'Bearer '+accessToken}}).then(function(r){return r.json();}).then(function(d){return d.items||[];}).catch(function(){return[];});
-  });
-  Promise.all(fetches).then(function(results){
-    var all=[];results.forEach(function(items){all=all.concat(items);});
-    var seen={};all=all.filter(function(ev){if(seen[ev.id])return false;seen[ev.id]=true;return true;});
-    calEvents=all.map(parseEv);
-    lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    save();loading=false;render();
-  });
+  if(!accessToken)return;
+  loading=true;render();
+  var past=new Date();past.setDate(past.getDate()-7);
+  var future=new Date();future.setDate(future.getDate()+30);
+  var term=encodeURIComponent(searchTerm||'Measure');
+  var fetches=calendarIds.map(function(calId){
+    var url='https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(calId)+'/events?timeMin='+past.toISOString()+'&timeMax='+future.toISOString()+'&singleEvents=true&orderBy=startTime&q='+term;
+    return fetch(url,{headers:{Authorization:'Bearer '+accessToken}}).then(function(r){return r.json();}).then(function(d){return d.items||[];}).catch(function(){return[];});
+  });
+  Promise.all(fetches).then(function(results){
+    var all=[];results.forEach(function(items){all=all.concat(items);});
+    var seen={};all=all.filter(function(ev){if(seen[ev.id])return false;seen[ev.id]=true;return true;});
+    calEvents=all.map(parseEv);
+    lastSync=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    save();loading=false;render();
+  });
 }
 
-// ─── PRELOAD ───────────────────────────────────────────────────────────────────
 async function preloadToday(){
-  if(preloading)return;
-  if(!geminiKey){alert('Add Gemini API key in Setup first.');return;}
-  var dayEvs=calEvents.filter(function(e){return e.startDate===selDate;});
-  var existingJobs=[];
-  try{existingJobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
-  var targets=dayEvs.filter(function(ev){var j=existingJobs.find(function(j){return j.id===ev.id;});return!j||!j.data||j.data.length===0;});
-  if(!targets.length){alert('All jobs for this day are already preloaded!');return;}
-  if(!confirm('Pre-load '+targets.length+' job(s) for '+selDate+'?'))return;
-  preloading=true;preloadErrors=[];
-  for(var i=0;i<targets.length;i++){
-    var ev=targets[i];
-    preloadProgress='Prep ('+(i+1)+'/'+targets.length+'): '+ev.customer+'...';
-    render();
-    try{await processSingleJob(ev);}
-    catch(err){preloadErrors.push(ev.customer+': '+(err.message||'unknown error'));}
-    if(i<targets.length-1)await new Promise(function(r){setTimeout(r,3000);});
-  }
-  preloading=false;preloadProgress='';
-  lastDriveSync=new Date().toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-  save();
-  if(preloadErrors.length)alert('Prep complete with '+preloadErrors.length+' error(s):\n'+preloadErrors.join('\n'));
-  render();
+  if(preloading)return;
+  if(!geminiKey){alert('Add Gemini API key in Setup first.');return;}
+  var dayEvs=calEvents.filter(function(e){return e.startDate===selDate;});
+  var existingJobs=[];
+  try{existingJobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
+  var targets=dayEvs.filter(function(ev){var j=existingJobs.find(function(j){return j.id===ev.id;});return!j||!j.data||j.data.length===0;});
+  if(!targets.length){alert('All jobs for this day are already preloaded!');return;}
+  if(!confirm('Pre-load '+targets.length+' job(s) for '+selDate+'?'))return;
+  preloading=true;preloadErrors=[];
+  for(var i=0;i<targets.length;i++){
+    var ev=targets[i];
+    preloadProgress='Prep ('+(i+1)+'/'+targets.length+'): '+ev.customer+'...';
+    render();
+    try{await processSingleJob(ev);}
+    catch(err){preloadErrors.push(ev.customer+': '+(err.message||'unknown error'));}
+    if(i<targets.length-1)await new Promise(function(r){setTimeout(r,3000);});
+  }
+  preloading=false;preloadProgress='';
+  lastDriveSync=new Date().toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  save();
+  if(preloadErrors.length)alert('Prep complete with '+preloadErrors.length+' error(s):\n'+preloadErrors.join('\n'));
+  render();
 }
 
 async function processSingleJob(ev){
-  // Read fresh from localStorage so updated keys are always used
-  var p={};try{p=JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){}
-  var gKey=p.geminiKey;
-  var lMsApiKey=p.msApiKey||'';var lMsSecretKey=p.msSecretKey||'';var lMsCompanyId=p.msCompanyId||'3208';
+  var p={};try{p=JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){}
+  var gKey=p.geminiKey;
+  var lMsApiKey=p.msApiKey||'';var lMsSecretKey=p.msSecretKey||'';var lMsCompanyId=p.msCompanyId||'3208';
 
-  var blob=null,contractName='',contractLink='',source='drive';
+  var blob=null,contractName='',contractLink='',source='drive';
 
-  // ── 1. Try MarketSharp first ───────────────────────────────────────────────
-  if(lMsApiKey&&lMsSecretKey){
-    // Temporarily set module-level vars so msParams() works
-    var _ak=msApiKey,_sk=msSecretKey,_ci=msCompanyId;
-    msApiKey=lMsApiKey;msSecretKey=lMsSecretKey;msCompanyId=lMsCompanyId;
-    try{
-      var msResult=await msFetchContractForCustomer(ev.customer);
-      blob=msResult.blob;contractName=msResult.name;contractLink=msResult.contractLink;source='ms';
-    }catch(msErr){
-      // Silent fallback — will try Drive next
-    }
-    msApiKey=_ak;msSecretKey=_sk;msCompanyId=_ci;
-  }
+  if(lMsApiKey&&lMsSecretKey){
+    var _ak=msApiKey,_sk=msSecretKey,_ci=msCompanyId;
+    msApiKey=lMsApiKey;msSecretKey=lMsSecretKey;msCompanyId=lMsCompanyId;
+    try{
+      var msResult=await msFetchContractForCustomer(ev.customer);
+      blob=msResult.blob;contractName=msResult.name;contractLink=msResult.contractLink;source='ms';
+    }catch(msErr){
+    }
+    msApiKey=_ak;msSecretKey=_sk;msCompanyId=_ci;
+  }
 
-  // ── 2. Fallback: Google Drive ──────────────────────────────────────────────
-  if(!blob){
-    var token=p.accessToken;
-    if(!token)throw new Error('Not authenticated with Google. Please sign in via Setup.');
-    var strats=buildSearchStrategies(ev.customer);
-    var fileId=null;
-    for(var i=0;i<strats.length;i++){
-      var files=await runDriveSearch(token,strats[i]);
-      if(files.length>0){
-        var phase=parsePhaseTag(ev.customer);
-        var best=files[0];
-        if(phase&&files.length>1){var ph=files.find(function(f){return f.name.toLowerCase().indexOf(phase.toLowerCase())>-1;});if(ph)best=ph;}
-        fileId=best.id;contractName=best.name;break;
-      }
-    }
-    if(!fileId)throw new Error('No contract found in MarketSharp or Drive for: '+ev.customer);
-    contractLink='https://drive.google.com/file/d/'+fileId+'/view';
-    var fRes=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+token}});
-    if(!fRes.ok)throw new Error('Drive download failed: '+fRes.status);
-    blob=await fRes.blob();source='drive';
-  }
+  if(!blob){
+    var token=p.accessToken;
+    if(!token)throw new Error('Not authenticated with Google. Please sign in via Setup.');
+    var strats=buildSearchStrategies(ev.customer);
+    var fileId=null;
+    for(var i=0;i<strats.length;i++){
+      var files=await runDriveSearch(token,strats[i]);
+      if(files.length>0){
+        var phase=parsePhaseTag(ev.customer);
+        var best=files[0];
+        if(phase&&files.length>1){var ph=files.find(function(f){return f.name.toLowerCase().indexOf(phase.toLowerCase())>-1;});if(ph)best=ph;}
+        fileId=best.id;contractName=best.name;break;
+      }
+    }
+    if(!fileId)throw new Error('No contract found in MarketSharp or Drive for: '+ev.customer);
+    contractLink='https://drive.google.com/file/d/'+fileId+'/view';
+    var fRes=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media&supportsAllDrives=true',{headers:{Authorization:'Bearer '+token}});
+    if(!fRes.ok)throw new Error('Drive download failed: '+fRes.status);
+    blob=await fRes.blob();source='drive';
+  }
 
-  // ── 3. Gemini reads the PDF (unchanged) ───────────────────────────────────
-  var base64=await new Promise(function(resolve){
-    var reader=new FileReader();
-    reader.onloadend=function(){resolve(reader.result.split(',')[1]);};
-    reader.readAsDataURL(blob);
-  });
+  var base64=await new Promise(function(resolve){
+    var reader=new FileReader();
+    reader.onloadend=function(){resolve(reader.result.split(',')[1]);};
+    reader.readAsDataURL(blob);
+  });
 
-  var PROMPT='You are analyzing a Visionaire Windows signed contract PDF.\n\nRULES:\n1. Detect contractType: \'windows\', \'doors\', or \'both\'.\n2. COMBINATION UNIT RULE: Entry door with sidelites/storm door = ONE item (qty:1). Use COMBINATION UNIT SIZE as contractSize. Sub-items are components.\n3. For each door: build components array. Each: { name, qty, colorExterior, colorInterior, singleColor, hasGlass, glass, size }.\n4. Storm doors: singleColor=true.\n5. For windows: extract colorExterior, colorInterior, colorGrids, grids, glass, style.\n6. repairNotes: flag ROT, HEADER WORK, CUSTOM CONSTRUCTION, OSJ, OSBM.\n7. summary: one sentence project overview.\n8. Swing format: RHI, LHI, RHO, or LHO.\n9. If \'Sizing to be Verified by Remeasure Tech\', add *** to contractSize.\n\nReturn ONLY valid JSON with no markdown:\n{"contractType":"doors","summary":"...","repairNotes":"...","items":[{"itemType":"Door","location":"Front Entry","contractSize":"60 1/16 x 81 11/16","qty":"1","doorType":"Single w/ Sidelights","swing":"RHI","jambDepth":"4-9/16\\"","colorExterior":"","colorInterior":"","extras":"","components":[]}],"checklist":{"winColor":"","glassType":"","doorSwing":"","doorJamb":""}}';
+  var PROMPT="You are analyzing a Visionaire Windows signed contract PDF.\n\nRULES:\n1. Detect contractType: 'windows', 'doors', or 'both'.\n2. Extract winQty (total window quantity) and doorQty (total door quantity).\n3. Install Type: If the contract mentions 'capping', a 'capping color', or a 'vinyl or metal tear out charge', set installType to 'Capping'. Otherwise, set installType to 'Retro'.\n4. COMBINATION UNIT RULE: An entry door with sidelites/storm door is ONE item. Use COMBINATION UNIT SIZE as contractSize. Sub-items are components.\n5. VINYL WINDOW SETS: Group 'vinyl window sets' comprised of multiple windows as a SINGLE window line item.\n6. For each door item, build a components array. Each component: { name, qty, colorExterior, colorInterior, singleColor, hasGlass, glass, size }.\n7. Storm doors: singleColor=true.\n8. For window items: extract colorExterior, colorInterior, colorGrids, grids type, glass type, style.\n9. repairNotes: flag any ROT, HEADER WORK, CUSTOM CONSTRUCTION. Capture ANY additional charges outside of standard windows/doors here.\n10. summary: one sentence project overview.\n11. Swing format: RHI, LHI, RHO, or LHO.\n\nReturn ONLY valid JSON:\n{\"contractType\":\"doors\",\"installType\":\"Retro\",\"winQty\":\"0\",\"doorQty\":\"1\",\"summary\":\"...\",\"repairNotes\":\"...\",\"items\":[{\"itemType\":\"Door\",\"location\":\"Front Entry\",\"contractSize\":\"60 1/16 x 81 11/16\",\"qty\":\"1\",\"doorType\":\"Single w/ Sidelights\",\"swing\":\"RHI\",\"jambDepth\":\"4-9/16\\\"\",\"colorExterior\":\"\",\"colorInterior\":\"\",\"extras\":\"\",\"components\":[]}]}";
 
-  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+gKey,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({contents:[{parts:[{text:PROMPT},{inlineData:{mimeType:blob.type||'application/pdf',data:base64}}]}]})
-  });
-  var result=await res.json();
-  if(!result.candidates||!result.candidates[0])throw new Error('Gemini returned no result');
-  var text=result.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim();
-  var parsed=JSON.parse(text);
+  var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+gKey,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:PROMPT},{inlineData:{mimeType:blob.type||'application/pdf',data:base64}}]}]})
+  });
+  var result=await res.json();
+  if(!result.candidates||!result.candidates[0])throw new Error('Gemini returned no result');
+  var text=result.candidates[0].content.parts[0].text.replace(/```json/gi,'').replace(/```/g,'').trim();
+  var parsed=JSON.parse(text);
 
-  var jobs=[];try{jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
-  var jobData={
-    id:ev.id,customer:ev.customer,time:ev.startTime,
-    summary:parsed.summary,repairNotes:parsed.repairNotes,
-    data:parsed.items.map(function(i){return Object.assign({},{fmWidth:'',fmHeight:'',verified:false,osj:false,osbm:false,varianceConfirmed:false,colorExterior:'',colorInterior:'',colorGrids:'',components:[]},i);}),
-    checklist:parsed.checklist,contractFile:contractName,
-    syncTime:new Date().toLocaleString(),contractLink:contractLink,
-    contractSource:source
-  };
-  var idx=jobs.findIndex(function(j){return j.id===ev.id;});
-  if(idx>-1)jobs[idx]=jobData;else jobs.unshift(jobData);
-  try{localStorage.setItem('visionaireJobs',JSON.stringify(jobs));}catch(e){}
+  var jobs=[];try{jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
+  var jobData={
+    id:ev.id,customer:ev.customer,time:ev.startTime,
+    summary:parsed.summary,repairNotes:parsed.repairNotes,
+    winQty:parsed.winQty, doorQty:parsed.doorQty, installType:parsed.installType,
+    data:parsed.items.map(function(i){return Object.assign({},{fmWidth:'',fmHeight:'',verified:false,osj:false,osbm:false,varianceConfirmed:false,colorExterior:'',colorInterior:'',colorGrids:'',components:[]},i);}),
+    checklist:parsed.checklist,contractFile:contractName,
+    syncTime:new Date().toLocaleString(),contractLink:contractLink,
+    contractSource:source
+  };
+  var idx=jobs.findIndex(function(j){return j.id===ev.id;});
+  if(idx>-1)jobs[idx]=jobData;else jobs.unshift(jobData);
+  try{localStorage.setItem('visionaireJobs',JSON.stringify(jobs));}catch(e){}
 }
 
-// ─── DRIVE SEARCH FALLBACK ─────────────────────────────────────────────────────
 function buildSearchStrategies(customerName){
-  var n=parseCustomerName(customerName),phase=parsePhaseTag(customerName),last=n.last,first=n.first;
-  var s=[];
-  if(phase&&last&&first)s.push("name contains '"+last+"' and name contains '"+first+"' and name contains '"+phase+"' and mimeType='application/pdf'");
-  if(last&&first)s.push("name contains '"+last+"' and name contains '"+first+"' and name contains '2026' and mimeType='application/pdf'");
-  if(last&&first)s.push("name contains '"+last+"' and name contains '"+first+"' and mimeType='application/pdf'");
-  if(last)s.push("name contains '"+last+"' and name contains 'Agreement' and mimeType='application/pdf'");
-  return s;
+  var n=parseCustomerName(customerName),phase=parsePhaseTag(customerName),last=n.last,first=n.first;
+  var s=[];
+  if(phase&&last&&first)s.push("name contains '"+last+"' and name contains '"+first+"' and name contains '"+phase+"' and mimeType='application/pdf'");
+  if(last&&first)s.push("name contains '"+last+"' and name contains '"+first+"' and name contains '2026' and mimeType='application/pdf'");
+  if(last&&first)s.push("name contains '"+last+"' and name contains '"+first+"' and mimeType='application/pdf'");
+  if(last)s.push("name contains '"+last+"' and name contains 'Agreement' and mimeType='application/pdf'");
+  return s;
 }
 async function runDriveSearch(token,query){
-  var url='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)+'&orderBy=modifiedTime desc&pageSize=5&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name,modifiedTime)';
-  var res=await fetch(url,{headers:{Authorization:'Bearer '+token}});
-  var data=await res.json();return data.files||[];
+  var url='https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(query)+'&orderBy=modifiedTime desc&pageSize=5&includeItemsFromAllDrives=true&supportsAllDrives=true&fields=files(id,name,modifiedTime)';
+  var res=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+  var data=await res.json();return data.files||[];
 }
 
-// ─── EVENT PARSING ─────────────────────────────────────────────────────────────
 function parseEv(ev){
-  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
-  var rawName=ev.summary
-    .replace(/^\s*final\s+measure\s*[-–:]\s*/i,'').replace(/^\s*fm\s*[-–:]\s*/i,'')
-    .replace(/\s*[-–:]\s*final\s+measure\s*$/i,'').replace(/\s*[-–:]\s*fm\s*$/i,'')
-    .trim().replace(/^[^a-zA-Z0-9]+/,'').trim();
-  return{
-    id:ev.id,customer:rawName||'Unnamed',address:ev.location||'',
-    startDate:start.slice(0,10),
-    startTime:start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled',
-    notesHtml:ev.description||'',
-    hasWin:/window/i.test(ev.summary+(ev.description||'')),
-    hasDoor:/door/i.test(ev.summary+(ev.description||''))
-  };
+  var start=(ev.start&&(ev.start.dateTime||ev.start.date))||'';
+  var rawName=ev.summary
+    .replace(/^\s*final\s+measure\s*[-–:]\s*/i,'').replace(/^\s*fm\s*[-–:]\s*/i,'')
+    .replace(/\s*[-–:]\s*final\s+measure\s*$/i,'').replace(/\s*[-–:]\s*fm\s*$/i,'')
+    .trim().replace(/^[^a-zA-Z0-9]+/,'').trim();
+  return{
+    id:ev.id,customer:rawName||'Unnamed',address:ev.location||'',
+    startDate:start.slice(0,10),
+    startTime:start.indexOf('T')>=0?new Date(start).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Scheduled',
+    notesHtml:ev.description||'',
+    hasWin:/window/i.test(ev.summary+(ev.description||'')),
+    hasDoor:/door/i.test(ev.summary+(ev.description||''))
+  };
 }
 function cleanNotes(html){
-  if(!html)return'';
-  var text=html.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').trim();
-  var labels=['Category:','Contact:','Product:','Edit event at:'];
-  labels.forEach(function(label){text=text.replace(new RegExp('('+label+')','gi'),'|||$1');});
-  return text.split('|||').filter(function(l){return l.trim().length>3;}).map(function(line){
-    var part=line.trim();
-    var label=labels.find(function(lab){return part.toLowerCase().startsWith(lab.toLowerCase());});
-    if(label){
-      var content=part.substring(label.length).trim();
-      if(label.toLowerCase()==='contact:'){
-        var phones=content.match(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g);
-        content=phones?phones.map(function(p){return'<a href="tel:'+p+'" class="tel-link">'+p+'</a>';}).join(' | '):'No phone listed';
-        label='CONTACT:';
-      } else if(label.toLowerCase()==='edit event at:'){
-        return'<span class="note-line"><span class="note-label">CRM:</span><a href="'+content+'" target="_blank" style="color:#2563eb;font-weight:700;">Open MarketSharp</a></span>';
-      }
-      return'<span class="note-line"><span class="note-label">'+label+'</span>'+content+'</span>';
-    }
-    return'<span class="note-line">'+part+'</span>';
-  }).join('');
+  if(!html)return'';
+  var text=html.replace(/<[^>]+>/g,' ').replace(/ /g,' ').trim();
+  var labels=['Category:','Contact:','Product:','Edit event at:'];
+  labels.forEach(function(label){text=text.replace(new RegExp('('+label+')','gi'),'|||$1');});
+  return text.split('|||').filter(function(l){return l.trim().length>3;}).map(function(line){
+    var part=line.trim();
+    var label=labels.find(function(lab){return part.toLowerCase().startsWith(lab.toLowerCase());});
+    if(label){
+      var content=part.substring(label.length).trim();
+      if(label.toLowerCase()==='contact:'){
+        var phones=content.match(/(\(?\d{3}\)?[\s-]?\d{3}[\s-]?\d{4})/g);
+        content=phones?phones.map(function(p){return'<a href="tel:'+p+'" class="tel-link">'+p+'</a>';}).join(' | '):'No phone listed';
+        label='CONTACT:';
+      } else if(label.toLowerCase()==='edit event at:'){
+        return'<span class="note-line"><span class="note-label">CRM:</span><a href="'+content+'" target="_blank" style="color:#2563eb;font-weight:700;">Open MarketSharp</a></span>';
+      }
+      return'<span class="note-line"><span class="note-label">'+label+'</span>'+content+'</span>';
+    }
+    return'<span class="note-line">'+part+'</span>';
+  }).join('');
 }
 
-// ─── RENDER ────────────────────────────────────────────────────────────────────
 function render(){
-  var root=document.getElementById('root');root.innerHTML='';
-  var wrap=el('div',{C:'app'});
-  if(preloading)wrap.appendChild(el('div',{C:'preload-bar',t:preloadProgress}));
-  wrap.appendChild(rHeader());
-  var main=el('div',{C:'main'});
-  if(view==='setup')rSetup(main);else rSched(main);
-  wrap.appendChild(main);root.appendChild(wrap);
+  var root=document.getElementById('root');root.innerHTML='';
+  var wrap=el('div',{C:'app'});
+  if(preloading)wrap.appendChild(el('div',{C:'preload-bar',t:preloadProgress}));
+  wrap.appendChild(rHeader());
+  var main=el('div',{C:'main'});
+  if(view==='setup')rSetup(main);else rSched(main);
+  wrap.appendChild(main);root.appendChild(wrap);
 }
 
 function rHeader(){
-  var h=el('div',{C:'hdr'});
-  var top=el('div',{C:'hdr-top'});
-  top.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
-  var badge=el('div',{C:'acct-badge'});
-  badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
-  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Sign-in Needed')}));
-  top.appendChild(badge);h.appendChild(top);
-  var tabs=el('div',{C:'vtabs'});
-  [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(function(t){
-    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:function(){
-      if(t[0]==='manual'){
-        var n=prompt('Customer name:');
-        if(n&&n.trim()){
-          var jobs=[];try{jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
-          var id=Date.now();jobs.unshift({id:id,customer:n.trim(),time:'Manual',data:[]});
-          try{localStorage.setItem('visionaireJobs',JSON.stringify(jobs));}catch(e){}
-          try{localStorage.setItem('activeJobId',JSON.stringify(id));}catch(e){}
-          window.location.href='measure.html';
-        }
-      } else {view=t[0];render();}
-    }}));
-  });
-  h.appendChild(tabs);return h;
+  var h=el('div',{C:'hdr'});
+  var top=el('div',{C:'hdr-top'});
+  top.appendChild(el('span',{C:'hdr-title',t:'Visionaire Hub'}));
+  var badge=el('div',{C:'acct-badge'});
+  badge.appendChild(el('span',{C:'acct-dot'+(accessToken?'':' off')}));
+  badge.appendChild(el('span',{C:'acct-txt',t:userEmail||(accessToken?'Connected':'Sign-in Needed')}));
+  top.appendChild(badge);h.appendChild(top);
+  var tabs=el('div',{C:'vtabs'});
+  [['sched','Schedule'],['manual','Manual FM'],['setup','Setup']].forEach(function(t){
+    tabs.appendChild(el('button',{C:'vtab'+(view===t[0]?' on':''),t:t[1],click:function(){
+      if(t[0]==='manual'){
+        var n=prompt('Customer name:');
+        if(n&&n.trim()){
+          var jobs=[];try{jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
+          var id=Date.now();jobs.unshift({id:id,customer:n.trim(),time:'Manual',data:[]});
+          try{localStorage.setItem('visionaireJobs',JSON.stringify(jobs));}catch(e){}
+          try{localStorage.setItem('activeJobId',JSON.stringify(id));}catch(e){}
+          window.location.href='measure.html';
+        }
+      } else {view=t[0];render();}
+    }}));
+  });
+  h.appendChild(tabs);return h;
 }
 
 function rSetup(main){
-  // ── Google Calendar & Drive ──────────────────────────────────────────────
-  var gc=el('div',{C:'sc'});gc.appendChild(el('div',{C:'sc-head',t:'Google Calendar & Drive'}));
-  var gb=el('div',{C:'sc-body'});
-  gb.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
-  var ci=el('input',{C:'inp',value:clientId,placeholder:'Your OAuth 2.0 Client ID'});
-  ci.addEventListener('input',function(){clientId=this.value;save();});gb.appendChild(ci);
-  if(accessToken&&userEmail){
-    var disc=el('button',{C:'g-btn conn',t:'✓ '+userEmail});disc.addEventListener('click',signOut);gb.appendChild(disc);
-  } else {
-    var conn=el('button',{C:'g-btn',t:'Connect Google Account'});conn.addEventListener('click',signIn);gb.appendChild(conn);
-  }
-  if(accessToken&&availableCals.length>1){
-    gb.appendChild(el('span',{C:'lbl',t:'Calendars to Scan'}));
-    var calRow=el('div',{style:'display:flex;flex-wrap:wrap;margin-bottom:4px'});
-    availableCals.forEach(function(cal){
-      var isOn=calendarIds.indexOf(cal.id)>-1;
-      var chip=el('div',{C:'cal-chip'+(isOn?' on':''),t:cal.summary});
-      chip.addEventListener('click',function(){
-        var idx=calendarIds.indexOf(cal.id);
-        if(idx>-1){if(calendarIds.length>1)calendarIds.splice(idx,1);}else calendarIds.push(cal.id);
-        save();rSetup(main);
-      });
-      calRow.appendChild(chip);
-    });
-    gb.appendChild(calRow);
-  }
-  gb.appendChild(el('span',{C:'lbl',t:'Calendar Search Keyword'}));
-  var st=el('input',{C:'inp',value:searchTerm,placeholder:'e.g. Measure'});
-  st.addEventListener('input',function(){searchTerm=this.value;save();});gb.appendChild(st);
-  gc.appendChild(gb);main.appendChild(gc);
+  var gc=el('div',{C:'sc'});gc.appendChild(el('div',{C:'sc-head',t:'Google Calendar & Drive'}));
+  var gb=el('div',{C:'sc-body'});
+  gb.appendChild(el('span',{C:'lbl',t:'Google Client ID'}));
+  var ci=el('input',{C:'inp',value:clientId,placeholder:'Your OAuth 2.0 Client ID'});
+  ci.addEventListener('input',function(){clientId=this.value;save();});gb.appendChild(ci);
+  if(accessToken&&userEmail){
+    var disc=el('button',{C:'g-btn conn',t:'✓ '+userEmail});disc.addEventListener('click',signOut);gb.appendChild(disc);
+  } else {
+    var conn=el('button',{C:'g-btn',t:'Connect Google Account'});conn.addEventListener('click',signIn);gb.appendChild(conn);
+  }
+  if(accessToken&&availableCals.length>1){
+    gb.appendChild(el('span',{C:'lbl',t:'Calendars to Scan'}));
+    var calRow=el('div',{style:'display:flex;flex-wrap:wrap;margin-bottom:4px'});
+    availableCals.forEach(function(cal){
+      var isOn=calendarIds.indexOf(cal.id)>-1;
+      var chip=el('div',{C:'cal-chip'+(isOn?' on':''),t:cal.summary});
+      chip.addEventListener('click',function(){
+        var idx=calendarIds.indexOf(cal.id);
+        if(idx>-1){if(calendarIds.length>1)calendarIds.splice(idx,1);}else calendarIds.push(cal.id);
+        save();rSetup(main);
+      });
+      calRow.appendChild(chip);
+    });
+    gb.appendChild(calRow);
+  }
+  gb.appendChild(el('span',{C:'lbl',t:'Calendar Search Keyword'}));
+  var st=el('input',{C:'inp',value:searchTerm,placeholder:'e.g. Measure'});
+  st.addEventListener('input',function(){searchTerm=this.value;save();});gb.appendChild(st);
+  gc.appendChild(gb);main.appendChild(gc);
 
-  // ── MarketSharp API ────────────────────────────────────────────────────────
-  var mc=el('div',{C:'sc'});mc.appendChild(el('div',{C:'sc-head ms',t:'MarketSharp API — Primary Source'}));
-  var mb=el('div',{C:'sc-body'});
-  mb.appendChild(el('div',{C:'info-box',t:'Keys are typed here and saved only on this device. Never paste them into the code file itself — that is the only rule that matters for security.'}));
+  var mc=el('div',{C:'sc'});mc.appendChild(el('div',{C:'sc-head ms',t:'MarketSharp API — Primary Source'}));
+  var mb=el('div',{C:'sc-body'});
+  mb.appendChild(el('div',{C:'info-box',t:'Keys are typed here and saved only on this device. Never paste them into the code file itself — that is the only rule that matters for security.'}));
 
-  mb.appendChild(el('span',{C:'lbl',t:'Company ID'}));
-  var cid2=el('input',{C:'inp',value:msCompanyId,placeholder:'3208'});
-  cid2.addEventListener('input',function(){msCompanyId=this.value;save();});mb.appendChild(cid2);
+  mb.appendChild(el('span',{C:'lbl',t:'Company ID'}));
+  var cid2=el('input',{C:'inp',value:msCompanyId,placeholder:'3208'});
+  cid2.addEventListener('input',function(){msCompanyId=this.value;save();});mb.appendChild(cid2);
 
-  mb.appendChild(el('span',{C:'lbl',t:'API User Key'}));
-  var mk=el('input',{C:'inp',value:msApiKey,placeholder:'6b03a4fd-c4f4-...'});
-  mk.addEventListener('input',function(){msApiKey=this.value;save();});mb.appendChild(mk);
+  mb.appendChild(el('span',{C:'lbl',t:'API User Key'}));
+  var mk=el('input',{C:'inp',value:msApiKey,placeholder:'6b03a4fd-c4f4-...'});
+  mk.addEventListener('input',function(){msApiKey=this.value;save();});mb.appendChild(mk);
 
-  mb.appendChild(el('span',{C:'lbl',t:'Secret Key'}));
-  var msk=el('input',{C:'inp',value:msSecretKey,placeholder:'Your secret key'});
-  msk.type='password';
-  msk.addEventListener('input',function(){msSecretKey=this.value;save();});mb.appendChild(msk);
+  mb.appendChild(el('span',{C:'lbl',t:'Secret Key'}));
+  var msk=el('input',{C:'inp',value:msSecretKey,placeholder:'Your secret key'});
+  msk.type='password';
+  msk.addEventListener('input',function(){msSecretKey=this.value;save();});mb.appendChild(msk);
 
-  var testBtn=el('button',{C:'btn-ms-test',t:'Test MarketSharp Connection'});
-  testBtn.addEventListener('click',function(){testMSConnection();});mb.appendChild(testBtn);
+  var testBtn=el('button',{C:'btn-ms-test',t:'Test MarketSharp Connection'});
+  testBtn.addEventListener('click',function(){testMSConnection();});mb.appendChild(testBtn);
 
-  if(msTestResult){
-    mb.appendChild(el('div',{C:'ms-status '+msTestResult.status,t:msTestResult.msg}));
-  }
-  mc.appendChild(mb);main.appendChild(mc);
+  if(msTestResult){
+    mb.appendChild(el('div',{C:'ms-status '+msTestResult.status,t:msTestResult.msg}));
+  }
+  mc.appendChild(mb);main.appendChild(mc);
 
-  // ── Gemini / Save ──────────────────────────────────────────────────────────
-  var ac=el('div',{C:'sc'});ac.appendChild(el('div',{C:'sc-head',t:'AI — Gemini'}));
-  var ab=el('div',{C:'sc-body'});
-  ab.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
-  var gk=el('input',{C:'inp',value:geminiKey,placeholder:'Paste Gemini API key'});
-  gk.type='password';
-  gk.addEventListener('input',function(){geminiKey=this.value;save();});ab.appendChild(gk);
-  var saveBtn=el('button',{C:'btn-p',t:'Save & Sync Calendar'});
-  saveBtn.addEventListener('click',function(){save();fetchCalendarList(function(){syncCalendar();});view='sched';render();});
-  ab.appendChild(saveBtn);
-  ac.appendChild(ab);main.appendChild(ac);
+  var ac=el('div',{C:'sc'});ac.appendChild(el('div',{C:'sc-head',t:'AI — Gemini'}));
+  var ab=el('div',{C:'sc-body'});
+  ab.appendChild(el('span',{C:'lbl',t:'Gemini API Key'}));
+  var gk=el('input',{C:'inp',value:geminiKey,placeholder:'Paste Gemini API key'});
+  gk.type='password';
+  gk.addEventListener('input',function(){geminiKey=this.value;save();});ab.appendChild(gk);
+  var saveBtn=el('button',{C:'btn-p',t:'Save & Sync Calendar'});
+  saveBtn.addEventListener('click',function(){save();fetchCalendarList(function(){syncCalendar();});view='sched';render();});
+  ab.appendChild(saveBtn);
+  ac.appendChild(ab);main.appendChild(ac);
 }
 
 function rSched(main){
-  if(!accessToken){main.appendChild(el('div',{C:'empty-state',t:'Connect your Google account in Setup.'}));return;}
-  var sb=el('div',{C:'sync-bar'});
-  var si=el('div');
-  si.appendChild(el('div',{C:'sync-title',t:userEmail||'Calendar'}));
-  var src=msApiKey?'MS first, Drive fallback':'Drive only (add MS keys in Setup)';
-  si.appendChild(el('div',{C:'sync-sub',t:'Sync: '+(lastSync||'--')+'  |  Prep: '+(lastDriveSync||'--')+'  |  '+src}));
-  sb.appendChild(si);
-  var grp=el('div',{style:'display:flex;gap:8px'});
-  var prepBtn=el('button',{C:'sync-btn',style:'background:#059669',t:preloading?'...':'Prep'});
-  prepBtn.addEventListener('click',preloadToday);
-  var syncBtn=el('button',{C:'sync-btn',t:loading?'...':'Sync'});
-  syncBtn.addEventListener('click',syncCalendar);
-  grp.appendChild(prepBtn);grp.appendChild(syncBtn);sb.appendChild(grp);main.appendChild(sb);
-  if(loading){main.appendChild(el('div',{C:'lrow',t:'Updating Schedule...'}));return;}
-  rDateStrip(main);
-  var dayEvs=calEvents.filter(function(e){return e.startDate===selDate;});
-  if(!dayEvs.length){main.appendChild(el('div',{C:'empty-state',t:'No measurements scheduled for this day.'}));}
-  else{dayEvs.forEach(function(ev){main.appendChild(rCard(ev));});}
+  if(!accessToken){main.appendChild(el('div',{C:'empty-state',t:'Connect your Google account in Setup.'}));return;}
+  var sb=el('div',{C:'sync-bar'});
+  var si=el('div');
+  si.appendChild(el('div',{C:'sync-title',t:userEmail||'Calendar'}));
+  var src=msApiKey?'MS first, Drive fallback':'Drive only (add MS keys in Setup)';
+  si.appendChild(el('div',{C:'sync-sub',t:'Sync: '+(lastSync||'--')+'  |  Prep: '+(lastDriveSync||'--')+'  |  '+src}));
+  sb.appendChild(si);
+  var grp=el('div',{style:'display:flex;gap:8px'});
+  var prepBtn=el('button',{C:'sync-btn',style:'background:#059669',t:preloading?'...':'Prep'});
+  prepBtn.addEventListener('click',preloadToday);
+  var syncBtn=el('button',{C:'sync-btn',t:loading?'...':'Sync'});
+  syncBtn.addEventListener('click',syncCalendar);
+  grp.appendChild(prepBtn);grp.appendChild(syncBtn);sb.appendChild(grp);main.appendChild(sb);
+  if(loading){main.appendChild(el('div',{C:'lrow',t:'Updating Schedule...'}));return;}
+  rDateStrip(main);
+  var dayEvs=calEvents.filter(function(e){return e.startDate===selDate;});
+  if(!dayEvs.length){main.appendChild(el('div',{C:'empty-state',t:'No measurements scheduled for this day.'}));}
+  else{dayEvs.forEach(function(ev){main.appendChild(rCard(ev));});}
 }
 
 function rDateStrip(main){
-  var strip=el('div',{C:'dstrip'});
-  for(var i=-1;i<=14;i++){
-    (function(offset){
-      var d=new Date();d.setDate(d.getDate()+offset);
-      var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      var hasEv=calEvents.some(function(e){return e.startDate===iso;});
-      var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(hasEv?' ev':'')});
-      chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
-      chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
-      chip.addEventListener('click',function(){selDate=iso;render();});
-      strip.appendChild(chip);
-    })(i);
-  }
-  main.appendChild(strip);
+  var strip=el('div',{C:'dstrip'});
+  for(var i=-1;i<=14;i++){
+    (function(offset){
+      var d=new Date();d.setDate(d.getDate()+offset);
+      var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var hasEv=calEvents.some(function(e){return e.startDate===iso;});
+      var chip=el('div',{C:'dchip'+(iso===selDate?' on':'')+(hasEv?' ev':'')});
+      chip.appendChild(el('div',{C:'dc-d',t:d.toLocaleDateString([],{weekday:'short'})}));
+      chip.appendChild(el('div',{C:'dc-n',t:d.getDate()}));
+      chip.addEventListener('click',function(){selDate=iso;render();});
+      strip.appendChild(chip);
+    })(i);
+  }
+  main.appendChild(strip);
 }
 
 function rCard(ev){
-  var isExp=expandId===ev.id;
-  var jobs=[];try{jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
-  var savedJob=jobs.find(function(j){return j.id===ev.id;});
-  var isReady=savedJob&&savedJob.data&&savedJob.data.length>0;
-  var hasError=preloadErrors.some(function(e){return e.indexOf(ev.customer)>-1;});
-  var card=el('div',{C:'cc'});
-  var head=el('div',{C:'cc-head'});
-  head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win')}));
-  var body=el('div',{C:'cc-body'});
-  var top=el('div',{C:'cc-top'});
-  var nameBox=el('div',{C:'cc-name',t:ev.customer});
-  if(isReady){
-    nameBox.appendChild(el('span',{C:'ready-badge',t:'READY'}));
-    if(savedJob.contractSource==='ms') nameBox.appendChild(el('span',{C:'source-badge ms',t:'MS'}));
-    else if(savedJob.contractSource==='drive') nameBox.appendChild(el('span',{C:'source-badge drive',t:'DRIVE'}));
-  }
-  if(hasError)nameBox.appendChild(el('span',{C:'err-badge',t:'NOT FOUND'}));
-  top.appendChild(nameBox);top.appendChild(el('span',{C:'cc-time',t:ev.startTime}));
-  body.appendChild(top);
-  if(isReady&&savedJob.contractFile){
-    body.appendChild(el('div',{style:'font-size:0.55rem;color:var(--s400);font-weight:700;margin-top:2px',t:'📄 '+savedJob.contractFile.replace(/_/g,' ').substring(0,45)}));
-  }
-  head.appendChild(body);card.appendChild(head);
-  if(isExp){
-    var det=el('div',{C:'cc-det'});var n=el('div',{C:'dnotes'});
-    var html='';
-    if(ev.address)html+='<span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q='+encodeURIComponent(ev.address)+'" target="_blank" style="color:#2563eb;">'+ev.address+'</a></span>';
-    html+=cleanNotes(ev.notesHtml);
-    n.innerHTML=html||'No notes.';det.appendChild(n);card.appendChild(det);
-  }
-  var acts=el('div',{C:'cc-acts'});
-  var fmBtn=el('button',{C:'ca p',t:'FM Sheet'});
-  fmBtn.addEventListener('click',function(){
-    var jobs2=[];try{jobs2=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
-    if(!jobs2.find(function(j){return j.id===ev.id;})){
-      jobs2.unshift({id:ev.id,customer:ev.customer,time:ev.startTime,data:[]});
-      try{localStorage.setItem('visionaireJobs',JSON.stringify(jobs2));}catch(e){}
-    }
-    try{localStorage.setItem('activeJobId',JSON.stringify(ev.id));}catch(e){}
-    window.location.href='measure.html';
-  });
-  var moreBtn=el('button',{C:'ca',t:isExp?'Less':'More'});
-  moreBtn.addEventListener('click',function(){expandId=isExp?null:ev.id;render();});
-  acts.appendChild(fmBtn);acts.appendChild(moreBtn);card.appendChild(acts);return card;
+  var isExp=expandId===ev.id;
+  var jobs=[];try{jobs=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
+  var savedJob=jobs.find(function(j){return j.id===ev.id;});
+  var isReady=savedJob&&savedJob.data&&savedJob.data.length>0;
+  var hasError=preloadErrors.some(function(e){return e.indexOf(ev.customer)>-1;});
+  var card=el('div',{C:'cc'});
+  var head=el('div',{C:'cc-head'});
+  
+  var barText = ev.hasWin && ev.hasDoor ? 'W/D' : (ev.hasDoor ? 'D' : 'W');
+  head.appendChild(el('div',{C:'cc-bar '+(ev.hasWin&&ev.hasDoor?'both':ev.hasDoor?'door':'win'), t: barText}));
+  
+  var body=el('div',{C:'cc-body'});
+  var top=el('div',{C:'cc-top'});
+  var nameBox=el('div',{C:'cc-name',t:ev.customer});
+  if(isReady){
+    nameBox.appendChild(el('span',{C:'ready-badge',t:'READY'}));
+    if(savedJob.contractSource==='ms') nameBox.appendChild(el('span',{C:'source-badge ms',t:'MS'}));
+    else if(savedJob.contractSource==='drive') nameBox.appendChild(el('span',{C:'source-badge drive',t:'DRIVE'}));
+    
+    var wQ = savedJob.winQty || 0;
+    var dQ = savedJob.doorQty || 0;
+    if(wQ || dQ) {
+      var qTxt = (wQ ? wQ + ' W ' : '') + (dQ ? dQ + ' D' : '');
+      nameBox.appendChild(el('span',{C:'qty-badge', t: qTxt.trim()}));
+    }
+  }
+  if(hasError)nameBox.appendChild(el('span',{C:'err-badge',t:'NOT FOUND'}));
+  top.appendChild(nameBox);top.appendChild(el('span',{C:'cc-time',t:ev.startTime}));
+  body.appendChild(top);
+  if(isReady&&savedJob.contractFile){
+    body.appendChild(el('div',{style:'font-size:0.55rem;color:var(--s400);font-weight:700;margin-top:2px',t:'📄 '+savedJob.contractFile.replace(/_/g,' ').substring(0,45)}));
+  }
+  head.appendChild(body);card.appendChild(head);
+  if(isExp){
+    var det=el('div',{C:'cc-det'});var n=el('div',{C:'dnotes'});
+    var html='';
+    if(ev.address)html+='<span class="note-line"><span class="note-label">MAPS:</span><a href="https://maps.google.com/?q='+encodeURIComponent(ev.address)+'" target="_blank" style="color:#2563eb;">'+ev.address+'</a></span>';
+    html+=cleanNotes(ev.notesHtml);
+    n.innerHTML=html||'No notes.';det.appendChild(n);card.appendChild(det);
+  }
+  var acts=el('div',{C:'cc-acts'});
+  var fmBtn=el('button',{C:'ca p',t:'FM Sheet'});
+  fmBtn.addEventListener('click',function(){
+    var jobs2=[];try{jobs2=JSON.parse(localStorage.getItem('visionaireJobs'))||[];}catch(e){}
+    if(!jobs2.find(function(j){return j.id===ev.id;})){
+      jobs2.unshift({id:ev.id,customer:ev.customer,time:ev.startTime,data:[]});
+      try{localStorage.setItem('visionaireJobs',JSON.stringify(jobs2));}catch(e){}
+    }
+    try{localStorage.setItem('activeJobId',JSON.stringify(ev.id));}catch(e){}
+    window.location.href='measure.html';
+  });
+  var moreBtn=el('button',{C:'ca',t:isExp?'Less':'More'});
+  moreBtn.addEventListener('click',function(){expandId=isExp?null:ev.id;render();});
+  acts.appendChild(fmBtn);acts.appendChild(moreBtn);card.appendChild(acts);return card;
 }
 
 function el(tag,props){
-  var e=document.createElement(tag);
-  for(var k in props){
-    if(k==='C')e.className=props[k];
-    else if(k==='t')e.textContent=props[k];
-    else if(k==='click')e.addEventListener('click',props[k]);
-    else if(k==='style')e.style.cssText=props[k];
-    else e[k]=props[k];
-  }
-  return e;
+  var e=document.createElement(tag);
+  for(var k in props){
+    if(k==='C')e.className=props[k];
+    else if(k==='t')e.textContent=props[k];
+    else if(k==='click')e.addEventListener('click',props[k]);
+    else if(k==='style')e.style.cssText=props[k];
+    else e[k]=props[k];
+  }
+  return e;
 }
 
 document.addEventListener('DOMContentLoaded',render);
