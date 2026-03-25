@@ -52,8 +52,8 @@
     .unit-header{background:var(--s50);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:60px}
     .unit-num{width:30px;height:30px;background:var(--navy);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.75rem;flex-shrink:0}
     .unit-num.door{background:var(--emerald)}
-    .unit-info{flex:1;padding:0 10px}
-    .unit-loc{font-size:0.75rem;font-weight:900;text-transform:uppercase;color:var(--s800)}
+    .unit-info{flex:1;padding:0 10px; display: flex; flex-direction: column; align-items: center;}
+    .unit-loc{font-size:0.75rem;font-weight:900;text-transform:uppercase;color:var(--s800); text-align: center;}
     .unit-type-badge{display:inline-block;background:#dbeafe;color:#1e40af;font-size:0.55rem;font-weight:900;padding:2px 6px;border-radius:4px;margin-left:6px}
     .unit-type-badge.door{background:#d1fae5;color:#065f46}
     .unit-size{font-size:0.6rem;font-weight:700;color:var(--s400);margin-top:2px}
@@ -103,18 +103,17 @@
     .kbtn.red{background:#dc2626;color:white}
     .kbtn.wide{grid-column:span 2}
     .keypad-done{width:100%;margin-top:8px;padding:12px;background:var(--amber);color:var(--navy);border:none;border-radius:10px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer}
-  /* NEW STYLES: Centered Layout & Verification Colors */
-    .unit-info { flex:1; padding:0 10px; display: flex; flex-direction: column; align-items: center; }
-    .unit-loc { text-align: center; }
-    .size-compare { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; width: 100%; }
-    
-    .contract-size-badge { font-size: 0.6rem; font-weight: 800; color: var(--s600); background: var(--s100); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--s200); display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
-    .tech-size-badge { font-size: 0.65rem; font-weight: 900; color: var(--navy); background: #e0f2fe; padding: 4px 8px; border-radius: 6px; border: 1px solid #bae6fd; display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
-    
-    /* Color Coding when Verified */
-    .variance-quote { color: #dc2626 !important; background: #fef2f2 !important; border-color: #fca5a5 !important; text-decoration: line-through; }
-    .variance-tech { color: #16a34a !important; background: #dcfce7 !important; border-color: #86efac !important; }
-    .input-box.variance-tech-input { color: #16a34a; border-color: #16a34a; background: #f0fdf4; }</style>
+    
+    /* NEW STYLES: Centered Layout & Verification Colors */
+    .size-compare { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 6px; width: 100%; }
+    .contract-size-badge { font-size: 0.6rem; font-weight: 800; color: var(--s600); background: var(--s100); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--s200); display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
+    .tech-size-badge { font-size: 0.65rem; font-weight: 900; color: var(--navy); background: #e0f2fe; padding: 4px 8px; border-radius: 6px; border: 1px solid #bae6fd; display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
+    
+    /* Color Coding when Verified */
+    .variance-quote { color: #dc2626 !important; background: #fef2f2 !important; border-color: #fca5a5 !important; text-decoration: line-through; }
+    .variance-tech { color: #16a34a !important; background: #dcfce7 !important; border-color: #86efac !important; }
+    .input-box.variance-tech-input { color: #16a34a; border-color: #16a34a; background: #f0fdf4; }
+  </style>
 </head>
 <body>
 <div class="app">
@@ -153,7 +152,10 @@
     <button class="kbtn amber" onclick="kpress('1/4')">¼</button>
     <button class="kbtn amber" onclick="kpress('CLR')">CLR</button>
   </div>
-  <button class="keypad-done" onclick="closeKeypad()">Done ✓</button>
+  <div style="display:flex; gap:8px; margin-top:8px;">
+    <button class="keypad-done" style="flex:1; background:var(--s600); color:white;" onclick="closeKeypad()">Done</button>
+    <button class="keypad-done" style="flex:2;" onclick="nextField()">Next ➔</button>
+  </div>
 </div>
 
 <script>
@@ -208,33 +210,53 @@ function renderMain(){
 
 function renderEmpty(main,job){
   var wrap=el('div',{C:'empty-state'});
-  var scanBtn=el('button',{t:'Load Contract'});
-  scanBtn.style.cssText='background:#2563eb;color:white;border:none;border-radius:12px;padding:18px 32px;font-size:0.85rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';
-  scanBtn.addEventListener('click',function(){autoLoadContract(job);});
-  wrap.appendChild(scanBtn);
+  var b1=el('button',{t:'Load Contract'});
+  b1.style.cssText='background:#2563eb;color:white;border:none;border-radius:12px;padding:16px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';
+  b1.addEventListener('click',function(){autoLoadContract(job);});
+  wrap.appendChild(b1);
+
+  var b2=el('button',{t:'Manual Load Contract from Market Sharp'});
+  b2.style.cssText='background:#065f46;color:white;border:none;border-radius:12px;padding:16px;font-size:0.75rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px;margin-top:6px;';
+  b2.addEventListener('click',function(){
+    var p=safeGet('vhub_v2',{});
+    if(!p.msApiKey) return alert('MarketSharp Keys missing in Setup tab.');
+    var n=prompt('Enter Customer Last Name to search MarketSharp:');
+    if(n) { job.customer=n.trim(); autoLoadContract(job); }
+  });
+  wrap.appendChild(b2);
+
   var d1=el('div',{t:'— or —'});d1.style.cssText='font-size:0.65rem;color:#94a3b8;font-weight:700;margin:4px 0';wrap.appendChild(d1);
-  var manBtn=el('button',{t:'Manual FM Sheet'});
-  manBtn.style.cssText='background:transparent;color:#94a3b8;border:2px dashed #cbd5e1;border-radius:12px;padding:13px 28px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';
-  manBtn.addEventListener('click',function(){startManualSheet(job);});
-  wrap.appendChild(manBtn);
+
+  var b3=el('button',{t:'Manual FM Sheet'});
+  b3.style.cssText='background:transparent;color:#94a3b8;border:2px dashed #cbd5e1;border-radius:12px;padding:13px;font-size:0.8rem;font-weight:900;text-transform:uppercase;cursor:pointer;width:100%;max-width:280px';
+  b3.addEventListener('click',function(){startManualSheet(job);});
+  wrap.appendChild(b3);
   main.appendChild(wrap);
 }
 
 function renderOverview(main,job){
   var card=el('div',{C:'overview-card'});
+  var qtyStr = (job.winQty ? job.winQty + ' Windows ' : '') + (job.doorQty ? job.doorQty + ' Doors' : '');
+  var iType = job.installType || 'Retro';
+  var audioTxt = 'This is a ' + iType + ' install for ' + qtyStr + '. ' + (job.summary || '');
+
+  var headerInfo = el('div', {style: 'text-align:center; padding-bottom: 10px; border-bottom: 1px solid var(--border);'});
+  headerInfo.appendChild(el('div', {style: 'font-weight:900; color:var(--navy); font-size: 1rem;', t: iType.toUpperCase() + ' INSTALL'}));
+  headerInfo.appendChild(el('div', {style: 'font-weight:700; color:var(--s500); font-size: 0.75rem;', t: qtyStr}));
+  card.appendChild(headerInfo);
+
   if(job.summary){
     var row=el('div',{C:'briefing-row'+(isPlaying?' playing':'')});
     row.appendChild(el('div',{C:'briefing-icon',t:isPlaying?'⏸️':'🔊'}));
     var t=el('div');t.appendChild(el('div',{C:'briefing-title',t:'Technical Briefing'}));
     t.appendChild(el('div',{C:'briefing-sub',t:job.summary}));row.appendChild(t);
-    row.addEventListener('click',function(){playBriefing(job.summary);});card.appendChild(row);
+    row.addEventListener('click',function(){playBriefing(audioTxt);});card.appendChild(row);
   }
   var flags=el('div',{C:'flags-box'});
-  flags.appendChild(el('div',{C:'flags-title',t:'⚠️ Critical Project Notes'}));
-  flags.appendChild(el('div',{C:'flags-body',t:job.repairNotes||'No special repairs noted.'}));
+  flags.appendChild(el('div',{C:'flags-title',t:'⚠️ Critical Project Notes & Additional Charges'}));
+  flags.appendChild(el('div',{C:'flags-body',t:job.repairNotes||'No special repairs or additional charges noted.'}));
   card.appendChild(flags);
   if(job.contractLink){
-    // Show badge indicating where contract came from
     if(job.contractSource){
       var src=el('div',{C:'source-badge '+(job.contractSource==='ms'?'ms':'drive'),t:job.contractSource==='ms'?'Source: MarketSharp CRM':'Source: Google Drive'});
       card.appendChild(src);
@@ -254,63 +276,75 @@ function renderMeasure(main,job){
   if(ct==='windows'||ct==='both'){var aw=el('button',{C:'add-btn win',t:'+ Window'});aw.addEventListener('click',function(){addUnit('Window');});addRow.appendChild(aw);}
   if(ct==='doors'||ct==='both'){var ad=el('button',{C:'add-btn door',t:'+ Door'});ad.addEventListener('click',function(){addUnit('Door');});addRow.appendChild(ad);}
   main.appendChild(addRow);
+
+  // Moved Install Notes from Sign-off to here
+  var inWrap = el('div', {style: 'margin-top:20px; background:white; border-radius:12px; padding:16px; border:1px solid #d1d5db;'});
+  inWrap.appendChild(el('div', {C: 'field-label', t: 'Install Notes for Crew'}));
+  var inTxt = el('textarea', {C: 'mobile-note', placeholder: 'Needs 40ft ladder, header work, ROT removal...'});
+  inTxt.value = job.signoff ? job.signoff.finalNotes || '' : '';
+  inTxt.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+    updateSignoff('finalNotes', this.value);
+  });
+  inWrap.appendChild(inTxt);
+  main.appendChild(inWrap);
 }
 
 function renderUnitCard(unit,idx,job){
-  var isDoor=unit.itemType==='Door',isOpen=expandedIdx===idx;
-  var card=el('div',{C:'unit-card '+(isDoor?'door':'win')});
-  var hdr=el('div',{C:'unit-header'});
-  var num=el('div',{C:'unit-num '+(isDoor?'door':''),t:String(idx+1)});
-  
-  var info=el('div',{C:'unit-info'});
-  var loc=el('div',{C:'unit-loc'});loc.textContent=unit.location||'Unit '+(idx+1);
-  loc.appendChild(el('span',{C:'unit-type-badge '+(isDoor?'door':''),t:unit.itemType||'Window'}));
-  info.appendChild(loc);
+  var isDoor=unit.itemType==='Door',isOpen=expandedIdx===idx;
+  var card=el('div',{C:'unit-card '+(isDoor?'door':'win')});
+  var hdr=el('div',{C:'unit-header'});
+  var num=el('div',{C:'unit-num '+(isDoor?'door':''),t:String(idx+1)});
+  
+  var info=el('div',{C:'unit-info'});
+  var loc=el('div',{C:'unit-loc'});loc.textContent=unit.location||'Unit '+(idx+1);
+  loc.appendChild(el('span',{C:'unit-type-badge '+(isDoor?'door':''),t:unit.itemType||'Window'}));
+  info.appendChild(loc);
 
-  // --- NEW: Centered Size Comparison ---
-  var sizeWrap = el('div', {C: 'size-compare'});
-  var sizeLabel = isDoor ? 'Unit Size' : 'Opening Size';
+  // --- NEW: Centered Size Comparison ---
+  var sizeWrap = el('div', {C: 'size-compare'});
+  var sizeLabel = isDoor ? 'Unit Size' : 'Opening Size';
 
-  // 1. Contract / Quote Size (turns red when verified)
-  if (unit.contractSize) {
-    var cSize = el('div', {C: 'contract-size-badge' + (unit.varianceConfirmed ? ' variance-quote' : '')});
-    cSize.innerHTML = '📄 ' + sizeLabel + ': ' + unit.contractSize;
-    sizeWrap.appendChild(cSize);
-  }
+  // 1. Contract / Quote Size (turns red when verified)
+  if (unit.contractSize) {
+    var cSize = el('div', {C: 'contract-size-badge' + (unit.varianceConfirmed ? ' variance-quote' : '')});
+    cSize.innerHTML = '📄 ' + sizeLabel + ': ' + unit.contractSize;
+    sizeWrap.appendChild(cSize);
+  }
 
-  // 2. Tech Measurement (turns green when verified)
-  var techW = unit.fmWidth || '?';
-  var techH = unit.fmHeight || '?';
-  if (unit.fmWidth || unit.fmHeight) {
-    var tSize = el('div', {C: 'tech-size-badge' + (unit.varianceConfirmed ? ' variance-tech' : '')});
-    tSize.innerHTML = '📏 FM: ' + techW + ' x ' + techH;
-    sizeWrap.appendChild(tSize);
-  }
-  info.appendChild(sizeWrap);
-  // -------------------------------------
+  // 2. Tech Measurement (turns green when verified)
+  var techW = unit.fmWidth || '?';
+  var techH = unit.fmHeight || '?';
+  if (unit.fmWidth || unit.fmHeight) {
+    var tSize = el('div', {C: 'tech-size-badge' + (unit.varianceConfirmed ? ' variance-tech' : '')});
+    tSize.innerHTML = '📏 FM: ' + techW + ' x ' + techH;
+    sizeWrap.appendChild(tSize);
+  }
+  info.appendChild(sizeWrap);
+  // -------------------------------------
 
-  hdr.appendChild(num);hdr.appendChild(info);hdr.appendChild(el('div',{style:'color:#cbd5e1;font-size:0.7rem',t:isOpen?'▲':'▼'}));
-  hdr.addEventListener('click',function(){expandedIdx=(expandedIdx===idx)?null:idx;activeField=null;closeKeypad();renderMain();});
-  card.appendChild(hdr);
-  if(!isOpen)return card;
+  hdr.appendChild(num);hdr.appendChild(info);hdr.appendChild(el('div',{style:'color:#cbd5e1;font-size:0.7rem',t:isOpen?'▲':'▼'}));
+  hdr.addEventListener('click',function(){expandedIdx=(expandedIdx===idx)?null:idx;activeField=null;closeKeypad();renderMain();});
+  card.appendChild(hdr);
+  if(!isOpen)return card;
 
-  var body=el('div',{C:'unit-body'});
-  var dg=el('div',{C:'dim-grid'});
-  ['fmWidth','fmHeight'].forEach(function(field){
-    var labels={fmWidth:'Width',fmHeight:'Height'};
-    var wrap=el('div');wrap.appendChild(el('span',{C:'field-label',t:labels[field]}));
-    var isAct=activeField&&activeField.index===idx&&activeField.field===field;
-    
-    // --- NEW: Green text for the large active input boxes when verified ---
-    var vcClass = unit.varianceConfirmed ? ' variance-tech-input' : '';
-    var disp=el('div',{C:'input-box dim-display'+(isAct?' active-input':'') + vcClass});
-    
-    disp.textContent=unit[field]?String(unit[field]):(field==='fmWidth'?'W"':'H"');
-    disp.addEventListener('click',function(e){e.stopPropagation();activeField={index:idx,field:field};openKeypad(idx,field);renderMain();});
-    wrap.appendChild(disp);dg.appendChild(wrap);
-  });
+  var body=el('div',{C:'unit-body'});
+  var dg=el('div',{C:'dim-grid'});
+  ['fmWidth','fmHeight'].forEach(function(field){
+    var labels={fmWidth:'Width',fmHeight:'Height'};
+    var wrap=el('div');wrap.appendChild(el('span',{C:'field-label',t:labels[field]}));
+    var isAct=activeField&&activeField.index===idx&&activeField.field===field;
+    
+    // --- NEW: Green text for the large active input boxes when verified ---
+    var vcClass = unit.varianceConfirmed ? ' variance-tech-input' : '';
+    var disp=el('div',{C:'input-box dim-display'+(isAct?' active-input':'') + vcClass});
+    
+    disp.textContent=unit[field]?String(unit[field]):(field==='fmWidth'?'W"':'H"');
+    disp.addEventListener('click',function(e){e.stopPropagation();activeField={index:idx,field:field};openKeypad(idx,field);renderMain();});
+    wrap.appendChild(disp);dg.appendChild(wrap);
+  });
 
-  // ... (The rest of the function involving variance check, qty, and fields stays exactly the same)
   var qw=el('div');qw.appendChild(el('span',{C:'field-label',t:'Qty'}));
   var qi=el('input',{C:'input-box',type:'number',min:'1'});qi.value=unit.qty||'1';
   qi.style.cssText='text-align:center;font-size:1.1rem;font-weight:900;';
@@ -332,8 +366,6 @@ function renderUnitCard(unit,idx,job){
 
   if(isDoor)renderDoorFields(body,unit,idx);
   else renderWindowFields(body,unit,idx);
-
-  if(unit.extras){body.appendChild(el('span',{C:'field-label',t:'Contract Specs / Notes'}));body.appendChild(el('div',{C:'specs-box',t:formatSpecs(unit.extras)}));}
 
   body.appendChild(el('span',{C:'field-label',t:'Voice Note → Repair Notes'}));
   var vrow=el('div',{C:'voice-row'});
@@ -359,14 +391,11 @@ function renderWindowFields(body,unit,idx){
   body.appendChild(el('span',{C:'field-label',t:'Colors'}));
   var cg=el('div',{C:'color-grid'+(hasGrids?' three':'')});
   var ew=el('div');ew.appendChild(el('span',{C:'field-label',t:'Exterior'}));
-  var ei=el('input',{C:'input-box'});ei.value=unit.colorExterior||'';ei.placeholder='e.g. White';ei.addEventListener('change',function(){updateItem(idx,'colorExterior',this.value);});ew.appendChild(ei);cg.appendChild(ew);
+  var ei=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ei.value=unit.colorExterior||'';ei.placeholder='e.g. White';ei.addEventListener('change',function(){updateItem(idx,'colorExterior',this.value);});ew.appendChild(ei);cg.appendChild(ew);
   var iw=el('div');iw.appendChild(el('span',{C:'field-label',t:'Interior'}));
-  var ii=el('input',{C:'input-box'});ii.value=unit.colorInterior||'';ii.placeholder='e.g. White';ii.addEventListener('change',function(){updateItem(idx,'colorInterior',this.value);});iw.appendChild(ii);cg.appendChild(iw);
-  if(hasGrids){var gw=el('div');gw.appendChild(el('span',{C:'field-label',t:'Grid Color'}));var gi=el('input',{C:'input-box'});gi.value=unit.colorGrids||'';gi.placeholder='e.g. White';gi.addEventListener('change',function(){updateItem(idx,'colorGrids',this.value);});gw.appendChild(gi);cg.appendChild(gw);}
+  var ii=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ii.value=unit.colorInterior||'';ii.placeholder='e.g. White';ii.addEventListener('change',function(){updateItem(idx,'colorInterior',this.value);});iw.appendChild(ii);cg.appendChild(iw);
+  if(hasGrids){var gw=el('div');gw.appendChild(el('span',{C:'field-label',t:'Grid Color'}));var gi=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});gi.value=unit.colorGrids||'';gi.placeholder='e.g. White';gi.addEventListener('change',function(){updateItem(idx,'colorGrids',this.value);});gw.appendChild(gi);cg.appendChild(gw);}
   body.appendChild(cg);
-  var pr=el('div',{C:'pill-row'});
-  [['osj','OSJ'],['osbm','OSBM']].forEach(function(pair){var lbl=el('label',{C:'checkbox-pill'});var cb=el('input',{type:'checkbox'});cb.checked=!!unit[pair[0]];cb.addEventListener('change',function(){updateItem(idx,pair[0],this.checked);});lbl.appendChild(cb);lbl.appendChild(el('span',{t:pair[1]}));pr.appendChild(lbl);});
-  body.appendChild(pr);
 }
 
 function renderDoorFields(body,unit,idx){
@@ -384,8 +413,8 @@ function renderDoorFields(body,unit,idx){
   if(components.length===0){
     body.appendChild(el('span',{C:'field-label',t:'Colors'}));
     var cg=el('div',{C:'color-grid'});
-    var ew=el('div');ew.appendChild(el('span',{C:'field-label',t:'Exterior'}));var ei=el('input',{C:'input-box'});ei.value=unit.colorExterior||'';ei.placeholder='Exterior color';ei.addEventListener('change',function(){updateItem(idx,'colorExterior',this.value);});ew.appendChild(ei);cg.appendChild(ew);
-    var iw=el('div');iw.appendChild(el('span',{C:'field-label',t:'Interior'}));var ii=el('input',{C:'input-box'});ii.value=unit.colorInterior||'';ii.placeholder='Interior color';ii.addEventListener('change',function(){updateItem(idx,'colorInterior',this.value);});iw.appendChild(ii);cg.appendChild(iw);
+    var ew=el('div');ew.appendChild(el('span',{C:'field-label',t:'Exterior'}));var ei=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ei.value=unit.colorExterior||'';ei.placeholder='Exterior color';ei.addEventListener('change',function(){updateItem(idx,'colorExterior',this.value);});ew.appendChild(ei);cg.appendChild(ew);
+    var iw=el('div');iw.appendChild(el('span',{C:'field-label',t:'Interior'}));var ii=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ii.value=unit.colorInterior||'';ii.placeholder='Interior color';ii.addEventListener('change',function(){updateItem(idx,'colorInterior',this.value);});iw.appendChild(ii);cg.appendChild(iw);
     body.appendChild(cg);return;
   }
   body.appendChild(el('span',{C:'field-label',t:'Component Colors'}));
@@ -394,17 +423,17 @@ function renderDoorFields(body,unit,idx){
     block.appendChild(el('div',{C:'component-title',t:comp.name+(comp.qty>1?' (x'+comp.qty+')':'')}));
     if(comp.singleColor){
       var cw=el('div');cw.appendChild(el('span',{C:'field-label',t:'Color'}));
-      var ci2=el('input',{C:'input-box'});ci2.value=comp.color||'';ci2.placeholder='Color';
+      var ci2=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ci2.value=comp.color||'';ci2.placeholder='Color';
       ci2.addEventListener('change',(function(cIdx){return function(){updateComp(idx,cIdx,'color',this.value);};})(ci));
       cw.appendChild(ci2);block.appendChild(cw);
     } else {
       var cg=el('div',{C:'color-grid'});
       var ew=el('div');ew.appendChild(el('span',{C:'field-label',t:'Exterior'}));
-      var ei=el('input',{C:'input-box'});ei.value=comp.colorExterior||'';ei.placeholder='Exterior';
+      var ei=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ei.value=comp.colorExterior||'';ei.placeholder='Exterior';
       ei.addEventListener('change',(function(cIdx){return function(){updateComp(idx,cIdx,'colorExterior',this.value);};})(ci));
       ew.appendChild(ei);cg.appendChild(ew);
       var iw=el('div');iw.appendChild(el('span',{C:'field-label',t:'Interior'}));
-      var ii=el('input',{C:'input-box'});ii.value=comp.colorInterior||'';ii.placeholder='Interior';
+      var ii=el('textarea',{C:'input-box', rows:'2', style:'resize:none;'});ii.value=comp.colorInterior||'';ii.placeholder='Interior';
       ii.addEventListener('change',(function(cIdx){return function(){updateComp(idx,cIdx,'colorInterior',this.value);};})(ci));
       iw.appendChild(ii);cg.appendChild(iw);block.appendChild(cg);
     }
@@ -433,26 +462,20 @@ function msAuthHeader(){
 }
 
 function parseEventContact(job){
-  // job.notesHtml comes from the calendar event description stored on the job
-  var text=(job.notesHtml||job.calNotes||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ');
+  var text=(job.notesHtml||job.calNotes||'').replace(/<[^>]+>/g,' ').replace(/ /g,' ');
   var result={firstName:'',lastName:'',phone:''};
-
-  // "Contact: Gregory Saunders" pattern from your calendar events
   var contactMatch=text.match(/Contact:\s*([A-Z][a-z'-]+)\s+([A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+)?)/);
   if(contactMatch){
     result.firstName=contactMatch[1];
     result.lastName=contactMatch[2].split(/\s+/).pop();
   } else {
-    // Fall back to job.customer name
     var name=(job.customer||'').replace(/\(.*?\)/g,'').trim();
     var parts=name.indexOf(',')>-1?name.split(',').map(function(s){return s.trim();}):null;
     if(parts){result.lastName=parts[0];result.firstName=(parts[1]||'').split(' ')[0];}
     else{var words=name.split(/\s+/);result.firstName=words[0]||'';result.lastName=words[words.length-1]||'';}
   }
-
   var phoneMatch=text.match(/\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}/);
   if(phoneMatch) result.phone=phoneMatch[0].replace(/\D/g,'');
-
   return result;
 }
 
@@ -466,7 +489,6 @@ async function msSearchContact(contactInfo,p){
   var data=await res.json();
   var list=Array.isArray(data)?data:(data.items||data.contacts||data.value||[]);
   if(!list.length) return null;
-  // Score by name match
   list.sort(function(a,b){
     function s(c){var score=0;var ln=(c.lastName||c.last_name||'').toLowerCase();var fn=(c.firstName||c.first_name||'').toLowerCase();if(ln===contactInfo.lastName.toLowerCase())score+=10;if(fn&&fn===contactInfo.firstName.toLowerCase())score+=8;return score;}
     return s(b)-s(a);
@@ -477,8 +499,6 @@ async function msSearchContact(contactInfo,p){
 async function msFetchContractBlob(contactId,p){
   var cid=p.msCompanyId||'3208';
   var auth={Authorization:msAuthHeader(),'Content-Type':'application/json'};
-
-  // Get jobs
   var jobsRes=await fetch(MS_BASE+'/api/contacts/'+contactId+'/jobs?companyId='+cid,{headers:auth});
   if(!jobsRes.ok) throw new Error('MS jobs HTTP '+jobsRes.status);
   var jobs=await jobsRes.json();
@@ -487,7 +507,6 @@ async function msFetchContractBlob(contactId,p){
   jList.sort(function(a,b){return new Date(b.createdDate||b.date||0)-new Date(a.createdDate||a.date||0);});
   var jobId=jList[0].id||jList[0].jobId||jList[0].Id;
 
-  // Get contracts
   var cRes=await fetch(MS_BASE+'/api/contracts?jobId='+jobId+'&companyId='+cid,{headers:auth});
   if(!cRes.ok) throw new Error('MS contracts HTTP '+cRes.status);
   var contracts=await cRes.json();
@@ -499,19 +518,17 @@ async function msFetchContractBlob(contactId,p){
   var best=cList[0];
   var contractId=best.id||best.contractId||best.Id;
 
-  // Download PDF
   var pdfRes=await fetch(MS_BASE+'/api/contracts/'+contractId+'/document?companyId='+cid,{headers:auth});
   if(!pdfRes.ok) throw new Error('MS PDF download HTTP '+pdfRes.status);
   var blob=await pdfRes.blob();
   return{blob:blob,name:best.name||best.fileName||'Contract.pdf',contractLink:'https://mobile.marketsharpm.com',source:'ms'};
 }
 
-// ── AUTO LOAD — tries MS first, falls back to Drive ────────────────────────────
+// ── AUTO LOAD ────────────────────────────────────────────────────────────
 async function autoLoadContract(job){
   appLoading=true;renderMain();
   var p=safeGet('vhub_v2',{});
 
-  // Try MarketSharp first
   if(p.msApiKey&&p.msSecretKey){
     try{
       var contactInfo=parseEventContact(job);
@@ -532,7 +549,6 @@ async function autoLoadContract(job){
     }
   }
 
-  // Fall back to Google Drive
   var token=p.accessToken;
   if(!token){appLoading=false;renderMain();return alert('Not connected to Google. Go to Hub > Setup.');}
   try{
@@ -550,7 +566,6 @@ async function autoLoadContract(job){
   } catch(e){appLoading=false;renderMain();showNotFoundBanner(job,e.message);}
 }
 
-// Drive search (unchanged from original)
 var CUSTOMERS_FOLDER_ID='0B69WGNfZx9kuYmFJRFhfcGxWY0k';
 function parseCustomerName(raw){var clean=raw.replace(/\((?:SOLD|CANC[^)]*)\)/gi,'').replace(/\(\s*ph\s*\d+[^)]*\)/gi,'').replace(/'/g,'').replace(/[&\/]/g,' ').replace(/\d{3,}/g,' ').trim();var last='',first='';if(clean.indexOf(',')>-1){var parts=clean.split(',').map(function(s){return s.trim();});last=parts[0].replace(/\bph\s*\d+\b/gi,'').trim();var fp=(parts[1]||'').replace(/\bph\s*\d+\b/gi,'').trim();first=fp.split(/\s+/)[0]||'';}else{var words=clean.replace(/\bph\s*\d+\b/gi,'').trim().split(/\s+/).filter(function(w){return w.length>0;});if(words.length>=2){first=words[0];last=words[words.length-1];}else if(words.length===1){last=words[0];}}return{last:last.trim(),first:first.trim()};}
 function parsePhaseTag(raw){var m=raw.match(/\bph\s*(\d+)\b/i);return m?'Ph'+m[1]:null;}
@@ -567,8 +582,8 @@ function showNotFoundBanner(job,errMsg){
   var main=document.querySelector('.main');if(main)main.insertBefore(banner,main.firstChild);
 }
 
-// Gemini PDF processing (unchanged)
-var GEMINI_PROMPT="You are analyzing a Visionaire Windows signed contract PDF.\n\nRULES:\n1. Detect contractType: 'windows', 'doors', or 'both' based on what product sections exist.\n2. COMBINATION UNIT RULE: An entry door with sidelites and/or storm door is ONE item (qty:1). Use the COMBINATION UNIT SIZE listed (e.g. '60 1/16 x 81 11/16') as contractSize, not the nominal slab size. The individual sub-items (ENTRY DOOR, SIDELITE, STORM DOOR) are components inside that one card.\n3. For each door item, build a components array. Each component: { name, qty, colorExterior, colorInterior, singleColor (true if only one color like storm door), hasGlass, glass, size (if component has its own size) }.\n4. Storm doors: singleColor=true, use 'color' not colorExterior/colorInterior.\n5. For window items: extract colorExterior, colorInterior, colorGrids (if grids present), grids type, glass type, style.\n6. repairNotes: flag any ROT, HEADER WORK, CUSTOM CONSTRUCTION, OSJ, OSBM.\n7. summary: one sentence project overview.\n8. Swing format: RHI, LHI, RHO, or LHO.\n9. If contract says 'Sizing to be Verified by Remeasure Tech', add *** to contractSize.\n\nReturn ONLY valid JSON with no markdown fences:\n{\"contractType\":\"doors\",\"summary\":\"...\",\"repairNotes\":\"...\",\"items\":[{\"itemType\":\"Door\",\"location\":\"Front Entry\",\"contractSize\":\"60 1/16 x 81 11/16\",\"qty\":\"1\",\"doorType\":\"Single w/ Sidelights\",\"swing\":\"RHI\",\"jambDepth\":\"4-9/16\\\"\",\"colorExterior\":\"\",\"colorInterior\":\"\",\"extras\":\"FrameSaver frame, 2\\\" brickmold\",\"components\":[]}],\"checklist\":{\"winColor\":\"\",\"glassType\":\"\",\"doorSwing\":\"\",\"doorJamb\":\"\"}}";
+// ── GEMINI PDF PROCESSING ────────────────────────────────────────────────────────
+var GEMINI_PROMPT="You are analyzing a Visionaire Windows signed contract PDF.\n\nRULES:\n1. Detect contractType: 'windows', 'doors', or 'both'.\n2. Extract winQty (total window quantity) and doorQty (total door quantity).\n3. Install Type: If the contract mentions 'capping', a 'capping color', or a 'vinyl or metal tear out charge', set installType to 'Capping'. Otherwise, set installType to 'Retro'.\n4. COMBINATION UNIT RULE: An entry door with sidelites/storm door is ONE item. Use COMBINATION UNIT SIZE as contractSize. Sub-items are components.\n5. VINYL WINDOW SETS: Group 'vinyl window sets' comprised of multiple windows as a SINGLE window line item.\n6. For each door item, build a components array. Each component: { name, qty, colorExterior, colorInterior, singleColor, hasGlass, glass, size }.\n7. Storm doors: singleColor=true.\n8. For window items: extract colorExterior, colorInterior, colorGrids, grids type, glass type, style.\n9. repairNotes: flag any ROT, HEADER WORK, CUSTOM CONSTRUCTION. Capture ANY additional charges outside of standard windows/doors here.\n10. summary: one sentence project overview.\n11. Swing format: RHI, LHI, RHO, or LHO.\n\nReturn ONLY valid JSON:\n{\"contractType\":\"doors\",\"installType\":\"Retro\",\"winQty\":\"0\",\"doorQty\":\"1\",\"summary\":\"...\",\"repairNotes\":\"...\",\"items\":[{\"itemType\":\"Door\",\"location\":\"Front Entry\",\"contractSize\":\"60 1/16 x 81 11/16\",\"qty\":\"1\",\"doorType\":\"Single w/ Sidelights\",\"swing\":\"RHI\",\"jambDepth\":\"4-9/16\\\"\",\"colorExterior\":\"\",\"colorInterior\":\"\",\"extras\":\"\",\"components\":[]}]}";
 
 async function processPDFBase64(base64,geminiKey,job,contractLink,fileName,source){
   if(!geminiKey){appLoading=false;renderMain();return alert('Gemini key not set in Hub > Setup.');}
@@ -581,6 +596,7 @@ async function processPDFBase64(base64,geminiKey,job,contractLink,fileName,sourc
     var parsed=JSON.parse(text);
     updateJob(function(j){
       j.contractType=parsed.contractType||'both';
+      j.winQty=parsed.winQty; j.doorQty=parsed.doorQty; j.installType=parsed.installType;
       j.data=parsed.items.map(function(i){return Object.assign({},{fmWidth:'',fmHeight:'',verified:false,osj:false,osbm:false,varianceConfirmed:false,colorExterior:'',colorInterior:'',colorGrids:'',components:[]},i);});
       j.summary=parsed.summary;j.repairNotes=parsed.repairNotes;j.checklist=parsed.checklist;
       j.syncTime=new Date().toLocaleString();j.contractLink=contractLink;
@@ -593,30 +609,88 @@ async function processPDFBase64(base64,geminiKey,job,contractLink,fileName,sourc
 function startManualSheet(job){updateJob(function(j){j.data=[];j.summary='Manual entry.';j.repairNotes='';j.checklist={};j.syncTime=new Date().toLocaleString();j.contractLink=null;j.contractFile=null;j.isManual=true;j.contractType='both';});expandedIdx=0;setTab('measure');renderMain();}
 function wipeAndRescan(job){if(!confirm('Wipe this data and reload contract?'))return;updateJob(function(j){j.data=[];j.summary='';j.repairNotes='';j.syncTime=null;j.contractLink=null;j.checklist={};j.contractType=null;j.contractSource=null;});autoLoadContract(getJob());setTab('measure');expandedIdx=0;}
 
-// Voice note
 function startVoiceNote(idx){if(!navigator.mediaDevices||!window.MediaRecorder){alert('Voice recording not supported.');return;}navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){audioChunks=[];mediaRecorder=new MediaRecorder(stream);mediaRecorder.ondataavailable=function(e){if(e.data.size>0)audioChunks.push(e.data);};mediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop();});var blob=new Blob(audioChunks,{type:'audio/webm'});transcribeVoiceNote(blob,idx);};mediaRecorder.start();isRecording=true;renderMain();}).catch(function(err){alert('Mic access denied: '+err.message);});}
 function stopVoiceNote(idx){if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();isRecording=false;renderMain();}
 async function transcribeVoiceNote(blob,idx){var p=safeGet('vhub_v2',{});if(!p.geminiKey){alert('Gemini key not set.');return;}var reader=new FileReader();reader.onloadend=async function(){var b64=reader.result.split(',')[1];try{var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+p.geminiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Transcribe this field note from a window/door replacement technician. Clean it up for clarity. Return only the cleaned text, nothing else.'},{inlineData:{mimeType:blob.type||'audio/webm',data:b64}}]}]})});var result=await res.json();var tx=result.candidates&&result.candidates[0]?result.candidates[0].content.parts[0].text.trim():null;if(tx){var job=getJob();updateItem(idx,'extras',(job.data[idx].extras?job.data[idx].extras+'\n':'')+'FIELD NOTE: '+tx);renderMain();}else alert('Could not transcribe.');}catch(e){alert('Transcription error: '+e.message);}};reader.readAsDataURL(blob);}
 
-// Signoff
+// ── SIGNOFF ──────────────────────────────────────────────────────────────────
 function renderSignoff(main,job){
   var s=job.signoff||{};
-  var card=el('div',{C:'signoff-card'});card.appendChild(el('div',{C:'signoff-label',t:'Alarm / Access Notes'}));
+  
+  // Auto-Generated Component / Signoff Summary
+  var sumCard=el('div',{C:'signoff-card'});
+  sumCard.appendChild(el('div',{C:'signoff-label',t:'Project Summary & Verification'}));
+  var sumHtml = '';
+  (job.data||[]).forEach(function(u, i) {
+      sumHtml += '<div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">';
+      sumHtml += '<strong style="color:var(--navy);font-size:0.75rem;">' + (i+1) + '. ' + u.location + ' (' + u.itemType + ')</strong><br>';
+      if(u.itemType === 'Door') {
+          sumHtml += 'Swing: <strong>' + (u.swing || 'N/A') + '</strong> | Type: ' + (u.doorType || 'N/A') + '<br>';
+      }
+      if(u.glass && u.glass !== 'None') sumHtml += 'Glass: <strong>' + u.glass + '</strong><br>';
+      if(u.components && u.components.length > 0) {
+          u.components.forEach(function(c) {
+              sumHtml += '• ' + c.name + (c.color?' ('+c.color+')':'') + (c.glass?' [Glass: '+c.glass+']':'') + '<br>';
+          });
+      }
+      sumHtml += '</div>';
+  });
+  var sumBox = el('div', {style: 'font-size:0.65rem; color:var(--s700); line-height:1.5;'});
+  sumBox.innerHTML = sumHtml || 'No items listed.';
+  sumCard.appendChild(sumBox);
+  main.appendChild(sumCard);
+
+  // Mandatory Alarm Disclaimer
+  var alarmCard=el('div',{C:'signoff-card', style:'background:#fffbeb; border-color:#fde68a;'});
+  var alarmTxt = el('div', {style:'font-size:0.7rem; font-weight:900; color:#92400e; text-align:center; padding:4px;', t:'Mandatory: Visionaire Windows is NOT responsible for reinstalling alarms.'});
+  alarmCard.appendChild(alarmTxt);
+  main.appendChild(alarmCard);
+
+  // Optional Access Notes
+  var card=el('div',{C:'signoff-card'});
+  card.appendChild(el('div',{C:'signoff-label',t:'Alarm / Access Notes'}));
   var at=el('textarea',{C:'mobile-note'});at.value=s.alarmNotes||'';at.placeholder='Alarm wires, gate codes, access notes...';at.addEventListener('input',function(){this.style.height='auto';this.style.height=this.scrollHeight+'px';updateSignoff('alarmNotes',this.value);});card.appendChild(at);
-  card.appendChild(el('div',{C:'signoff-label',t:'Install Notes for Crew'}));
-  var it=el('textarea',{C:'mobile-note'});it.value=s.finalNotes||'';it.placeholder='Needs 40ft ladder, header work, ROT removal...';it.addEventListener('input',function(){this.style.height='auto';this.style.height=this.scrollHeight+'px';updateSignoff('finalNotes',this.value);});card.appendChild(it);
   main.appendChild(card);
+
+  // Signature Pad
   var sc=el('div',{C:'signoff-card'});sc.appendChild(el('div',{C:'signoff-label',t:'Customer Signature'}));
   var sw=el('div',{C:'sig-container'});var cv=el('canvas',{C:'sig-canvas'});cv.id='sigCanvas';var clr=el('button',{C:'sig-clear',t:'Clear'});sw.appendChild(cv);sw.appendChild(clr);sc.appendChild(sw);main.appendChild(sc);
   var up=el('button',{C:'upload-btn',t:'☁️ Upload to Drive'});up.addEventListener('click',uploadToDrive);main.appendChild(up);
   requestAnimationFrame(function(){initSignaturePad(cv,clr,job);if(s.sigData){var img=new Image();img.onload=function(){cv.getContext('2d').drawImage(img,0,0);};img.src=s.sigData;}});
 }
+
 function initSignaturePad(canvas,clearBtn,job){canvas.width=canvas.offsetWidth||320;canvas.height=180;var ctx=canvas.getContext('2d');ctx.strokeStyle='#1a3a5c';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';var drawing=false;function getPos(e){var r=canvas.getBoundingClientRect();var sx=canvas.width/r.width,sy=canvas.height/r.height;var cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{x:(cx-r.left)*sx,y:(cy-r.top)*sy};}function start(e){e.preventDefault();drawing=true;var p=getPos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}function move(e){e.preventDefault();if(!drawing)return;var p=getPos(e);ctx.lineTo(p.x,p.y);ctx.stroke();}function end(e){e.preventDefault();drawing=false;updateSignoff('sigData',canvas.toDataURL());}canvas.addEventListener('mousedown',start);canvas.addEventListener('mousemove',move);canvas.addEventListener('mouseup',end);canvas.addEventListener('touchstart',start,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});canvas.addEventListener('touchend',end,{passive:false});clearBtn.addEventListener('click',function(){ctx.clearRect(0,0,canvas.width,canvas.height);updateSignoff('sigData',null);});}
 
-// Keypad
+// ── KEYPAD ───────────────────────────────────────────────────────────────────
 function openKeypad(idx,field){var labels={fmWidth:'Width (inches)',fmHeight:'Height (inches)'};document.getElementById('keypadLabel').textContent=labels[field]||field;var job=getJob();var val=job.data[idx]?String(job.data[idx][field]||''):'';document.getElementById('keypadDisplay').textContent=val||'—';document.getElementById('keypadTray').classList.add('open');}
 function closeKeypad(){activeField=null;document.getElementById('keypadTray').classList.remove('open');}
 function kpress(val){if(!activeField)return;var job=getJob();var cur=String(job.data[activeField.index][activeField.field]||'');if(val==='DEL')cur=cur.slice(0,-1);else if(val==='CLR')cur='';else{if(val.includes('/')&&cur.length>0&&!cur.endsWith(' '))cur+=' ';cur+=val;}updateItem(activeField.index,activeField.field,cur);updateItem(activeField.index,'varianceConfirmed',false);document.getElementById('keypadDisplay').textContent=cur||'—';renderMain();}
+function nextField(){
+  if(!activeField) return;
+  var job=getJob();
+  var curIdx=activeField.index;
+  var curF=activeField.field;
+
+  if(curF==='fmWidth'){
+    activeField.field='fmHeight';
+    openKeypad(curIdx,'fmHeight');
+    renderMain();
+  } else if(curF==='fmHeight'){
+    if(curIdx+1 < job.data.length){
+      expandedIdx = curIdx + 1; // Auto collapse previous, expand next
+      activeField = {index: curIdx+1, field: 'fmWidth'};
+      openKeypad(curIdx+1, 'fmWidth');
+      renderMain();
+      setTimeout(function(){
+        var cards = document.querySelectorAll('.unit-card');
+        if(cards[curIdx+1]) cards[curIdx+1].scrollIntoView({behavior:'smooth', block:'start'});
+      }, 50);
+    } else {
+      closeKeypad();
+      renderMain();
+    }
+  }
+}
 
 function playBriefing(text){if(!window.speechSynthesis)return;if(isPlaying){window.speechSynthesis.cancel();isPlaying=false;renderMain();return;}window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.onend=function(){isPlaying=false;renderMain();};isPlaying=true;window.speechSynthesis.speak(u);renderMain();}
 
